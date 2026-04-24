@@ -201,6 +201,18 @@ function buildConfig() {
       instanceId: createInstanceId(),
       leaseMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_LEASE_MS, 90_000),
       renewIntervalMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_RENEW_MS, 30_000),
+      acquireTimeoutMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_ACQUIRE_TIMEOUT_MS, 180_000),
+      acquireRetryMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_ACQUIRE_RETRY_MS, 5_000),
+    },
+    keepalive: {
+      enabled: process.env.KEEPALIVE_ENABLED === "true",
+      intervalMs: parseIntegerEnv(process.env.KEEPALIVE_INTERVAL_MS, 4 * 60 * 1000),
+      url: normalizePublicUrl(
+        process.env.KEEPALIVE_URL ||
+          (createPublicBaseUrl() ? `${createPublicBaseUrl()}/health` : ""),
+      ),
+      pingMongo: process.env.KEEPALIVE_PING_MONGO !== "false",
+      pingSelf: process.env.KEEPALIVE_PING_SELF !== "false",
     },
   };
 

@@ -1,7 +1,7 @@
 const path = require("path");
 const { config } = require("../config/env");
 const { createLogger } = require("../config/logger");
-const { connectDatabase, disconnectDatabase } = require("./database");
+const { connectDatabase, disconnectDatabase, pingDatabase } = require("./database");
 const { createHttpServer } = require("./http-server");
 const { CommandRegistry } = require("../services/command-registry");
 const { CooldownService } = require("../services/cooldown-service");
@@ -14,6 +14,7 @@ const { ReminderService } = require("../services/reminder-service");
 const { GameService } = require("../services/game-service");
 const { SchedulerService } = require("../services/scheduler-service");
 const { ActiveInstanceService } = require("../services/active-instance-service");
+const { KeepaliveService } = require("../services/keepalive-service");
 const { MessageStoreService } = require("../services/message-store-service");
 const { GroupMetadataCacheService } = require("../services/group-metadata-cache-service");
 const { GroupModerationService } = require("../services/group-moderation-service");
@@ -99,17 +100,18 @@ async function bootstrap() {
     ownerLabel: `${config.platform}:${config.runtime.instanceId}`,
   });
 
-  const lockAcquired = await activeInstance.acquire();
+  const lockAcquired = await activeInstance.waitForAcquire();
   if (!lockAcquired) {
     await disconnectDatabase({ logger }).catch(() => {});
     throw new Error(
-      `Another active bot instance is already using SESSION_ID=${config.sessionId}. Stop the old instance before moving this session to a new host.`,
+      `Another active bot instance is still using SESSION_ID=${config.sessionId}. Wait for the previous deployment to stop, or stop the old host before moving this session to a new host.`,
     );
   }
 
   let http = null;
   let manager = null;
   let scheduler = null;
+  let keepalive = null;
 
   try {
     services.commands = new CommandRegistry({
@@ -178,8 +180,16 @@ async function bootstrap() {
       getSocket: () => manager.sock,
     });
     scheduler.start();
+
+    keepalive = new KeepaliveService({
+      config,
+      logger,
+      pingMongo: pingDatabase,
+    });
+    keepalive.start();
   } catch (error) {
     await Promise.allSettled([
+      Promise.resolve().then(() => keepalive?.stop()),
       Promise.resolve().then(() => scheduler?.stop()),
       Promise.resolve().then(() => manager?.stop()),
       Promise.resolve().then(() => http?.close()),
@@ -198,6 +208,7 @@ async function bootstrap() {
     logger.info({ signal }, "Shutting down Ari-Ani");
     clearInterval(leaseHeartbeat);
     await Promise.allSettled([
+      Promise.resolve().then(() => keepalive?.stop()),
       Promise.resolve().then(() => scheduler?.stop()),
       Promise.resolve().then(() => manager?.stop()),
       Promise.resolve().then(() => http?.close()),
@@ -244,6 +255,7 @@ async function bootstrap() {
     runtimeState,
     services,
     scheduler,
+    keepalive,
     activeInstance,
     shutdown,
   };

@@ -19,7 +19,17 @@ async function disconnectDatabase({ logger }) {
   }
 }
 
+async function pingDatabase() {
+  if (mongoose.connection.readyState !== 1) {
+    return false;
+  }
+
+  await mongoose.connection.db.admin().ping();
+  return true;
+}
+
 module.exports = {
   connectDatabase,
   disconnectDatabase,
+  pingDatabase,
 };

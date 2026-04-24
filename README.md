@@ -118,6 +118,7 @@ http://localhost:1234/health
   - keep the same `SESSION_ID`
   - keep the same `APP_ENCRYPTION_KEY`
 - The bot uses a Mongo-backed active-instance lease. Only one running process may own a given `SESSION_ID` at a time. Stop the old host before starting the same session on a new host.
+- During Railway redeploys, the new container now waits for the old deployment to release the same `SESSION_ID` instead of failing immediately.
 
 ## Deploying
 
@@ -135,8 +136,28 @@ Use:
 - a single replica only
 - the same `MONGO_URI`, `SESSION_ID`, and `APP_ENCRYPTION_KEY` when moving hosts
 - `APP_BASE_URL` set to your public app URL so the QR link in logs is usable
+- optional best-effort free-tier keepalive:
+  - `KEEPALIVE_ENABLED=true`
+  - `KEEPALIVE_INTERVAL_MS=240000`
+  - `KEEPALIVE_URL=https://your-service.up.railway.app/health`
 
 This repo also includes a `Dockerfile` for container-based deploys.
+
+### Railway Free workaround
+
+If you stay on Railway Free, there is no guaranteed 24/7 mode. The best in-app workaround is to enable the built-in keepalive loop so the bot sends outbound traffic before Railway marks the service inactive.
+
+Recommended env values for that:
+
+```env
+KEEPALIVE_ENABLED=true
+KEEPALIVE_INTERVAL_MS=240000
+KEEPALIVE_URL=https://your-service.up.railway.app/health
+KEEPALIVE_PING_MONGO=true
+KEEPALIVE_PING_SELF=true
+```
+
+This can reduce sleeping while your free usage still has credit, but it does not bypass free-plan limits, exhausted credit, or Railway restart policy limits.
 
 ### Vercel
 

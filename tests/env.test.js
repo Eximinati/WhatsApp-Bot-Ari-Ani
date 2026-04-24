@@ -27,6 +27,8 @@ test("buildConfig validates required values and falls back to MODS", () => {
     process.env.RAILWAY_PUBLIC_DOMAIN = "example.up.railway.app";
     process.env.ACTIVE_INSTANCE_LEASE_MS = "120000";
     process.env.ACTIVE_INSTANCE_RENEW_MS = "45000";
+    process.env.KEEPALIVE_ENABLED = "true";
+    process.env.KEEPALIVE_INTERVAL_MS = "240000";
 
     const config = buildConfig();
     assert.equal(config.ownerJids[0], "923001234567@s.whatsapp.net");
@@ -40,6 +42,9 @@ test("buildConfig validates required values and falls back to MODS", () => {
     assert.equal(config.publicBaseUrl, "https://example.up.railway.app");
     assert.equal(config.runtime.leaseMs, 120000);
     assert.equal(config.runtime.renewIntervalMs, 45000);
+    assert.equal(config.keepalive.enabled, true);
+    assert.equal(config.keepalive.intervalMs, 240000);
+    assert.equal(config.keepalive.url, "https://example.up.railway.app/health");
     assert.deepEqual(config.baileys.version, DEFAULT_BAILEYS_VERSION);
   } finally {
     for (const key of Object.keys(process.env)) {

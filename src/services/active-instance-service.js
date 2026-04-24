@@ -78,6 +78,22 @@ class ActiveInstanceService {
       ownerId: this.ownerId,
     });
   }
+
+  async waitForAcquire() {
+    const deadline = Date.now() + this.config.runtime.acquireTimeoutMs;
+
+    while (Date.now() < deadline) {
+      if (await this.acquire()) {
+        return true;
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, this.config.runtime.acquireRetryMs);
+      });
+    }
+
+    return false;
+  }
 }
 
 module.exports = {
