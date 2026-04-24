@@ -54,6 +54,38 @@ class SettingsService {
     return this.updateUserSettings(jid, { banned });
   }
 
+  async setAccessState(jid, accessState, grantedBy) {
+    if (!["none", "allowed", "trusted"].includes(accessState)) {
+      throw new Error(`Unsupported access state: ${accessState}`);
+    }
+
+    if (accessState === "none") {
+      return this.updateUserSettings(jid, {
+        accessState: "none",
+        accessGrantedBy: "",
+        accessGrantedAt: null,
+      });
+    }
+
+    return this.updateUserSettings(jid, {
+      accessState,
+      accessGrantedBy: grantedBy,
+      accessGrantedAt: new Date(),
+    });
+  }
+
+  async listAccessUsers() {
+    return UserSetting.find({
+      accessState: { $in: ["allowed", "trusted"] },
+    })
+      .sort({ accessState: 1, updatedAt: -1 })
+      .lean();
+  }
+
+  async setTimezone(jid, timezone) {
+    return this.updateUserSettings(jid, { timezone });
+  }
+
   async importLegacyData() {
     const legacyFile = path.join(this.rootDir, "db.json");
 

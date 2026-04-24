@@ -23,13 +23,17 @@ const RESET = "\x1b[0m";
 
 function createLogger(config) {
   const level = normalizeLevel(config.logLevel);
+  const state = {
+    decryptBursts: new Map(),
+  };
   return buildLogger({
     level,
     bindings: {},
+    state,
   });
 }
 
-function buildLogger({ bindings, level }) {
+function buildLogger({ bindings, level, state }) {
   return {
     level,
     child(childBindings = {}) {
@@ -39,44 +43,53 @@ function buildLogger({ bindings, level }) {
           ...bindings,
           ...childBindings,
         },
+        state,
       });
     },
-    trace: (...args) => writeLog({ level: "trace", bindings, baseLevel: level, args }),
-    debug: (...args) => writeLog({ level: "debug", bindings, baseLevel: level, args }),
-    info: (...args) => writeLog({ level: "info", bindings, baseLevel: level, args }),
-    warn: (...args) => writeLog({ level: "warn", bindings, baseLevel: level, args }),
-    error: (...args) => writeLog({ level: "error", bindings, baseLevel: level, args }),
-    fatal: (...args) => writeLog({ level: "fatal", bindings, baseLevel: level, args }),
+    trace: (...args) => writeLog({ level: "trace", bindings, baseLevel: level, args, state }),
+    debug: (...args) => writeLog({ level: "debug", bindings, baseLevel: level, args, state }),
+    info: (...args) => writeLog({ level: "info", bindings, baseLevel: level, args, state }),
+    warn: (...args) => writeLog({ level: "warn", bindings, baseLevel: level, args, state }),
+    error: (...args) => writeLog({ level: "error", bindings, baseLevel: level, args, state }),
+    fatal: (...args) => writeLog({ level: "fatal", bindings, baseLevel: level, args, state }),
   };
 }
 
-function writeLog({ level, bindings, baseLevel, args }) {
+function writeLog({ level, bindings, baseLevel, args, state }) {
   const effectiveLevel = bindings.module === "baileys" && LEVELS[baseLevel] > LEVELS.debug
     ? "warn"
     : baseLevel;
 
-  if (LEVELS[level] < LEVELS[effectiveLevel]) {
+  const { message, context } = parseArgs(args);
+  const normalizedEvent = normalizeLogEvent({
+    level,
+    bindings,
+    message,
+    context,
+    state,
+  });
+
+  if (normalizedEvent.suppress || LEVELS[normalizedEvent.level] < LEVELS[effectiveLevel]) {
     return;
   }
 
-  const { message, context } = parseArgs(args);
   const mergedContext = summarizeContext({
     ...bindings,
-    ...context,
+    ...normalizedEvent.context,
   });
 
   const timestamp = formatTimestamp(new Date());
-  const levelLabel = colorize(level.toUpperCase().padEnd(5), level);
+  const levelLabel = colorize(normalizedEvent.level.toUpperCase().padEnd(5), normalizedEvent.level);
   const line = [
     `[${timestamp}]`,
     levelLabel,
-    message || defaultMessage(level),
+    normalizedEvent.message || defaultMessage(normalizedEvent.level),
     formatContext(mergedContext),
   ]
     .filter(Boolean)
     .join(" ");
 
-  const stream = LEVELS[level] >= LEVELS.error ? process.stderr : process.stdout;
+  const stream = LEVELS[normalizedEvent.level] >= LEVELS.error ? process.stderr : process.stdout;
   stream.write(`${line}\n`);
 
   if (mergedContext.error?.stack) {
@@ -143,8 +156,20 @@ function summarizeContext(context) {
 }
 
 function summarizeValue(key, value) {
+  if (/(password|secret|token|credential|encrypted)/i.test(key)) {
+    return "[redacted]";
+  }
+
   if (key === "error") {
     return summarizeError(value);
+  }
+
+  if (key === "err") {
+    return summarizeError(value);
+  }
+
+  if (key === "key") {
+    return summarizeBaileysKey(value);
   }
 
   if (key === "rawMessage") {
@@ -225,6 +250,15 @@ function summarizeConnectionUpdate(update) {
   });
 }
 
+function summarizeBaileysKey(key) {
+  return compactObject({
+    chat: shortJid(key?.remoteJid),
+    participant: shortJid(key?.participant),
+    fromMe: key?.fromMe,
+    id: key?.id,
+  });
+}
+
 function compactObject(object) {
   return Object.fromEntries(
     Object.entries(object || {}).filter(([, value]) => value !== undefined && value !== null && value !== ""),
@@ -286,6 +320,135 @@ function normalizeLevel(level) {
   return LEVELS[level] ? level : "info";
 }
 
+function normalizeLogEvent({ level, bindings, message, context, state }) {
+  if (bindings.module !== "baileys") {
+    return { level, message, context, suppress: false };
+  }
+
+  if (message === "failed to decrypt message") {
+    return normalizeDecryptEvent({ context, state });
+  }
+
+  if (message === "unexpected error in 'init queries'") {
+    const statusCode =
+      context?.err?.output?.statusCode ||
+      context?.error?.output?.statusCode ||
+      context?.err?.statusCode ||
+      context?.error?.statusCode;
+
+    if (statusCode === 408) {
+      return {
+        level: "warn",
+        message: "WhatsApp startup sync timed out; continuing with live events",
+        context: {
+          statusCode,
+          note: "This is usually temporary during reconnect or backlog sync.",
+        },
+        suppress: false,
+      };
+    }
+  }
+
+  return { level, message, context, suppress: false };
+}
+
+function normalizeDecryptEvent({ context, state }) {
+  const key = context?.key || {};
+  const chat = shortJid(key.remoteJid) || "unknown-chat";
+  const participant = shortJid(key.participant) || "unknown-user";
+  const errorName = context?.err?.name || context?.error?.name || "DecryptError";
+  const bucketKey = `${chat}:${participant}:${errorName}`;
+  const now = Date.now();
+  const windowMs = 15_000;
+  const existing = state.decryptBursts.get(bucketKey);
+
+  if (!existing || now - existing.firstAt > windowMs) {
+    if (existing?.count > 1) {
+      emitBurstSummary({
+        state,
+        bucketKey,
+        chat: existing.chat,
+        participant: existing.participant,
+        errorName: existing.errorName,
+        count: existing.count,
+        firstAt: existing.firstAt,
+        lastAt: existing.lastAt,
+      });
+    }
+
+    state.decryptBursts.set(bucketKey, {
+      chat,
+      participant,
+      errorName,
+      count: 1,
+      firstAt: now,
+      lastAt: now,
+    });
+
+    return {
+      level: "warn",
+      message: "Skipped undecryptable WhatsApp message",
+      context: {
+        chat,
+        participant,
+        errorName,
+        messageId: key.id,
+        note: "Common after reconnect, logout/login, or while catching up missed messages.",
+      },
+      suppress: false,
+    };
+  }
+
+  existing.count += 1;
+  existing.lastAt = now;
+
+  if (existing.count % 10 === 0) {
+    return {
+      level: "warn",
+      message: "Repeated undecryptable WhatsApp messages",
+      context: {
+        chat,
+        participant,
+        errorName,
+        occurrences: existing.count,
+        windowSeconds: Math.ceil((existing.lastAt - existing.firstAt) / 1000),
+      },
+      suppress: false,
+    };
+  }
+
+  return {
+    level: "warn",
+    message: "Skipped undecryptable WhatsApp message",
+    context,
+    suppress: true,
+  };
+}
+
+function emitBurstSummary({ state, bucketKey, chat, participant, errorName, count, firstAt, lastAt }) {
+  const windowSeconds = Math.max(1, Math.ceil((lastAt - firstAt) / 1000));
+  const timestamp = formatTimestamp(new Date(lastAt));
+  const level = "warn";
+  const levelLabel = colorize(level.toUpperCase().padEnd(5), level);
+  const line = [
+    `[${timestamp}]`,
+    levelLabel,
+    "Decrypt warnings summary",
+    formatContext({
+      chat,
+      participant,
+      errorName,
+      occurrences: count,
+      windowSeconds,
+    }),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  process.stdout.write(`${line}\n`);
+  state.decryptBursts.delete(bucketKey);
+}
+
 function defaultMessage(level) {
   return level === "fatal" ? "Fatal error" : "Log event";
 }
@@ -326,6 +489,11 @@ function extractText(payload) {
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function shortJid(value) {
+  const jid = String(value || "");
+  return jid ? jid.split("@")[0] : "";
 }
 
 module.exports = {

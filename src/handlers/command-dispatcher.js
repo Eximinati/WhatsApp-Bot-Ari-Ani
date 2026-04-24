@@ -1,5 +1,6 @@
 const constants = require("../config/constants");
 const { capitalize } = require("../utils/text");
+const { maybeHandleVuMenuReply } = require("../services/vu-menu");
 
 function createCommandDispatcher({
   config,
@@ -47,6 +48,7 @@ function createCommandDispatcher({
   return {
     async dispatch({ sock, message }) {
       const metadata = await getMetadata(sock, message);
+      const userSettings = await services.settings.getUserSettings(message.sender);
       const botJid = sock.user?.id?.split(":")[0]
         ? `${sock.user.id.split(":")[0]}@s.whatsapp.net`
         : null;
@@ -54,6 +56,7 @@ function createCommandDispatcher({
         message,
         metadata,
         botJid,
+        userSettings,
       );
 
       const moderationResult = await services.groupModeration.enforce(
@@ -65,7 +68,27 @@ function createCommandDispatcher({
         return;
       }
 
+      const handledStatusReply = await services.status.maybeResend({
+        sock,
+        message,
+      });
+      if (handledStatusReply) {
+        return;
+      }
+
       if (!message.text.startsWith(config.prefix)) {
+        if (services.permission.canUseBot(permission) && !userSettings.banned) {
+          const handledVuMenuReply = await maybeHandleVuMenuReply({
+            config,
+            message,
+            services,
+            userSettings,
+          });
+          if (handledVuMenuReply) {
+            return;
+          }
+        }
+
         return;
       }
 
@@ -75,10 +98,21 @@ function createCommandDispatcher({
       }
 
       const commandLog = buildCommandLog(message, metadata, commandName);
+      if (!services.permission.canUseBot(permission)) {
+        logger.warn(
+          { area: "ACCESS", ...commandLog, status: "private-bot-blocked" },
+          "Command rejected",
+        );
+        await message.reply(
+          "This bot is currently private. Ask an owner or mod to permit your account.",
+        );
+        return;
+      }
+
       const command = services.commands.get(commandName);
       if (!command) {
         logger.warn(
-          { ...commandLog, status: "unknown" },
+          { area: "CMD", ...commandLog, status: "unknown" },
           "Command rejected",
         );
         await message.reply(
@@ -89,7 +123,7 @@ function createCommandDispatcher({
 
       if (!services.permission.chatAllowed(command.meta.chat, message)) {
         logger.info(
-          { ...commandLog, resolvedCommand: command.meta.name, status: "wrong-chat" },
+          { area: "CMD", ...commandLog, resolvedCommand: command.meta.name, status: "wrong-chat" },
           "Command rejected",
         );
         const scope =
@@ -100,7 +134,7 @@ function createCommandDispatcher({
 
       if (!services.permission.hasAccess(command.meta.access, permission)) {
         logger.info(
-          { ...commandLog, resolvedCommand: command.meta.name, status: "no-access" },
+          { area: "ACCESS", ...commandLog, resolvedCommand: command.meta.name, status: "no-access" },
           "Command rejected",
         );
         const label = capitalize(command.meta.access);
@@ -108,10 +142,9 @@ function createCommandDispatcher({
         return;
       }
 
-      const userSettings = await services.settings.getUserSettings(message.sender);
       if (userSettings.banned) {
         logger.warn(
-          { ...commandLog, resolvedCommand: command.meta.name, status: "banned" },
+          { area: "ACCESS", ...commandLog, resolvedCommand: command.meta.name, status: "banned" },
           "Command rejected",
         );
         await message.reply("You are banned from using this bot.");
@@ -127,6 +160,7 @@ function createCommandDispatcher({
       if (cooldown.active) {
         logger.info(
           {
+            area: "CMD",
             ...commandLog,
             resolvedCommand: command.meta.name,
             status: "cooldown",
@@ -158,6 +192,7 @@ function createCommandDispatcher({
         services,
         metadata,
         permission,
+        userSettings,
         reply: (value, options = {}) => message.reply(value, options),
         send: (jid, payload, options = {}) => sock.sendMessage(jid, payload, options),
       };
@@ -172,11 +207,12 @@ function createCommandDispatcher({
         );
 
         if (command.meta.trackXp !== false) {
-          await services.xp.addXp(message.sender, Math.floor(Math.random() * 4) + 1);
+          await services.xp.awardCommandXp(message.sender);
         }
 
         logger.info(
           {
+            area: "CMD",
             ...commandLog,
             resolvedCommand: command.meta.name,
             status: "success",
@@ -187,6 +223,7 @@ function createCommandDispatcher({
       } catch (error) {
         logger.error(
           {
+            area: "CMD",
             ...commandLog,
             resolvedCommand: command.meta.name,
             status: "failed",

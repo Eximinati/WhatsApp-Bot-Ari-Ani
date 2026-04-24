@@ -4,8 +4,13 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const REQUIRED_ENV = ["MONGO_URI", "SESSION_ID", "PREFIX", "PORT"];
+const REQUIRED_ENV = ["MONGO_URI", "SESSION_ID"];
 const DEFAULT_BAILEYS_VERSION = [2, 3000, 1035194821];
+
+function parseIntegerEnv(value, fallback) {
+  const parsed = Number.parseInt(String(value || "").trim(), 10);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
 
 function normalizeOwnerJid(value) {
   const trimmed = String(value || "").trim();
@@ -38,10 +43,68 @@ function parseOwnerJids() {
   return [...new Set(owners)];
 }
 
+function parseModJids() {
+  const raw = process.env.MOD_JIDS || "";
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map(normalizeOwnerJid)
+        .filter(Boolean),
+    ),
+  ];
+}
+
 function createQrToken() {
   return (
     process.env.QR_TOKEN ||
     crypto.randomBytes(24).toString("hex")
+  );
+}
+
+function normalizePublicUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+function createPublicBaseUrl() {
+  return normalizePublicUrl(
+    process.env.APP_BASE_URL ||
+      process.env.PUBLIC_BASE_URL ||
+      process.env.RAILWAY_STATIC_URL ||
+      process.env.RAILWAY_PUBLIC_DOMAIN ||
+      process.env.KOYEB_PUBLIC_DOMAIN ||
+      process.env.VERCEL_URL,
+  );
+}
+
+function detectPlatform() {
+  if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID) {
+    return "railway";
+  }
+
+  if (process.env.KOYEB_SERVICE_ID || process.env.KOYEB_PUBLIC_DOMAIN) {
+    return "koyeb";
+  }
+
+  if (process.env.VERCEL || process.env.VERCEL_ENV || process.env.VERCEL_URL) {
+    return "vercel";
+  }
+
+  return "generic";
+}
+
+function createInstanceId() {
+  return (
+    process.env.INSTANCE_ID ||
+    process.env.RAILWAY_REPLICA_ID ||
+    process.env.HOSTNAME ||
+    crypto.randomUUID()
   );
 }
 
@@ -96,20 +159,25 @@ function validateConfig(config) {
 }
 
 function buildConfig() {
+  const platform = detectPlatform();
   const config = {
     appRoot: path.resolve(__dirname, "..", ".."),
     publicDir: path.resolve(__dirname, "..", "..", "public"),
     mongoUri: process.env.MONGO_URI,
     sessionId: process.env.SESSION_ID,
     prefix: process.env.PREFIX || "/",
-    port: Number.parseInt(process.env.PORT, 10),
+    port: parseIntegerEnv(process.env.PORT, 3000),
     ownerJids: parseOwnerJids(),
+    modJids: parseModJids(),
     qrToken: createQrToken(),
     botName: process.env.NAME || "Ari-Ani",
     packname: process.env.PACKNAME || "Ari-Ani",
     nodeEnv: process.env.NODE_ENV || "development",
     logLevel: process.env.LOG_LEVEL || "info",
     timezone: process.env.TZ || "UTC",
+    platform,
+    publicBaseUrl: createPublicBaseUrl(),
+    privateBot: process.env.PRIVATE_BOT === "true",
     security: {
       appEncryptionKey: process.env.APP_ENCRYPTION_KEY || "",
     },
@@ -122,6 +190,17 @@ function buildConfig() {
       googleKey: process.env.GOOGLE_API_KEY || "",
       googleCx: process.env.GOOGLE_SEARCH_ENGINE_ID || "",
       weatherKey: process.env.WEATHER_API_KEY || "",
+    },
+    vu: {
+      baseUrl: process.env.VU_BASE_URL || "https://vulms.vu.edu.pk",
+      loginPath: process.env.VU_LOGIN_PATH || "/",
+      homePath: process.env.VU_HOME_PATH || "/Home.aspx",
+      calendarPath: process.env.VU_CALENDAR_PATH || "/ActivityCalendar/ActivityCalendar.aspx",
+    },
+    runtime: {
+      instanceId: createInstanceId(),
+      leaseMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_LEASE_MS, 90_000),
+      renewIntervalMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_RENEW_MS, 30_000),
     },
   };
 

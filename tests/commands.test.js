@@ -7,6 +7,7 @@ const rankCommand = require("../src/commands/general/rank");
 const banCommand = require("../src/commands/mods/ban");
 const weatherCommand = require("../src/commands/utils/weather");
 const googleCommand = require("../src/commands/utils/google");
+const vuCommand = require("../src/commands/study/vu");
 
 function createCtx(overrides = {}) {
   const sent = [];
@@ -43,6 +44,19 @@ function createCtx(overrides = {}) {
       },
       settings: {
         banUser: async () => {},
+        updateUserSettings: async () => {},
+      },
+      vu: {
+        login: async () => ({ assignments: [] }),
+        getStatus: async () => ({
+          connected: false,
+          username: "",
+          alertsMode: "off",
+          dailyDigestEnabled: false,
+          deadlineReminderLabels: [],
+          lastSyncAt: null,
+          lastError: "",
+        }),
       },
       external: {
         weather: {
@@ -133,4 +147,71 @@ test("google command reports disabled integration when credentials are missing",
   const { ctx, replies } = createCtx({ text: "OpenAI" });
   await googleCommand.execute(ctx);
   assert.match(replies[0], /GOOGLE_API_KEY/);
+});
+
+test("vu login command confirms verified login instead of only saving credentials", async () => {
+  const { ctx, replies } = createCtx({
+    args: ["login", "BC260230194", "secret"],
+    services: {
+      ...createCtx().ctx.services,
+      vu: {
+        login: async () => ({ assignments: [{ title: "CS301: Assignment# 1" }] }),
+        getStatus: async () => ({
+          connected: true,
+          username: "BC260230194",
+          alertsMode: "off",
+          dailyDigestEnabled: false,
+          deadlineReminderLabels: [],
+          lastSyncAt: null,
+          lastError: "",
+        }),
+      },
+      settings: {
+        updateUserSettings: async () => {},
+      },
+    },
+  });
+
+  await vuCommand.execute(ctx);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /VU login successful/i);
+  assert.match(replies[0], /Calendar items detected: 1/i);
+});
+
+test("vu command opens the guided menu when used without arguments", async () => {
+  const { ctx, replies } = createCtx();
+  await vuCommand.execute(ctx);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /\*VU Menu\*/);
+  assert.match(replies[0], /Reply with a number/i);
+});
+
+test("vu alerts before command stores custom reminder offsets", async () => {
+  let stored = null;
+  const { ctx, replies } = createCtx({
+    args: ["alerts", "before", "1d,6h,30m"],
+    services: {
+      ...createCtx().ctx.services,
+      vu: {
+        parseReminderOffsets: () => [30, 360, 1440],
+        updateAlertPreferences: async (_jid, payload) => {
+          stored = payload.deadlineReminderMinutes;
+          return {
+            dailyDigestEnabled: false,
+            deadlineReminderMinutes: payload.deadlineReminderMinutes,
+            deadlineReminderLabels: ["30m", "6h", "1d"],
+            alertsMode: "deadline",
+          };
+        },
+        getAlertSettings: (account) => account,
+      },
+      settings: {
+        updateUserSettings: async () => {},
+      },
+    },
+  });
+
+  await vuCommand.execute(ctx);
+  assert.deepEqual(stored, [30, 360, 1440]);
+  assert.match(replies[0], /Before deadline: 30m, 6h, 1d/i);
 });

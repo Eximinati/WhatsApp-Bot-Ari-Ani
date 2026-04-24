@@ -56,6 +56,27 @@ class MessageStoreService {
     return parsed.message;
   }
 
+  async getRecord(key) {
+    const storeKey = this.createStoreKey(key);
+    return MessageRecord.findOne({ storeKey }).lean();
+  }
+
+  async findStatusRecord({ messageId, participant }) {
+    const exact = await MessageRecord.findOne({
+      remoteJid: "status@broadcast",
+      messageId,
+      participant: participant || { $exists: true },
+    }).lean();
+    if (exact) {
+      return exact;
+    }
+
+    return MessageRecord.findOne({
+      remoteJid: "status@broadcast",
+      messageId,
+    }).lean();
+  }
+
   async applyUpdates(updates) {
     for (const update of updates || []) {
       const storeKey = this.createStoreKey(update.key);

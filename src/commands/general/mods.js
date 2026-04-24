@@ -18,6 +18,17 @@ module.exports = {
       );
     }
 
+    if (ctx.config.modJids?.length) {
+      lines.push("");
+      lines.push("*Bot mods*");
+      for (const [index, modJid] of ctx.config.modJids.entries()) {
+        const displayName = await ctx.services.user.getDisplayName(modJid);
+        lines.push(
+          `${index + 1}. ${displayName} - https://wa.me/${modJid.split("@")[0]}`,
+        );
+      }
+    }
+
     await ctx.reply(lines.join("\n"));
   },
 };

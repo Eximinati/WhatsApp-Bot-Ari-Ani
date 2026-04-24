@@ -16,7 +16,9 @@ module.exports = {
         "Refactored for a modular, production-ready Baileys runtime.",
         `Prefix: ${ctx.config.prefix}`,
         `Owners: ${ctx.config.ownerJids.length}`,
-        "Core features retained: admin tools, group tools, profiles, stickers, search, and QR session management.",
+        `Mods: ${ctx.config.modJids?.length || 0}`,
+        `Private mode: ${ctx.config.privateBot ? "enabled" : "disabled"}`,
+        "Core features: access control, reminders, notes, XP games, search, status saving, and VU study sync.",
       ].join("\n"),
     );
   },

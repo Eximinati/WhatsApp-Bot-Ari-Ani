@@ -63,6 +63,7 @@ function normalizeMessage(sock, rawMessage) {
           type: quotedType,
           msg: quotedContent,
           sender: jidNormalizedUser(content.contextInfo.participant || sender),
+          from: jidNormalizedUser(content.contextInfo.remoteJid || from),
           id: content.contextInfo.stanzaId,
           download: () =>
             downloadMessageBuffer({

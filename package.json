@@ -25,6 +25,9 @@
   },
   "author": "Aku",
   "license": "AGPL-3.0",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": "https://github.com/Eximinati/Ari-Ani.git",
   "private": false
 }

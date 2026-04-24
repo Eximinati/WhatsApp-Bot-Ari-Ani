@@ -30,7 +30,15 @@ module.exports = {
       `User: ${mentionTag(targetJid)}`,
       `XP: ${profile.xp}`,
       `Level: ${profile.level}`,
-      `Role: ${ctx.services.xp.getRole(profile.level)}`,
+      `Role: ${
+        typeof ctx.services.xp.getDisplayedRole === "function"
+          ? ctx.services.xp.getDisplayedRole(profile)
+          : ctx.services.xp.getRole(profile.level)
+      }`,
+      `Rank title: ${ctx.services.xp.getRole(profile.level)}`,
+      `Access: ${profile.accessState || "none"}`,
+      `Timezone: ${profile.timezone || ctx.config.timezone}`,
+      `Streak: ${profile.streakCount || 0}`,
       `Banned: ${profile.banned ? "yes" : "no"}`,
       `Bio: ${about}`,
     ];

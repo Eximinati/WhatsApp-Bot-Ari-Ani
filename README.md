@@ -7,6 +7,8 @@ Production-ready WhatsApp bot runtime built on `@whiskeysockets/baileys` `6.17.1
 - Node.js `20+`
 - CommonJS runtime with modular architecture
 - Mongo-backed session persistence and bot state
+- Mongo-backed reminders and VU account persistence
+- Active-instance lease to prevent the same WhatsApp session from running in two places at once
 - QR authentication in terminal and browser
 - Unified command contract: `module.exports = { meta, execute }`
 - Welcome/anti-link group settings
@@ -66,10 +68,12 @@ MONGO_URI=...
 SESSION_ID=kaori-main
 QR_TOKEN=kaori-qr-secret
 PREFIX=/
-PORT=1234
+PORT=3000
 OWNER_JIDS=923265825610
 NAME=Kaori Miyazono
 PACKNAME=Kaori Miyazono
+APP_ENCRYPTION_KEY=<32-byte-hex-key>
+APP_BASE_URL=https://your-service.up.railway.app
 ```
 
 4. Start the bot:
@@ -92,7 +96,7 @@ Manual QR/auth testing:
 2. Scan the QR shown in terminal, or open:
 
 ```text
-http://localhost:1234/qr?token=<QR_TOKEN>
+http://localhost:3000/qr?token=<QR_TOKEN>
 ```
 
 3. Verify health:
@@ -109,6 +113,36 @@ http://localhost:1234/health
 - `MODS` is still accepted as a deprecated fallback.
 - If the session is already paired, QR will not be generated again.
 - If you want a fresh QR, change `SESSION_ID` or remove the corresponding session document from Mongo.
+- To keep the same WhatsApp session, VU login, reminders, and bot state across local, Railway, and Koyeb:
+  - keep the same `MONGO_URI`
+  - keep the same `SESSION_ID`
+  - keep the same `APP_ENCRYPTION_KEY`
+- The bot uses a Mongo-backed active-instance lease. Only one running process may own a given `SESSION_ID` at a time. Stop the old host before starting the same session on a new host.
+
+## Deploying
+
+### Railway or Koyeb
+
+These are good fits because the bot needs:
+
+- a long-running Node.js process
+- a persistent WebSocket connection to WhatsApp
+- a background scheduler for reminders and VU alerts
+
+Use:
+
+- start command: `npm start`
+- a single replica only
+- the same `MONGO_URI`, `SESSION_ID`, and `APP_ENCRYPTION_KEY` when moving hosts
+- `APP_BASE_URL` set to your public app URL so the QR link in logs is usable
+
+This repo also includes a `Dockerfile` for container-based deploys.
+
+### Vercel
+
+Vercel is not a good host for this bot.
+
+The bot depends on a continuously running process, live WhatsApp socket, and timer-based scheduler. Vercel is designed around serverless/request-driven execution, so reminders and socket continuity will not be reliable there. Use Railway, Koyeb, Render, a VPS, or another long-running container host instead.
 
 ## Docs
 

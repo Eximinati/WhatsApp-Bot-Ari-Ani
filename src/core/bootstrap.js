@@ -9,15 +9,24 @@ const { createPermissionService } = require("../services/permission-service");
 const { SettingsService } = require("../services/settings-service");
 const { UserService } = require("../services/user-service");
 const { XpService } = require("../services/xp-service");
+const { NotesService } = require("../services/notes-service");
+const { ReminderService } = require("../services/reminder-service");
+const { GameService } = require("../services/game-service");
+const { SchedulerService } = require("../services/scheduler-service");
+const { ActiveInstanceService } = require("../services/active-instance-service");
 const { MessageStoreService } = require("../services/message-store-service");
 const { GroupMetadataCacheService } = require("../services/group-metadata-cache-service");
 const { GroupModerationService } = require("../services/group-moderation-service");
 const {
   GoogleSearchService,
 } = require("../services/external/google-search-service");
+const { WikiService } = require("../services/external/wiki-service");
+const { DictionaryService } = require("../services/external/dictionary-service");
+const { TranslateService } = require("../services/external/translate-service");
 const {
   WeatherService,
 } = require("../services/external/weather-service");
+const { VuService } = require("../services/vu-service");
 const { createContactsHandler } = require("../handlers/contacts-handler");
 const {
   createGroupParticipantsHandler,
@@ -41,11 +50,13 @@ const { ConnectionManager } = require("./whatsapp/connection-manager");
 
 async function bootstrap() {
   const logger = createLogger(config);
+  const qrBaseUrl = config.publicBaseUrl || `http://localhost:${config.port}`;
   const runtimeState = {
     startedAt: new Date().toISOString(),
     connectionStatus: "starting",
     qr: null,
     blocklist: new Set(),
+    instanceId: config.runtime.instanceId,
   };
 
   const dbConnection = await connectDatabase({ config, logger });
@@ -55,14 +66,21 @@ async function bootstrap() {
     user: new UserService(),
     settings: new SettingsService({ logger, rootDir: config.appRoot }),
     xp: new XpService(),
+    notes: new NotesService(),
+    reminders: new ReminderService({ config, logger }),
+    games: new GameService(),
     messages: new MessageStoreService(),
     cooldowns: new CooldownService(),
     permission: createPermissionService(config),
+    vu: new VuService({ config, logger }),
     external: {
       google: new GoogleSearchService({
         apiKey: config.apis.googleKey,
         searchEngineId: config.apis.googleCx,
       }),
+      wiki: new WikiService(),
+      dictionary: new DictionaryService(),
+      translate: new TranslateService(),
       weather: new WeatherService({ apiKey: config.apis.weatherKey }),
     },
   };
@@ -73,62 +91,103 @@ async function bootstrap() {
 
   await services.settings.importLegacyData();
 
-  services.commands = new CommandRegistry({
-    commandsRoot: path.join(__dirname, "..", "commands"),
-  });
-  services.commands.load();
-
-  const http = await createHttpServer({
+  const activeInstance = new ActiveInstanceService({
     config,
     logger,
-    runtimeState,
+    key: `whatsapp-session:${config.sessionId}`,
+    ownerId: config.runtime.instanceId,
+    ownerLabel: `${config.platform}:${config.runtime.instanceId}`,
   });
 
-  const dispatcher = createCommandDispatcher({
-    config,
-    groupMetadataCache,
-    logger,
-    services,
-  });
+  const lockAcquired = await activeInstance.acquire();
+  if (!lockAcquired) {
+    await disconnectDatabase({ logger }).catch(() => {});
+    throw new Error(
+      `Another active bot instance is already using SESSION_ID=${config.sessionId}. Stop the old instance before moving this session to a new host.`,
+    );
+  }
 
-  const handlers = {
-    connection: createConnectionEventsHandler({ config, logger, runtimeState }),
-    contacts: createContactsHandler({ logger, services }),
-    messageHistory: createMessageHistoryHandler({ logger, services }),
-    messageEvents: createMessageEventsHandler({ logger, services }),
-    groupUpdates: createGroupUpdatesHandler({ groupMetadataCache, logger }),
-    groupParticipants: createGroupParticipantsHandler({
+  let http = null;
+  let manager = null;
+  let scheduler = null;
+
+  try {
+    services.commands = new CommandRegistry({
+      commandsRoot: path.join(__dirname, "..", "commands"),
+    });
+    services.commands.load();
+
+    http = await createHttpServer({
+      config,
       logger,
-      services,
+      runtimeState,
+    });
+
+    const dispatcher = createCommandDispatcher({
+      config,
       groupMetadataCache,
-    }),
-    blocklist: createBlocklistHandler({ logger, runtimeState }),
-    call: createCallHandler({ logger }),
-    messages: createMessagesUpsertHandler({
-      dispatcher,
       logger,
       services,
-    }),
-  };
+    });
 
-  const manager = new ConnectionManager({
-    config,
-    handlers,
-    logger,
-    runtimeState,
-    services,
-  });
+    const handlers = {
+      connection: createConnectionEventsHandler({ config, logger, runtimeState }),
+      contacts: createContactsHandler({ logger, services }),
+      messageHistory: createMessageHistoryHandler({ logger, services }),
+      messageEvents: createMessageEventsHandler({ logger, services }),
+      groupUpdates: createGroupUpdatesHandler({ groupMetadataCache, logger }),
+      groupParticipants: createGroupParticipantsHandler({
+        logger,
+        services,
+        groupMetadataCache,
+      }),
+      blocklist: createBlocklistHandler({ logger, runtimeState }),
+      call: createCallHandler({ logger }),
+      messages: createMessagesUpsertHandler({
+        dispatcher,
+        logger,
+        services,
+      }),
+    };
 
-  logger.info(
-    {
-      botName: config.botName,
-      qrToken: config.qrToken,
-      qrUrl: `http://localhost:${config.port}/qr?token=${config.qrToken}`,
-    },
-    "Bootstrapping Ari-Ani",
-  );
+    manager = new ConnectionManager({
+      config,
+      handlers,
+      logger,
+      runtimeState,
+      services,
+    });
 
-  await manager.start();
+    logger.info(
+      {
+        botName: config.botName,
+        instanceId: config.runtime.instanceId,
+        platform: config.platform,
+        qrToken: config.qrToken,
+        qrUrl: `${qrBaseUrl}/qr?token=${config.qrToken}`,
+      },
+      "Bootstrapping Ari-Ani",
+    );
+
+    await manager.start();
+
+    scheduler = new SchedulerService({
+      config,
+      logger,
+      services,
+      getSocket: () => manager.sock,
+    });
+    scheduler.start();
+  } catch (error) {
+    await Promise.allSettled([
+      Promise.resolve().then(() => scheduler?.stop()),
+      Promise.resolve().then(() => manager?.stop()),
+      Promise.resolve().then(() => http?.close()),
+      disconnectDatabase({ logger }),
+    ]);
+    await activeInstance.release().catch(() => {});
+    throw error;
+  }
 
   let shuttingDown = false;
   const shutdown = async (signal = "manual") => {
@@ -137,12 +196,35 @@ async function bootstrap() {
     }
     shuttingDown = true;
     logger.info({ signal }, "Shutting down Ari-Ani");
+    clearInterval(leaseHeartbeat);
     await Promise.allSettled([
-      manager.stop(),
-      http.close(),
+      Promise.resolve().then(() => scheduler?.stop()),
+      Promise.resolve().then(() => manager?.stop()),
+      Promise.resolve().then(() => http?.close()),
+      activeInstance.release(),
       disconnectDatabase({ logger }),
     ]);
   };
+
+  const leaseHeartbeat = setInterval(() => {
+    activeInstance.renew().then((renewed) => {
+      if (!renewed) {
+        logger.error(
+          {
+            area: "RUNTIME",
+            instanceId: config.runtime.instanceId,
+            sessionId: config.sessionId,
+          },
+          "Active instance lease was lost. Shutting down to avoid duplicate WhatsApp sessions.",
+        );
+        shutdown("lease-lost").finally(() => {
+          process.exit(1);
+        });
+      }
+    }).catch((error) => {
+      logger.error({ area: "RUNTIME", error }, "Failed to renew active instance lease");
+    });
+  }, config.runtime.renewIntervalMs);
 
   process.on("SIGINT", async () => {
     await shutdown("SIGINT");
@@ -161,6 +243,8 @@ async function bootstrap() {
     manager,
     runtimeState,
     services,
+    scheduler,
+    activeInstance,
     shutdown,
   };
 }
