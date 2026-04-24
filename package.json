@@ -1,0 +1,30 @@
+{
+  "name": "Ari-Ani",
+  "version": "4.0.0",
+  "description": "Production-ready WhatsApp bot built on Baileys multi-device",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.17.16",
+    "axios": "^1.8.4",
+    "canvacord": "^5.4.10",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "fluent-ffmpeg": "^2.1.2",
+    "mathjs": "^11.8.0",
+    "moment-timezone": "^0.5.48",
+    "mongoose": "^7.8.9",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.1",
+    "wa-sticker-formatter": "^4.3.2"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "heroku-prebuild": "npm install",
+    "test": "node --test"
+  },
+  "author": "Aku",
+  "license": "AGPL-3.0",
+  "repository": "https://github.com/Eximinati/Ari-Ani.git",
+  "private": false
+}

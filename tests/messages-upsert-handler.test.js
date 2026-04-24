@@ -1,0 +1,132 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const {
+  createMessagesUpsertHandler,
+} = require("../src/handlers/messages-upsert-handler");
+
+test("messages upsert handler normalizes a command message and dispatches it", async () => {
+  const calls = [];
+  const handler = createMessagesUpsertHandler({
+    dispatcher: {
+      dispatch: async ({ message }) => {
+        calls.push(["dispatch", message.text]);
+      },
+    },
+    logger: { error() {} },
+    services: {
+      messages: {
+        saveMessage: async () => {
+          calls.push(["save"]);
+        },
+      },
+      status: {
+        capture: async () => {
+          calls.push(["status"]);
+        },
+      },
+      user: {
+        touchFromMessage: async (message) => {
+          calls.push(["touch", message.sender]);
+        },
+      },
+    },
+  });
+
+  const sock = {
+    user: { id: "bot:1@s.whatsapp.net" },
+    sendMessage: async () => {},
+  };
+
+  await handler(sock, {
+    type: "notify",
+    messages: [
+      {
+        key: {
+          remoteJid: "123@s.whatsapp.net",
+          fromMe: false,
+          id: "ABCD1234",
+        },
+        pushName: "Tester",
+        message: {
+          conversation: "/hi",
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(calls, [
+    ["save"],
+    ["touch", "123@s.whatsapp.net"],
+    ["dispatch", "/hi"],
+  ]);
+});
+
+test("messages upsert handler captures statuses and does not dispatch append messages", async () => {
+  const calls = [];
+  const handler = createMessagesUpsertHandler({
+    dispatcher: {
+      dispatch: async () => {
+        calls.push(["dispatch"]);
+      },
+    },
+    logger: { error() {} },
+    services: {
+      messages: {
+        saveMessage: async () => {
+          calls.push(["save"]);
+        },
+      },
+      status: {
+        capture: async () => {
+          calls.push(["status"]);
+        },
+      },
+      user: {
+        touchFromMessage: async () => {
+          calls.push(["touch"]);
+        },
+      },
+    },
+  });
+
+  const sock = {
+    user: { id: "bot:1@s.whatsapp.net" },
+    sendMessage: async () => {},
+  };
+
+  await handler(sock, {
+    type: "append",
+    messages: [
+      {
+        key: {
+          remoteJid: "status@broadcast",
+          participant: "123@s.whatsapp.net",
+          fromMe: false,
+          id: "STATUS1",
+        },
+        pushName: "Tester",
+        message: {
+          conversation: "hello",
+        },
+      },
+      {
+        key: {
+          remoteJid: "123@s.whatsapp.net",
+          fromMe: false,
+          id: "ABCD1234",
+        },
+        pushName: "Tester",
+        message: {
+          conversation: "/hi",
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(calls, [
+    ["status"],
+    ["save"],
+    ["touch"],
+  ]);
+});

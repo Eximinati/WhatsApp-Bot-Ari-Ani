@@ -1,0 +1,118 @@
+const fs = require("fs/promises");
+const path = require("path");
+const GroupSetting = require("../models/group-settings");
+const UserSetting = require("../models/user-settings");
+const constants = require("../config/constants");
+
+class SettingsService {
+  constructor({ logger, rootDir }) {
+    this.logger = logger;
+    this.rootDir = rootDir;
+  }
+
+  async getGroupSettings(groupJid) {
+    return GroupSetting.findOneAndUpdate(
+      { groupJid },
+      { $setOnInsert: { groupJid } },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+  }
+
+  async updateGroupSettings(groupJid, patch) {
+    return GroupSetting.findOneAndUpdate(
+      { groupJid },
+      { $set: patch },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+  }
+
+  async getUserSettings(jid) {
+    return UserSetting.findOneAndUpdate(
+      { jid },
+      { $setOnInsert: { jid } },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+  }
+
+  async updateUserSettings(jid, patch) {
+    return UserSetting.findOneAndUpdate(
+      { jid },
+      { $set: patch },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+  }
+
+  async banUser(jid, banned) {
+    return this.updateUserSettings(jid, { banned });
+  }
+
+  async importLegacyData() {
+    const legacyFile = path.join(this.rootDir, "db.json");
+
+    try {
+      await fs.access(legacyFile);
+    } catch {
+      return { imported: false, reason: "missing" };
+    }
+
+    const raw = await fs.readFile(legacyFile, "utf8");
+    if (!raw.trim()) {
+      return { imported: false, reason: "empty" };
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (error) {
+      this.logger.warn({ error }, "Skipping legacy db import due to invalid JSON");
+      return { imported: false, reason: "invalid-json" };
+    }
+
+    const bannedUsers = Array.isArray(data.ban) ? data.ban : [];
+    const enabledWelcomeGroups = Array.isArray(data.events) ? data.events : [];
+    const customWelcomeMsgs = data.customWelcomeMsgs || {};
+    const report = {
+      imported: {
+        bans: 0,
+        welcomeGroups: 0,
+        customWelcomeMsgs: 0,
+      },
+      ignoredLegacyKeys: Object.keys(data).filter(
+        (key) => !["ban", "events", "customWelcomeMsgs"].includes(key),
+      ),
+    };
+
+    for (const jid of bannedUsers) {
+      await this.banUser(jid, true);
+      report.imported.bans += 1;
+    }
+
+    for (const groupJid of enabledWelcomeGroups) {
+      await this.updateGroupSettings(groupJid, { welcomeEnabled: true });
+      report.imported.welcomeGroups += 1;
+    }
+
+    for (const [groupJid, welcomeTemplate] of Object.entries(customWelcomeMsgs)) {
+      await this.updateGroupSettings(groupJid, {
+        welcomeEnabled: true,
+        welcomeTemplate: welcomeTemplate || constants.groups.welcomeTemplate,
+      });
+      report.imported.customWelcomeMsgs += 1;
+    }
+
+    this.logger.info?.(report, "Legacy settings import completed");
+    return { imported: true, report };
+  }
+}
+
+module.exports = {
+  SettingsService,
+};
