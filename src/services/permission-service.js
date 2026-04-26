@@ -69,7 +69,16 @@ function createPermissionService(config) {
     return true;
   }
 
+  function botChatAllowed(chatMode, message) {
+    if (chatMode === "private") {
+      return !message.isGroup;
+    }
+
+    return true;
+  }
+
   return {
+    botChatAllowed,
     chatAllowed,
     canUseBot,
     getPermissionContext,

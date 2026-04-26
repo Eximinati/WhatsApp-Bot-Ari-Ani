@@ -62,7 +62,7 @@ test("messages upsert handler normalizes a command message and dispatches it", a
   ]);
 });
 
-test("messages upsert handler captures statuses and does not dispatch append messages", async () => {
+test("messages upsert handler ignores non-notify traffic but still captures statuses", async () => {
   const calls = [];
   const handler = createMessagesUpsertHandler({
     dispatcher: {
@@ -126,7 +126,71 @@ test("messages upsert handler captures statuses and does not dispatch append mes
 
   assert.deepEqual(calls, [
     ["status"],
-    ["save"],
-    ["touch"],
   ]);
+});
+
+test("messages upsert handler skips sender-key and protocol messages", async () => {
+  const calls = [];
+  const handler = createMessagesUpsertHandler({
+    dispatcher: {
+      dispatch: async () => {
+        calls.push(["dispatch"]);
+      },
+    },
+    logger: { error() { calls.push(["error"]); } },
+    services: {
+      messages: {
+        saveMessage: async () => {
+          calls.push(["save"]);
+        },
+      },
+      status: {
+        capture: async () => {
+          calls.push(["status"]);
+        },
+      },
+      user: {
+        touchFromMessage: async () => {
+          calls.push(["touch"]);
+        },
+      },
+    },
+  });
+
+  await handler(
+    { user: { id: "bot@s.whatsapp.net" }, sendMessage: async () => {} },
+    {
+      type: "notify",
+      messages: [
+        {
+          key: {
+            remoteJid: "120363419505337488@g.us",
+            participant: "58777214701585@lid",
+            fromMe: false,
+            id: "SENDERKEY1",
+          },
+          message: {
+            senderKeyDistributionMessage: {
+              axolotlSenderKeyDistributionMessage: Buffer.from("abc"),
+            },
+          },
+        },
+        {
+          key: {
+            remoteJid: "120363419505337488@g.us",
+            participant: "58777214701585@lid",
+            fromMe: false,
+            id: "PROTOCOL1",
+          },
+          message: {
+            protocolMessage: {
+              type: 0,
+            },
+          },
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(calls, []);
 });

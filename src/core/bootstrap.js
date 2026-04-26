@@ -19,6 +19,9 @@ const { MessageStoreService } = require("../services/message-store-service");
 const { GroupMetadataCacheService } = require("../services/group-metadata-cache-service");
 const { GroupModerationService } = require("../services/group-moderation-service");
 const {
+  WhatsAppSessionHealthService,
+} = require("../services/whatsapp-session-health-service");
+const {
   GoogleSearchService,
 } = require("../services/external/google-search-service");
 const { WikiService } = require("../services/external/wiki-service");
@@ -55,6 +58,7 @@ async function bootstrap() {
   const runtimeState = {
     startedAt: new Date().toISOString(),
     connectionStatus: "starting",
+    whatsappSessionHealth: "healthy",
     qr: null,
     blocklist: new Set(),
     instanceId: config.runtime.instanceId,
@@ -85,6 +89,11 @@ async function bootstrap() {
       weather: new WeatherService({ apiKey: config.apis.weatherKey }),
     },
   };
+  services.whatsappSessionHealth = new WhatsAppSessionHealthService({
+    logger,
+    runtimeState,
+    sessionId: config.sessionId,
+  });
   services.groupModeration = new GroupModerationService({
     settings: services.settings,
   });
@@ -102,9 +111,16 @@ async function bootstrap() {
 
   const lockAcquired = await activeInstance.waitForAcquire();
   if (!lockAcquired) {
+    const lease = await activeInstance.getCurrentLease().catch(() => null);
     await disconnectDatabase({ logger }).catch(() => {});
+    const retryAfterSeconds = lease?.expiresAt
+      ? Math.max(0, Math.ceil((new Date(lease.expiresAt).getTime() - Date.now()) / 1000))
+      : null;
+    const ownerLabel = lease?.ownerLabel || lease?.ownerId || "unknown";
     throw new Error(
-      `Another active bot instance is still using SESSION_ID=${config.sessionId}. Wait for the previous deployment to stop, or stop the old host before moving this session to a new host.`,
+      `Another active bot instance is still using SESSION_ID=${config.sessionId}. Active lease owner=${ownerLabel}.`
+        + (retryAfterSeconds !== null ? ` Retry after about ${retryAfterSeconds}s.` : "")
+        + " If you already stopped the bot on this machine, run `npm run session:unlock` to clear the stale runtime lease.",
     );
   }
 
@@ -154,6 +170,7 @@ async function bootstrap() {
 
     manager = new ConnectionManager({
       config,
+      groupMetadataCache,
       handlers,
       logger,
       runtimeState,

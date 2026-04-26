@@ -5,11 +5,15 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const REQUIRED_ENV = ["MONGO_URI", "SESSION_ID"];
-const DEFAULT_BAILEYS_VERSION = [2, 3000, 1035194821];
+const DEFAULT_BAILEYS_VERSION = null;
 
 function parseIntegerEnv(value, fallback) {
   const parsed = Number.parseInt(String(value || "").trim(), 10);
   return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function defaultAcquireTimeoutMs(platform) {
+  return platform === "generic" ? 15_000 : 180_000;
 }
 
 function normalizeOwnerJid(value) {
@@ -183,7 +187,7 @@ function buildConfig() {
     },
     baileys: {
       version: parseBaileysVersion(process.env.BAILEYS_VERSION) || DEFAULT_BAILEYS_VERSION,
-      historySyncMode: process.env.BAILEYS_HISTORY_SYNC || "default",
+      historySyncMode: process.env.BAILEYS_HISTORY_SYNC || "none",
       syncFullHistory: process.env.SYNC_FULL_HISTORY === "true",
     },
     apis: {
@@ -201,7 +205,10 @@ function buildConfig() {
       instanceId: createInstanceId(),
       leaseMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_LEASE_MS, 90_000),
       renewIntervalMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_RENEW_MS, 30_000),
-      acquireTimeoutMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_ACQUIRE_TIMEOUT_MS, 180_000),
+      acquireTimeoutMs: parseIntegerEnv(
+        process.env.ACTIVE_INSTANCE_ACQUIRE_TIMEOUT_MS,
+        defaultAcquireTimeoutMs(platform),
+      ),
       acquireRetryMs: parseIntegerEnv(process.env.ACTIVE_INSTANCE_ACQUIRE_RETRY_MS, 5_000),
     },
     keepalive: {

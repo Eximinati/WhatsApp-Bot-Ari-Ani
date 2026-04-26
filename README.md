@@ -1,6 +1,6 @@
 # Ari-Ani
 
-Production-ready WhatsApp bot runtime built on `@whiskeysockets/baileys` `6.17.16`, with Mongo-backed auth/settings, modular handlers, and a reduced command surface focused on reliability.
+Production-ready WhatsApp bot runtime built on `@whiskeysockets/baileys` `6.7.18`, with Mongo-backed auth/settings, modular handlers, and a reduced command surface focused on reliability.
 
 ## Highlights
 

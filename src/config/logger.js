@@ -19,12 +19,16 @@ const LEVEL_STYLES = {
   fatal: "\x1b[35m",
 };
 
+const TAG_STYLE = "\x1b[96m";
+const DIM = "\x1b[2m";
+
 const RESET = "\x1b[0m";
 
 function createLogger(config) {
   const level = normalizeLevel(config.logLevel);
   const state = {
     decryptBursts: new Map(),
+    transientEvents: new Map(),
   };
   return buildLogger({
     level,
@@ -77,14 +81,16 @@ function writeLog({ level, bindings, baseLevel, args, state }) {
     ...bindings,
     ...normalizedEvent.context,
   });
+  const { tag, context: displayContext } = extractDisplayTag(mergedContext);
 
-  const timestamp = formatTimestamp(new Date());
+  const timestamp = colorizeTimestamp(formatTimestamp(new Date()));
   const levelLabel = colorize(normalizedEvent.level.toUpperCase().padEnd(5), normalizedEvent.level);
   const line = [
     `[${timestamp}]`,
     levelLabel,
+    tag,
     normalizedEvent.message || defaultMessage(normalizedEvent.level),
-    formatContext(mergedContext),
+    formatContext(displayContext),
   ]
     .filter(Boolean)
     .join(" ");
@@ -92,8 +98,8 @@ function writeLog({ level, bindings, baseLevel, args, state }) {
   const stream = LEVELS[normalizedEvent.level] >= LEVELS.error ? process.stderr : process.stdout;
   stream.write(`${line}\n`);
 
-  if (mergedContext.error?.stack) {
-    stream.write(`${indentBlock(mergedContext.error.stack)}\n`);
+  if (displayContext.error?.stack) {
+    stream.write(`${indentBlock(displayContext.error.stack)}\n`);
   }
 }
 
@@ -312,6 +318,22 @@ function colorize(value, level) {
   return `${LEVEL_STYLES[level] || ""}${value}${RESET}`;
 }
 
+function colorizeTag(value) {
+  if (!supportsColor()) {
+    return value;
+  }
+
+  return `${TAG_STYLE}${value}${RESET}`;
+}
+
+function colorizeTimestamp(value) {
+  if (!supportsColor()) {
+    return value;
+  }
+
+  return `${DIM}${value}${RESET}`;
+}
+
 function supportsColor() {
   return Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
 }
@@ -325,8 +347,50 @@ function normalizeLogEvent({ level, bindings, message, context, state }) {
     return { level, message, context, suppress: false };
   }
 
+  if (message === "stream errored out") {
+    const statusCode = context?.node?.attrs?.code || context?.statusCode;
+    if (String(statusCode || "") === "515") {
+      return {
+        level: "warn",
+        message: "WhatsApp stream refreshed; reconnecting",
+        context: {
+          statusCode: Number(statusCode),
+          note: "Usually temporary during reconnect or phone session refresh.",
+        },
+        suppress: false,
+      };
+    }
+  }
+
+  if (message === "no name present, ignoring presence update request...") {
+    return {
+      level: "debug",
+      message,
+      context,
+      suppress: true,
+    };
+  }
+
   if (message === "failed to decrypt message") {
     return normalizeDecryptEvent({ context, state });
+  }
+
+  if (message === "error in handling message") {
+    const errorMessage =
+      context?.error?.message ||
+      context?.err?.message ||
+      "";
+
+    if (/Cannot read properties of null \(reading 'toString'\)/i.test(errorMessage)) {
+      return rateLimitEvent(state, "baileys:null-cache-key", 5 * 60 * 1000, {
+        level: "warn",
+        message: "Baileys skipped a harmless malformed cache key",
+        context: {
+          note: "Known library noise while processing some peer messages. Message flow usually continues.",
+        },
+        suppress: false,
+      });
+    }
   }
 
   if (message === "unexpected error in 'init queries'") {
@@ -356,7 +420,10 @@ function normalizeDecryptEvent({ context, state }) {
   const key = context?.key || {};
   const chat = shortJid(key.remoteJid) || "unknown-chat";
   const participant = shortJid(key.participant) || "unknown-user";
-  const errorName = context?.err?.name || context?.error?.name || "DecryptError";
+  const errorMessage = context?.err?.message || context?.error?.message || "";
+  const errorName = /Bad MAC/i.test(errorMessage)
+    ? "SessionError"
+    : context?.err?.name || context?.error?.name || "DecryptError";
   const bucketKey = `${chat}:${participant}:${errorName}`;
   const now = Date.now();
   const windowMs = 15_000;
@@ -431,8 +498,9 @@ function emitBurstSummary({ state, bucketKey, chat, participant, errorName, coun
   const level = "warn";
   const levelLabel = colorize(level.toUpperCase().padEnd(5), level);
   const line = [
-    `[${timestamp}]`,
+    `[${colorizeTimestamp(timestamp)}]`,
     levelLabel,
+    colorizeTag("[WA]"),
     "Decrypt warnings summary",
     formatContext({
       chat,
@@ -447,6 +515,20 @@ function emitBurstSummary({ state, bucketKey, chat, participant, errorName, coun
 
   process.stdout.write(`${line}\n`);
   state.decryptBursts.delete(bucketKey);
+}
+
+function rateLimitEvent(state, key, windowMs, event) {
+  const now = Date.now();
+  const lastAt = state.transientEvents.get(key) || 0;
+  if (now - lastAt < windowMs) {
+    return {
+      ...event,
+      suppress: true,
+    };
+  }
+
+  state.transientEvents.set(key, now);
+  return event;
 }
 
 function defaultMessage(level) {
@@ -494,6 +576,25 @@ function isPlainObject(value) {
 function shortJid(value) {
   const jid = String(value || "");
   return jid ? jid.split("@")[0] : "";
+}
+
+function extractDisplayTag(context) {
+  const next = { ...context };
+  const tagSource = next.area || next.module;
+  delete next.area;
+  delete next.module;
+
+  if (!tagSource) {
+    return {
+      tag: colorizeTag("[APP]"),
+      context: next,
+    };
+  }
+
+  return {
+    tag: colorizeTag(`[${String(tagSource).toUpperCase()}]`),
+    context: next,
+  };
 }
 
 module.exports = {

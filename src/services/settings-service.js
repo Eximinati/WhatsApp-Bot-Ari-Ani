@@ -1,5 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
+const BotSetting = require("../models/bot-settings");
 const GroupSetting = require("../models/group-settings");
 const UserSetting = require("../models/user-settings");
 const constants = require("../config/constants");
@@ -28,6 +29,38 @@ class SettingsService {
       { $set: patch },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
+  }
+
+  async getBotSettings() {
+    return BotSetting.findOneAndUpdate(
+      { key: "global" },
+      { $setOnInsert: { key: "global" } },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+  }
+
+  async updateBotSettings(patch) {
+    return BotSetting.findOneAndUpdate(
+      { key: "global" },
+      { $set: patch, $setOnInsert: { key: "global" } },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+  }
+
+  async setBotChatMode(chatMode) {
+    if (!["all", "private"].includes(chatMode)) {
+      throw new Error(`Unsupported bot chat mode: ${chatMode}`);
+    }
+
+    return this.updateBotSettings({ chatMode });
   }
 
   async getUserSettings(jid) {

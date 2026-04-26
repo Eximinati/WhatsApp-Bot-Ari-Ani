@@ -72,6 +72,10 @@ class ActiveInstanceService {
     return Boolean(document);
   }
 
+  async getCurrentLease() {
+    return RuntimeLease.findOne({ key: this.key }).lean();
+  }
+
   async release() {
     await RuntimeLease.deleteOne({
       key: this.key,

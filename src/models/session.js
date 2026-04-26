@@ -12,6 +12,10 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    creds: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

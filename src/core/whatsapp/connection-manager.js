@@ -6,6 +6,7 @@ const { createSocket } = require("./socket-factory");
 class ConnectionManager {
   constructor({
     config,
+    groupMetadataCache,
     handlers,
     logger,
     runtimeState,
@@ -16,7 +17,7 @@ class ConnectionManager {
     this.logger = logger;
     this.runtimeState = runtimeState;
     this.services = services;
-    this.groupMetadataCache = new Map();
+    this.groupMetadataCache = groupMetadataCache || new Map();
     this.reconnectAttempts = 0;
     this.reconnectTimer = null;
     this.sock = null;
@@ -42,6 +43,9 @@ class ConnectionManager {
       encryptionKey: this.config.security.appEncryptionKey,
     });
     this.authSession = await authStore.getAuthState();
+    if (this.authSession.legacySessionDetected) {
+      this.services.whatsappSessionHealth?.recordLegacySessionDetected();
+    }
 
     const { sock } = await createSocket({
       authState: this.authSession.state,
@@ -51,7 +55,7 @@ class ConnectionManager {
       messageStore: this.services.messages,
     });
 
-    this.sock = this.instrumentSocket(sock);
+    this.sock = sock;
 
     this.sock.ev.on("creds.update", () =>
       this.handlers.connection.onCredsUpdate(this.authSession.saveCreds),
@@ -103,6 +107,7 @@ class ConnectionManager {
     if (update.connection !== "close") {
       if (update.connection === "open") {
         this.reconnectAttempts = 0;
+        this.services.whatsappSessionHealth?.resetTransientState();
       }
       return;
     }
@@ -176,26 +181,6 @@ class ConnectionManager {
     this.sock.ev.removeAllListeners("call");
     this.sock.end(undefined);
     this.sock = null;
-  }
-
-  instrumentSocket(sock) {
-    const originalSendMessage = sock.sendMessage.bind(sock);
-    sock.sendMessage = async (...args) => {
-      const sentMessage = await originalSendMessage(...args);
-      if (sentMessage) {
-        try {
-          await this.services.messages.saveMessage(sentMessage, {
-            source: "outbound",
-          });
-        } catch (error) {
-          this.logger.warn({ error }, "Failed to persist outbound message");
-        }
-      }
-
-      return sentMessage;
-    };
-
-    return sock;
   }
 }
 

@@ -62,3 +62,16 @@ test("connection manager clears auth state on logged out", async () => {
   assert.equal(cleared, true);
   assert.equal(manager.runtimeState.connectionStatus, "logged_out");
 });
+
+test("connection manager no longer wraps sendMessage with quoted-session retry logic", async () => {
+  const manager = new ConnectionManager({
+    config: { sessionId: "session" },
+    handlers: { connection: { onConnectionUpdate() {} } },
+    logger: { warn() {}, error() {}, child() { return this; } },
+    runtimeState: { connectionStatus: "open" },
+    services: {},
+  });
+
+  assert.equal("instrumentSocket" in manager, false);
+  assert.equal("sendWithQuotedFallback" in manager, false);
+});

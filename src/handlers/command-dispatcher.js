@@ -49,6 +49,7 @@ function createCommandDispatcher({
     async dispatch({ sock, message }) {
       const metadata = await getMetadata(sock, message);
       const userSettings = await services.settings.getUserSettings(message.sender);
+      const botSettings = await services.settings.getBotSettings();
       const botJid = sock.user?.id?.split(":")[0]
         ? `${sock.user.id.split(":")[0]}@s.whatsapp.net`
         : null;
@@ -73,6 +74,10 @@ function createCommandDispatcher({
         message,
       });
       if (handledStatusReply) {
+        return;
+      }
+
+      if (!services.permission.botChatAllowed(botSettings.chatMode, message)) {
         return;
       }
 

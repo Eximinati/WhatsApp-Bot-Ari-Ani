@@ -2,8 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const helpCommand = require("../src/commands/general/help");
+const arianiCommand = require("../src/commands/general/ariani");
 const profileCommand = require("../src/commands/general/profile");
 const rankCommand = require("../src/commands/general/rank");
+const botCommand = require("../src/commands/access/bot");
 const banCommand = require("../src/commands/mods/ban");
 const weatherCommand = require("../src/commands/utils/weather");
 const googleCommand = require("../src/commands/utils/google");
@@ -19,6 +21,13 @@ function createCtx(overrides = {}) {
       prefix: "/",
       botName: "Ari-Ani",
       timezone: "UTC",
+      ownerJids: ["owner@s.whatsapp.net"],
+      modJids: [],
+    },
+    logger: {
+      info() {},
+      warn() {},
+      error() {},
     },
     msg: {
       from: "chat@s.whatsapp.net",
@@ -45,6 +54,8 @@ function createCtx(overrides = {}) {
       settings: {
         banUser: async () => {},
         updateUserSettings: async () => {},
+        getBotSettings: async () => ({ chatMode: "all" }),
+        setBotChatMode: async (chatMode) => ({ chatMode }),
       },
       vu: {
         login: async () => ({ assignments: [] }),
@@ -92,6 +103,20 @@ test("help command renders grouped command list", async () => {
   assert.match(replies[0], /general/i);
 });
 
+test("ariani command includes the persisted chat mode", async () => {
+  const { ctx, replies } = createCtx({
+    services: {
+      ...createCtx().ctx.services,
+      settings: {
+        ...createCtx().ctx.services.settings,
+        getBotSettings: async () => ({ chatMode: "private" }),
+      },
+    },
+  });
+  await arianiCommand.execute(ctx);
+  assert.match(replies[0], /Chat mode: private only/i);
+});
+
 test("profile command renders mentioned profile", async () => {
   const { ctx, sent } = createCtx({
     msg: {
@@ -135,6 +160,15 @@ test("ban command bans mentioned user", async () => {
   await banCommand.execute(ctx);
   assert.deepEqual(banned, ["target@s.whatsapp.net", true]);
   assert.equal(replies.length, 1);
+});
+
+test("bot command updates chat mode", async () => {
+  const { ctx, replies } = createCtx({
+    args: ["private"],
+  });
+  await botCommand.execute(ctx);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /only respond in private chat/i);
 });
 
 test("weather command reports disabled integration when api key is missing", async () => {

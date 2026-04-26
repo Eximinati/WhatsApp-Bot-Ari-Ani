@@ -45,7 +45,7 @@ test("buildConfig validates required values and falls back to MODS", () => {
     assert.equal(config.keepalive.enabled, true);
     assert.equal(config.keepalive.intervalMs, 240000);
     assert.equal(config.keepalive.url, "https://example.up.railway.app/health");
-    assert.deepEqual(config.baileys.version, DEFAULT_BAILEYS_VERSION);
+    assert.equal(config.baileys.version, DEFAULT_BAILEYS_VERSION);
   } finally {
     for (const key of Object.keys(process.env)) {
       if (!(key in snapshot)) {

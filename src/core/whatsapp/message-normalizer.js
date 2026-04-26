@@ -1,28 +1,120 @@
 const {
-  extractMessageContent,
+  downloadContentFromMessage,
   getContentType,
-  jidNormalizedUser,
-  proto,
+  jidDecode,
 } = require("@whiskeysockets/baileys");
-const { downloadMessageBuffer } = require("../../utils/media");
 
-function extractTextFromMessage(message, type) {
-  if (!message || !type) {
+function decodeJid(jid) {
+  if (!jid) {
     return "";
   }
 
-  const content = message[type] || {};
+  const decoded = jidDecode(jid);
+  if (decoded?.user && decoded?.server) {
+    return `${decoded.user}@${decoded.server}`.trim();
+  }
+
+  return String(jid).trim();
+}
+
+function extractText(container, type) {
+  if (!container || !type) {
+    return "";
+  }
+
+  const content = container[type];
   return (
-    message.conversation ||
-    content.text ||
-    content.caption ||
-    content.contentText ||
-    content.selectedDisplayText ||
-    content.selectedButtonId ||
-    content.selectedId ||
-    content.singleSelectReply?.selectedRowId ||
+    container.conversation ||
+    content?.text ||
+    content?.caption ||
+    content?.description ||
+    content?.hydratedTemplate?.hydratedContentText ||
+    content?.contentText ||
+    content?.selectedDisplayText ||
+    content?.selectedButtonId ||
+    content?.selectedId ||
+    content?.singleSelectReply?.selectedRowId ||
     ""
   );
+}
+
+function unwrapMessage(message) {
+  let current = message || {};
+  let type = getContentType(current);
+
+  while (
+    type &&
+    [
+      "ephemeralMessage",
+      "viewOnceMessage",
+      "viewOnceMessageV2",
+      "viewOnceMessageV2Extension",
+    ].includes(type)
+  ) {
+    const next = current[type]?.message;
+    if (!next) {
+      break;
+    }
+
+    current = next;
+    type = getContentType(current);
+  }
+
+  return {
+    message: current,
+    type,
+  };
+}
+
+async function downloadMedia(message, type) {
+  const sourceType = String(type || "").replace(/Message$/i, "");
+  const stream = await downloadContentFromMessage(message, sourceType);
+  const chunks = [];
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks);
+}
+
+function buildQuotedMessage({ clientJid, contextInfo, from, sender }) {
+  if (!contextInfo?.quotedMessage) {
+    return null;
+  }
+
+  const unwrapped = unwrapMessage(contextInfo.quotedMessage);
+  const quotedMessage = unwrapped.message;
+  const quotedType = unwrapped.type;
+  const quotedSender = decodeJid(contextInfo.participant || sender);
+  const quotedFrom = decodeJid(contextInfo.remoteJid || from);
+  const isSelf = quotedSender === decodeJid(clientJid);
+
+  if (!quotedType || !quotedMessage) {
+    return null;
+  }
+
+  return {
+    key: {
+      id: contextInfo.stanzaId || "",
+      fromMe: isSelf,
+      remoteJid: quotedFrom,
+      participant: quotedSender,
+    },
+    id: contextInfo.stanzaId || "",
+    sender: quotedSender,
+    participant: quotedSender,
+    from: quotedFrom,
+    fromMe: isSelf,
+    isSelf,
+    type: quotedType,
+    mtype: quotedType,
+    message: quotedMessage,
+    msg: quotedMessage[quotedType],
+    text: extractText(quotedMessage, quotedType),
+    stanzaId: contextInfo.stanzaId || "",
+    download: async () => downloadMedia(quotedMessage[quotedType], quotedType),
+  };
 }
 
 function normalizeMessage(sock, rawMessage) {
@@ -30,64 +122,63 @@ function normalizeMessage(sock, rawMessage) {
     return null;
   }
 
-  const message = proto.WebMessageInfo.fromObject(rawMessage);
-  const extracted = extractMessageContent(message.message) || message.message;
-  const type = getContentType(extracted);
-  const content = type ? extracted[type] : extracted;
+  const raw = JSON.parse(JSON.stringify(rawMessage));
+  const message = JSON.parse(JSON.stringify(rawMessage));
 
-  const from = jidNormalizedUser(message.key.remoteJid || "");
-  const sender = jidNormalizedUser(
-    message.key.fromMe ? sock.user.id : message.key.participant || from,
-  );
-  const text = extractTextFromMessage(extracted, type);
-  const quotedMessage = content?.contextInfo?.quotedMessage || null;
-  const quotedType = quotedMessage ? getContentType(quotedMessage) : null;
-  const quotedContent = quotedType ? quotedMessage[quotedType] : null;
+  message.id = message.key.id;
+  message.fromMe = Boolean(message.key.fromMe);
+  message.isSelf = message.fromMe;
+  message.from = decodeJid(message.key.remoteJid);
+  message.isGroup = message.from.endsWith("@g.us");
+  message.sender = message.isGroup
+    ? decodeJid(message.key.participant || message.from)
+    : message.fromMe
+      ? decodeJid(sock.user?.id)
+      : message.from;
 
-  const normalized = {
-    raw: rawMessage,
-    key: message.key,
-    id: message.key.id,
-    from,
-    sender,
-    fromMe: message.key.fromMe,
-    isGroup: from.endsWith("@g.us"),
-    pushName: message.pushName || "",
-    message: extracted,
-    type,
-    msg: content,
-    text,
-    mentions: content?.contextInfo?.mentionedJid || [],
-    quoted: quotedMessage
-      ? {
-          type: quotedType,
-          msg: quotedContent,
-          sender: jidNormalizedUser(content.contextInfo.participant || sender),
-          from: jidNormalizedUser(content.contextInfo.remoteJid || from),
-          id: content.contextInfo.stanzaId,
-          download: () =>
-            downloadMessageBuffer({
-              msg: quotedContent,
-              mtype: quotedType,
-            }),
-        }
-      : null,
-    reply: (textValue, options = {}) =>
-      sock.sendMessage(
-        from,
-        { text: textValue, ...options },
-        { quoted: rawMessage },
-      ),
-    download: () =>
-      downloadMessageBuffer({
-        msg: content,
-        mtype: type,
-      }),
-  };
+  const unwrapped = unwrapMessage(message.message);
+  message.message = unwrapped.message;
+  message.type = unwrapped.type;
+  message.mtype = unwrapped.type;
 
-  return normalized;
+  if (!message.type) {
+    return null;
+  }
+
+  message.msg = message.message[message.type];
+  message.body = extractText(message.message, message.type);
+  message.text = message.body;
+  message.pushName = message.pushName || "";
+  message.mentions =
+    message.message?.[message.type]?.contextInfo?.mentionedJid?.filter(Boolean) || [];
+
+  message.quoted = buildQuotedMessage({
+    clientJid: sock.user?.id,
+    contextInfo: message.message?.[message.type]?.contextInfo,
+    from: message.from,
+    sender: message.sender,
+  });
+
+  message.raw = raw;
+  message.reply = (text, options = {}) =>
+    sock.sendMessage(
+      message.from,
+      { text, ...options },
+      { quoted: raw },
+    );
+  message.download = async () => downloadMedia(message.msg, message.type);
+  message.react = (emoji) =>
+    sock.sendMessage(message.from, {
+      react: {
+        text: emoji,
+        key: raw.key,
+      },
+    });
+
+  return message;
 }
 
 module.exports = {
+  decodeJid,
   normalizeMessage,
 };

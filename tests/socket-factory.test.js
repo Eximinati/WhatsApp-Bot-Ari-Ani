@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { buildSocketConfig } = require("../src/core/whatsapp/socket-factory");
 const { DEFAULT_BAILEYS_VERSION } = require("../src/config/env");
 
-test("socket config wires getMessage and uses the pinned default version", async () => {
+test("socket config wires getMessage and leaves version unset by default", async () => {
   const socketConfig = buildSocketConfig({
     authState: { creds: {}, keys: {} },
     config: {
@@ -23,7 +23,7 @@ test("socket config wires getMessage and uses the pinned default version", async
     },
   });
 
-  assert.deepEqual(socketConfig.version, DEFAULT_BAILEYS_VERSION);
+  assert.equal(socketConfig.version, undefined);
   assert.deepEqual(await socketConfig.getMessage({ id: "abc" }), { conversation: "abc" });
   assert.deepEqual(await socketConfig.cachedGroupMetadata("group@g.us"), { id: "group@g.us" });
 });

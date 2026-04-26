@@ -4,6 +4,10 @@ class GroupMetadataCacheService {
     this.cache = new Map();
   }
 
+  normalizeMetadata(metadata) {
+    return metadata;
+  }
+
   get(jid) {
     return this.cache.get(jid) || null;
   }
@@ -14,8 +18,9 @@ class GroupMetadataCacheService {
     }
 
     const resolvedJid = metadata.id || jid;
-    this.cache.set(resolvedJid, metadata);
-    return metadata;
+    const normalized = this.normalizeMetadata(metadata);
+    this.cache.set(resolvedJid, normalized);
+    return normalized;
   }
 
   async getOrFetch(sock, jid) {

@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "type": "commonjs",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.17.16",
+    "@whiskeysockets/baileys": "6.7.19",
     "axios": "^1.8.4",
     "canvacord": "^5.4.10",
     "dotenv": "^16.6.1",
@@ -21,6 +21,8 @@
   "scripts": {
     "start": "node src/index.js",
     "heroku-prebuild": "npm install",
+    "session:reset": "node src/scripts/session-reset.js",
+    "session:unlock": "node src/scripts/session-unlock.js",
     "test": "node --test"
   },
   "author": "Aku",

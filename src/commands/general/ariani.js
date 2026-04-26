@@ -10,6 +10,7 @@ module.exports = {
     usage: "",
   },
   async execute(ctx) {
+    const botSettings = await ctx.services.settings.getBotSettings();
     await ctx.reply(
       [
         `*${ctx.config.botName}*`,
@@ -18,6 +19,7 @@ module.exports = {
         `Owners: ${ctx.config.ownerJids.length}`,
         `Mods: ${ctx.config.modJids?.length || 0}`,
         `Private mode: ${ctx.config.privateBot ? "enabled" : "disabled"}`,
+        `Chat mode: ${botSettings.chatMode === "private" ? "private only" : "all chats"}`,
         "Core features: access control, reminders, notes, XP games, search, status saving, and VU study sync.",
       ].join("\n"),
     );
