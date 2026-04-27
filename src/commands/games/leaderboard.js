@@ -11,12 +11,20 @@ module.exports = {
   },
   async execute(ctx) {
     const leaderboard = await ctx.services.xp.getLeaderboard(10);
-    const lines = ["*XP Leaderboard*"];
-    leaderboard.forEach((entry, index) => {
-      lines.push(
-        `${index + 1}. ${entry.jid.split("@")[0]} - ${entry.xp} XP (lvl ${entry.level})`,
-      );
+    const lines = await Promise.all(
+      leaderboard.map(async (entry, index) => {
+        const name = await ctx.services.user.getDisplayName(entry.jid);
+        return `${index + 1}. ${name} - ${entry.xp} XP | Lv ${entry.level}`;
+      }),
+    );
+
+    await ctx.services.visuals.sendLeaderboardCard({
+      ctx,
+      title: "XP LEADERBOARD",
+      username: await ctx.services.user.getDisplayName(ctx.msg.sender),
+      jid: ctx.msg.sender,
+      lines,
+      caption: "Top XP ladder",
     });
-    await ctx.reply(lines.join("\n"));
   },
 };

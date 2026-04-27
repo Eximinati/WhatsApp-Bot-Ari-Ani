@@ -1,0 +1,90 @@
+[
+  {
+    "key": "salah",
+    "keywords": ["prayer", "salah", "namaz", "نماز", "صلاة"],
+    "answerEn": "Salah is one of the greatest obligations in Islam and a direct command from Allah. The safest answer is to hold firmly to the prescribed prayers on their times.",
+    "answerUr": "نماز اسلام کے عظیم ترین فرائض میں سے ہے اور اللہ کا براہِ راست حکم ہے۔ محفوظ اور واضح جواب یہی ہے کہ مقررہ اوقات میں نمازوں کی پابندی کی جائے۔",
+    "citations": [
+      { "type": "quran", "ref": "2:43", "label": "Establish prayer" },
+      { "type": "quran", "ref": "4:103", "label": "Prayer at fixed times" },
+      { "type": "hadith", "ref": "Bukhari 527", "label": "Most beloved deeds" }
+    ]
+  },
+  {
+    "key": "tawbah",
+    "keywords": ["repent", "repentance", "tawbah", "tauba", "توبہ", "توبة"],
+    "answerEn": "Islam teaches that the door of tawbah is open so long as a person turns back sincerely, leaves the sin, regrets it, and resolves not to return.",
+    "answerUr": "اسلام سکھاتا ہے کہ توبہ کا دروازہ کھلا ہے جب تک بندہ سچی رجوع کرے، گناہ چھوڑ دے، نادم ہو، اور دوبارہ نہ لوٹنے کا پختہ ارادہ کرے۔",
+    "citations": [
+      { "type": "quran", "ref": "39:53", "label": "Do not despair of Allah's mercy" },
+      { "type": "quran", "ref": "66:8", "label": "Sincere repentance" },
+      { "type": "hadith", "ref": "Muslim 2749", "label": "Allah rejoices at repentance" }
+    ]
+  },
+  {
+    "key": "parents",
+    "keywords": ["parents", "mother", "father", "والدین", "ماں", "باپ"],
+    "answerEn": "Kindness to parents is repeatedly joined with worship of Allah in revelation. Even when disagreement exists, Islam commands respectful companionship.",
+    "answerUr": "والدین کے ساتھ حسنِ سلوک کو وحی میں بار بار اللہ کی عبادت کے ساتھ ذکر کیا گیا ہے۔ اختلاف کے باوجود اسلام عزت کے ساتھ ساتھ رہنے کا حکم دیتا ہے۔",
+    "citations": [
+      { "type": "quran", "ref": "17:23-24", "label": "Do not say uff to parents" },
+      { "type": "quran", "ref": "31:14-15", "label": "Gratitude and good companionship" },
+      { "type": "hadith", "ref": "Bukhari 5971", "label": "Mother three times" }
+    ]
+  },
+  {
+    "key": "charity",
+    "keywords": ["charity", "sadaqah", "zakat", "زکوٰۃ", "صدقہ"],
+    "answerEn": "Charity purifies wealth and benefits the heart. Zakah is an obligation, while sadaqah is a broad door of goodness beyond the obligatory due.",
+    "answerUr": "صدقہ و زکوٰۃ مال کو پاک کرتے ہیں اور دل کو نفع دیتے ہیں۔ زکوٰۃ فرض ہے جبکہ صدقہ فرض سے آگے نیکی کا وسیع دروازہ ہے۔",
+    "citations": [
+      { "type": "quran", "ref": "2:261", "label": "Parable of spending" },
+      { "type": "quran", "ref": "9:103", "label": "Purify them through charity" },
+      { "type": "hadith", "ref": "Muslim 1008", "label": "Every good deed is charity" }
+    ]
+  },
+  {
+    "key": "patience",
+    "keywords": ["patience", "sabr", "صبر", "suffer", "hardship", "مصیبت"],
+    "answerEn": "The Quran repeatedly ties Allah’s help, reward, and companionship to sabr. Patience in Islam is steadfast obedience, restraint from sin, and trust in Allah during trials.",
+    "answerUr": "قرآن بار بار اللہ کی مدد، اجر، اور معیت کو صبر کے ساتھ جوڑتا ہے۔ اسلام میں صبر اطاعت پر ثابت قدمی، گناہ سے رکاوٹ، اور آزمائش میں اللہ پر بھروسہ ہے۔",
+    "citations": [
+      { "type": "quran", "ref": "2:153", "label": "Allah is with the patient" },
+      { "type": "quran", "ref": "39:10", "label": "Reward without measure" },
+      { "type": "hadith", "ref": "Bukhari 1469", "label": "Patience at the first strike" }
+    ]
+  },
+  {
+    "key": "knowledge",
+    "keywords": ["knowledge", "ilm", "علم", "learn", "study", "seek knowledge"],
+    "answerEn": "Seeking beneficial knowledge is a noble path in Islam when it leads to fear of Allah, correct action, and service to people.",
+    "answerUr": "نفع بخش علم کا حصول اسلام میں عظیم راستہ ہے جب وہ اللہ کے خوف، درست عمل، اور لوگوں کی خدمت تک پہنچائے۔",
+    "citations": [
+      { "type": "quran", "ref": "20:114", "label": "My Lord, increase me in knowledge" },
+      { "type": "quran", "ref": "35:28", "label": "Those who truly fear Allah are the knowledgeable" },
+      { "type": "hadith", "ref": "Muslim 2699", "label": "Path to knowledge" }
+    ]
+  },
+  {
+    "key": "justice",
+    "keywords": ["justice", "adl", "عدل", "fairness", "حق"],
+    "answerEn": "Justice is a command of Allah and a central duty in personal conduct and public life. The early caliphs treated justice as worship and accountability before Allah.",
+    "answerUr": "عدل اللہ کا حکم ہے اور ذاتی و اجتماعی زندگی میں بنیادی فریضہ ہے۔ خلفائے راشدین نے عدل کو عبادت اور اللہ کے سامنے جواب دہی سمجھا۔",
+    "citations": [
+      { "type": "quran", "ref": "4:58", "label": "Judge with justice" },
+      { "type": "quran", "ref": "16:90", "label": "Allah commands justice" },
+      { "type": "khulafa", "ref": "justice", "label": "Rashidun legacy of justice" }
+    ]
+  },
+  {
+    "key": "trust",
+    "keywords": ["trust", "amanah", "امانت", "responsibility", "leadership"],
+    "answerEn": "Amanah in Islam means carrying rights and responsibilities in a way that pleases Allah. Authority, wealth, and knowledge are all trusts that will be questioned.",
+    "answerUr": "اسلام میں امانت کا مطلب یہ ہے کہ حقوق اور ذمہ داریاں اس طرح ادا کی جائیں جو اللہ کو پسند ہو۔ اختیار، مال، اور علم سب امانت ہیں جن کے بارے میں سوال ہوگا۔",
+    "citations": [
+      { "type": "quran", "ref": "4:58", "label": "Return trusts" },
+      { "type": "quran", "ref": "33:72", "label": "The trust" },
+      { "type": "khulafa", "ref": "leadership", "label": "Abu Bakr on obedience and trust" }
+    ]
+  }
+]

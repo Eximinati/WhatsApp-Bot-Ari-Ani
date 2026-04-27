@@ -30,6 +30,28 @@ const userSettingsSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    wallet: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    bank: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    jobKey: {
+      type: String,
+      default: "",
+    },
+    factionKey: {
+      type: String,
+      default: "",
+    },
+    factionJoinedAt: {
+      type: Date,
+      default: null,
+    },
     accessState: {
       type: String,
       enum: ["none", "allowed", "trusted"],
@@ -48,11 +70,88 @@ const userSettingsSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    islamicLanguageMode: {
+      type: String,
+      enum: ["tri", "ar-en", "ar-ur"],
+      default: "tri",
+    },
+    prayerCity: {
+      type: String,
+      default: "",
+    },
+    prayerCountry: {
+      type: String,
+      default: "",
+    },
+    prayerLatitude: {
+      type: Number,
+      default: null,
+    },
+    prayerLongitude: {
+      type: Number,
+      default: null,
+    },
+    prayerMethod: {
+      type: String,
+      default: "Karachi",
+    },
     preferredRole: {
       type: String,
       default: "",
     },
     dailyClaimedAt: {
+      type: Date,
+      default: null,
+    },
+    lastDailyMoneyAt: {
+      type: Date,
+      default: null,
+    },
+    lastWorkAt: {
+      type: Date,
+      default: null,
+    },
+    lastCrimeAt: {
+      type: Date,
+      default: null,
+    },
+    lastRobAt: {
+      type: Date,
+      default: null,
+    },
+    lastBegAt: {
+      type: Date,
+      default: null,
+    },
+    lastFishAt: {
+      type: Date,
+      default: null,
+    },
+    lastMineAt: {
+      type: Date,
+      default: null,
+    },
+    lastHuntAt: {
+      type: Date,
+      default: null,
+    },
+    lastFarmAt: {
+      type: Date,
+      default: null,
+    },
+    lastInvestAt: {
+      type: Date,
+      default: null,
+    },
+    lastCollectAt: {
+      type: Date,
+      default: null,
+    },
+    lastDuelAt: {
+      type: Date,
+      default: null,
+    },
+    lastHeistAt: {
       type: Date,
       default: null,
     },
@@ -75,6 +174,22 @@ const userSettingsSchema = new mongoose.Schema(
       default: "off",
     },
     vuMenuStateJson: {
+      type: String,
+      default: "",
+    },
+    equippedToolKey: {
+      type: String,
+      default: "",
+    },
+    inventoryJson: {
+      type: String,
+      default: "",
+    },
+    activeBuffsJson: {
+      type: String,
+      default: "",
+    },
+    economyStatsJson: {
       type: String,
       default: "",
     },

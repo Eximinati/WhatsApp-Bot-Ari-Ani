@@ -1,3 +1,6 @@
+const constants = require("../../config/constants");
+const { formatMoney } = require("../../services/economy-service");
+
 module.exports = {
   meta: {
     name: "rps",
@@ -12,11 +15,28 @@ module.exports = {
   async execute(ctx) {
     try {
       const result = ctx.services.games.playRps(ctx.args[0]);
-      const rewards = { win: 10, draw: 4, lose: 1 };
-      await ctx.services.xp.addXp(ctx.msg.sender, rewards[result.outcome]);
-      await ctx.reply(
-        `I chose *${result.botChoice}*.\nResult: *${result.outcome}*.\nXP: *+${rewards[result.outcome]}*`,
-      );
+      const reward = constants.economy.gameRewards.rps[result.outcome];
+      const [displayName, profile, balance] = await Promise.all([
+        ctx.services.user.getDisplayName(ctx.msg.sender),
+        ctx.services.xp.addXp(ctx.msg.sender, reward.xp),
+        ctx.services.economy.rewardGame(ctx.msg.sender, reward),
+      ]);
+
+      await ctx.services.visuals.sendQuoteCard({
+        ctx,
+        title: "ROCK PAPER SCISSORS",
+        jid: ctx.msg.sender,
+        username: displayName,
+        storedAvatarUrl: profile.profile.avatarUrl,
+        lines: [
+          `You: ${String(ctx.args[0] || "").toLowerCase()}`,
+          `Bot: ${result.botChoice}`,
+          `Result: ${result.outcome.toUpperCase()}`,
+          `Reward: +${reward.xp} XP | +${formatMoney(reward.cash)}`,
+          `Wallet: ${formatMoney(balance.wallet)}`,
+        ],
+        color: result.outcome === "win" ? "#22c55e" : result.outcome === "draw" ? "#f59e0b" : "#ef4444",
+      });
     } catch (error) {
       await ctx.reply(error.message);
     }

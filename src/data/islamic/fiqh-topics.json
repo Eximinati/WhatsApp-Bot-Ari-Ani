@@ -1,0 +1,599 @@
+[
+  {
+    "key": "rafadain",
+    "questionType": "fiqh-dispute",
+    "issueTitleEn": "Raf' al-Yadayn in Salah",
+    "issueTitleUr": "نماز میں رفع الیدین",
+    "keywords": [
+      "rafadain",
+      "rafa dain",
+      "raf ul yadain",
+      "raf al yadayn",
+      "rafayadain",
+      "raising hands in prayer",
+      "raise hands before ruku",
+      "رفع الیدین"
+    ],
+    "neutralSummaryEn": "Raf' al-Yadayn is a recognized Sunni fiqh difference. Authentic narrations report raising the hands at the opening takbir, before ruku', and after rising from ruku'. Hanafi jurists generally do not continue it after the opening takbir, while Shafi'i and Hanbali jurists recommend it regularly and Maliki discussions differ in detail. Following a recognized Sunni position does not by itself invalidate the prayer.",
+    "neutralSummaryUr": "رفع الیدین اہلِ سنت کے معتبر فقہی اختلافات میں سے ہے۔ صحیح روایات میں تکبیرِ تحریمہ، رکوع سے پہلے، اور رکوع سے اٹھتے وقت ہاتھ اٹھانے کا ذکر ملتا ہے۔ احناف عام طور پر ابتدا کے بعد اسے لازم نہیں سمجھتے، جبکہ شوافع اور حنابلہ اسے سنت سمجھتے ہیں، اور مالکیہ میں بھی تفصیل پائی جاتی ہے۔ کسی معتبر سنی قول پر عمل کرنے سے نماز خود بخود باطل نہیں ہوتی۔",
+    "safetyNote": "This is a recognized Sunni scholarly difference. Do not declare the prayer invalid merely because someone follows a recognized Sunni view. This is explanation, not a fatwa.",
+    "quranEvidence": [
+      {
+        "ref": "2:43",
+        "label": "Establish prayer and bow with those who bow",
+        "excerptEn": "The verse establishes the obligation of prayer and bowing, but it does not by itself settle the detailed hand-raising positions.",
+        "excerptUr": "یہ آیت نماز اور رکوع کی اصل فرضیت کو ثابت کرتی ہے، لیکن ہاتھ اٹھانے کی تفصیلات کو خود تنہا قطعی طور پر متعین نہیں کرتی۔",
+        "url": "https://quran.com/2/43"
+      },
+      {
+        "ref": "22:77",
+        "label": "Bow, prostrate, and worship your Lord",
+        "excerptEn": "The Quran gives the prayer framework, while detailed postures are explained through the Sunnah.",
+        "excerptUr": "قرآن نماز کا بنیادی ڈھانچہ دیتا ہے اور عملی ہیئت کی تفصیل سنت سے سمجھی جاتی ہے۔",
+        "url": "https://quran.com/22/77"
+      }
+    ],
+    "hadithEvidence": [
+      {
+        "ref": "Bukhari 736",
+        "label": "Ibn Umar on raising the hands",
+        "excerptEn": "Ibn Umar reported that the Prophet raised his hands at the opening takbir, when bowing, and when rising from bowing.",
+        "excerptUr": "ابن عمر رضی اللہ عنہما کی روایت کے مطابق نبی صلی اللہ علیہ وسلم تکبیرِ تحریمہ، رکوع جاتے وقت، اور رکوع سے اٹھتے وقت ہاتھ اٹھاتے تھے۔",
+        "url": "https://sunnah.com/bukhari:736",
+        "grade": "Reported in Sahih al-Bukhari"
+      },
+      {
+        "ref": "Bukhari 738",
+        "label": "Raising the hands except in sujud",
+        "excerptEn": "The Prophet raised his hands at the opening, before ruku', and after rising from ruku', but not for going to sujud.",
+        "excerptUr": "نبی صلی اللہ علیہ وسلم نماز کے شروع میں، رکوع سے پہلے، اور رکوع کے بعد ہاتھ اٹھاتے تھے، لیکن سجدے جاتے ہوئے نہیں۔",
+        "url": "https://sunnah.com/bukhari:738",
+        "grade": "Reported in Sahih al-Bukhari"
+      },
+      {
+        "ref": "Muslim 390",
+        "label": "Multiple narrated positions of raising the hands",
+        "excerptEn": "Muslim also records the hand-raising reports used by scholars who recommend raf' al-yadayn beyond the opening takbir.",
+        "excerptUr": "صحیح مسلم میں بھی وہ روایات موجود ہیں جن سے بعض اہلِ علم ابتدا کے بعد بھی رفع الیدین کے استحباب پر استدلال کرتے ہیں۔",
+        "url": "https://sunnah.com/muslim:390",
+        "grade": "Reported in Sahih Muslim"
+      }
+    ],
+    "madhhabViews": [
+      {
+        "imam": "Imam Abu Hanifa",
+        "school": "Hanafi",
+        "summaryEn": "The relied-upon Hanafi view is that raising the hands is done at the opening takbir; continuing it before and after ruku' is generally not maintained in the regular Hanafi method, though prayer remains valid either way.",
+        "summaryUr": "معتمد حنفی قول کے مطابق تکبیرِ تحریمہ کے وقت ہاتھ اٹھائے جاتے ہیں، جبکہ رکوع سے پہلے اور بعد میں مسلسل رفع الیدین معمول نہیں۔ البتہ دوسرے معتبر سنی طریقے پر نماز کو باطل نہیں کہا جاتا۔",
+        "sourceLabel": "IslamWeb fiqh comparison on raising the hands",
+        "sourceUrl": "https://www.islamweb.net/en/printfatwa.php?id=360367"
+      },
+      {
+        "imam": "Imam Malik ibn Anas",
+        "school": "Maliki",
+        "summaryEn": "Maliki discussions recognize the prophetic narrations, but the well-known practical method in many Maliki manuals does not emphasize repeating the raising in every place as strongly as the Shafi'i and Hanbali schools do.",
+        "summaryUr": "مالکیہ نبوی روایات کو تسلیم کرتے ہیں، لیکن ان کے معروف عملی طریقے میں ہر موقع پر رفع الیدین کی تاکید شوافع اور حنابلہ جتنی نمایاں نہیں ہوتی۔",
+        "sourceLabel": "IslamWeb comparison of prayer Sunnah differences",
+        "sourceUrl": "https://www.islamweb.net/en/printfatwa.php?id=360367"
+      },
+      {
+        "imam": "Imam al-Shafi'i",
+        "school": "Shafi'i",
+        "summaryEn": "The Shafi'i school recommends raising the hands at the opening takbir, before ruku', and after rising from ruku' on the basis of the well-known authentic narrations.",
+        "summaryUr": "شافعی مذہب میں صحیح اور مشہور روایات کی بنا پر تکبیرِ تحریمہ، رکوع سے پہلے، اور رکوع کے بعد رفع الیدین مستحب ہے۔",
+        "sourceLabel": "IslamWeb fiqh comparison on raising the hands",
+        "sourceUrl": "https://www.islamweb.net/en/printfatwa.php?id=360367"
+      },
+      {
+        "imam": "Imam Ahmad ibn Hanbal",
+        "school": "Hanbali",
+        "summaryEn": "The Hanbali school generally recommends raising the hands in the reported positions and treats it as a Sunnah based on the authentic hadith corpus.",
+        "summaryUr": "حنبلی مذہب میں مروی مقامات پر رفع الیدین کو صحیح احادیث کی بنیاد پر سنت سمجھا جاتا ہے۔",
+        "sourceLabel": "IslamWeb fiqh comparison on raising the hands",
+        "sourceUrl": "https://www.islamweb.net/en/printfatwa.php?id=360367"
+      }
+    ],
+    "khulafaPractice": [],
+    "scholarNotes": [
+      {
+        "label": "Qualified Sunni summary",
+        "summaryEn": "Qualified Sunni jurists disagree here because they weigh the prophetic narrations differently. The issue is treated as a Sunnah-detail dispute, not a basis for casually invalidating another Sunni's prayer.",
+        "summaryUr": "اہلِ سنت کے معتبر فقہاء اس مسئلے میں اس لیے مختلف ہوئے کہ انہوں نے نبوی روایات کے مابین ترجیح مختلف انداز سے کی۔ اسے سنتی تفصیل کا اختلاف سمجھا جاتا ہے، نہ کہ ہر دوسرے سنی کی نماز کو باطل قرار دینے کی بنیاد۔",
+        "sourceUrl": "https://www.islamweb.net/en/printfatwa.php?id=360367"
+      }
+    ]
+  },
+  {
+    "key": "behind-imam-recitation",
+    "questionType": "fiqh-dispute",
+    "issueTitleEn": "Recitation Behind the Imam",
+    "issueTitleUr": "امام کے پیچھے قراءت",
+    "keywords": [
+      "behind imam recitation",
+      "recite behind imam",
+      "behind imam",
+      "muqtadi recitation",
+      "surah fatiha behind imam",
+      "behind imam fatiha",
+      "imam ke peeche qirat",
+      "امام کے پیچھے قراءت",
+      "مقتدی کی قراءت"
+    ],
+    "neutralSummaryEn": "Reciting behind the imam is a long-standing Sunni fiqh difference. Some scholars obligate al-Fatihah for the follower in every rak'ah, while others emphasize listening in audible prayers and treat the imam's recitation as sufficient in those situations. The dispute is recognized and should not be used for reckless invalidity claims.",
+    "neutralSummaryUr": "امام کے پیچھے قراءت اہلِ سنت میں قدیم فقہی اختلاف ہے۔ بعض اہلِ علم ہر رکعت میں مقتدی پر فاتحہ کو لازم کہتے ہیں، جبکہ بعض جہری نمازوں میں سننے کو اصل قرار دیتے ہیں اور وہاں امام کی قراءت کو کافی سمجھتے ہیں۔ یہ معتبر اختلاف ہے، اس بنا پر جلدی سے نماز باطل قرار نہیں دی جاتی۔",
+    "safetyNote": "This is a recognized Sunni difference. Do not declare the prayer invalid merely because someone follows a recognized Sunni position on recitation behind the imam. This is explanation, not a fatwa.",
+    "quranEvidence": [
+      {
+        "ref": "7:204",
+        "label": "Listen attentively when the Quran is recited",
+        "excerptEn": "This verse is central for scholars who stress attentive listening in audible congregational prayer.",
+        "excerptUr": "یہ آیت ان اہلِ علم کے لیے بنیادی دلیل ہے جو جہری نماز میں توجہ سے سننے پر زور دیتے ہیں۔",
+        "url": "https://quran.com/7/204"
+      },
+      {
+        "ref": "1:1",
+        "label": "Al-Fatihah as the opening of the Book",
+        "excerptEn": "The importance of al-Fatihah in prayer is established through hadith, while the Quran provides its central place in revelation.",
+        "excerptUr": "فاتحہ کی نماز میں اہمیت حدیث سے تفصیل کے ساتھ ثابت ہے، جبکہ قرآن میں اس کی بنیادی حیثیت معلوم ہوتی ہے۔",
+        "url": "https://quran.com/1/1"
+      }
+    ],
+    "hadithEvidence": [
+      {
+        "ref": "Bukhari 756",
+        "label": "No prayer without Fatihat al-Kitab",
+        "excerptEn": "One major line of evidence states that there is no prayer for the one who does not recite Fatihat al-Kitab.",
+        "excerptUr": "ایک بڑی دلیل یہ ہے کہ جس نے فاتحۃ الکتاب نہ پڑھی اس کی نماز نہیں۔",
+        "url": "https://sunnah.com/bukhari:756",
+        "grade": "Reported in Sahih al-Bukhari"
+      },
+      {
+        "ref": "Muslim 394",
+        "label": "No prayer without Umm al-Quran",
+        "excerptEn": "Muslim also records the well-known narration requiring Umm al-Quran, which is central to those obligating recitation for the follower.",
+        "excerptUr": "صحیح مسلم میں بھی امّ القرآن سے متعلق وہ معروف روایت موجود ہے جس سے بعض اہلِ علم مقتدی پر بھی قراءت کے وجوب پر استدلال کرتے ہیں۔",
+        "url": "https://sunnah.com/muslim:394",
+        "grade": "Reported in Sahih Muslim"
+      },
+      {
+        "ref": "Nasa'i - None should recite aloud except Umm al-Quran",
+        "label": "Do not recite during audible recitation except Umm al-Quran",
+        "excerptEn": "Another evidence line distinguishes between silent following and the special case of al-Fatihah.",
+        "excerptUr": "دوسری روایات سے سننے اور صرف فاتحہ کے استثنا کے درمیان فرق کا استدلال کیا جاتا ہے۔",
+        "url": "https://sunnah.com/nasai/11",
+        "grade": "Grading not verified in current source set from this exact page"
+      }
+    ],
+    "madhhabViews": [
+      {
+        "imam": "Imam Abu Hanifa",
+        "school": "Hanafi",
+        "summaryEn": "The relied-upon Hanafi position is that the follower does not recite behind the imam in congregational prayer; the imam's recitation is treated as sufficient, especially in audible prayers.",
+        "summaryUr": "معتمد حنفی قول کے مطابق جماعت میں مقتدی امام کے پیچھے قراءت نہیں کرتا، خصوصاً جہری نمازوں میں امام کی قراءت کافی سمجھی جاتی ہے۔",
+        "sourceLabel": "IslamWeb on reciting al-Fatihah behind the imam",
+        "sourceUrl": "https://islamweb.net/en/fatwa/317011/reciting-al-faatihah-behind-the-imaam"
+      },
+      {
+        "imam": "Imam Malik ibn Anas",
+        "school": "Maliki",
+        "summaryEn": "The Maliki school commonly distinguishes between audible and silent prayers: listening in audible prayers is emphasized, while recitation in silent prayers is more readily discussed.",
+        "summaryUr": "مالکی مذہب میں عموماً جہری اور سری نمازوں میں فرق کیا جاتا ہے: جہری نماز میں سننا اہم سمجھا جاتا ہے جبکہ سری نماز میں قراءت کی بحث الگ آتی ہے۔",
+        "sourceLabel": "IslamWeb on reciting al-Fatihah behind the imam",
+        "sourceUrl": "https://islamweb.net/en/fatwa/393400/reciting-al-faatihah-behind-the-imam"
+      },
+      {
+        "imam": "Imam al-Shafi'i",
+        "school": "Shafi'i",
+        "summaryEn": "The Shafi'i school generally obligates reciting al-Fatihah for the follower in every rak'ah, including congregational prayer.",
+        "summaryUr": "شافعی مذہب میں عموماً ہر رکعت میں مقتدی کے لیے فاتحہ کی قراءت واجب قرار دی جاتی ہے، جماعت میں بھی۔",
+        "sourceLabel": "IslamWeb on reciting al-Fatihah behind the imam",
+        "sourceUrl": "https://islamweb.net/en/fatwa/393400/reciting-al-faatihah-behind-the-imam"
+      },
+      {
+        "imam": "Imam Ahmad ibn Hanbal",
+        "school": "Hanbali",
+        "summaryEn": "The Hanbali school contains detail, but many Hanbali presentations also emphasize al-Fatihah, especially where the follower can recite it without conflicting with the imam's audible recitation.",
+        "summaryUr": "حنبلی مذہب میں تفصیل پائی جاتی ہے، لیکن بہت سے حنبلی بیانات مقتدی کے لیے فاتحہ کی اہمیت پر زور دیتے ہیں، خاص طور پر وہاں جہاں امام کی قراءت سے ٹکراؤ نہ ہو۔",
+        "sourceLabel": "IslamWeb on reciting al-Fatihah behind the imam",
+        "sourceUrl": "https://islamweb.net/en/fatwa/393400/reciting-al-faatihah-behind-the-imam"
+      }
+    ],
+    "khulafaPractice": [
+      {
+        "name": "Ali ibn Abi Talib",
+        "summaryEn": "IslamWeb's comparative fatwa cites early reports attributed to Ali in support of the listening-oriented approach, but the direct grading of every wording is not fully verified in the current source set.",
+        "summaryUr": "اسلام ویب کی تقابلی بحث میں حضرت علی رضی اللہ عنہ سے سننے والے موقف کی تائید میں بعض آثار نقل کیے گئے ہیں، مگر ہر لفظ کی مستقل درجہ بندی موجودہ ماخذ میں مکمل طور پر متحقق نہیں۔",
+        "sourceLabel": "IslamWeb comparative fatwa mentioning early reports",
+        "sourceUrl": "https://islamweb.net/en/fatwa/317011/reciting-al-faatihah-behind-the-imaam"
+      }
+    ],
+    "scholarNotes": [
+      {
+        "label": "Qualified Sunni summary",
+        "summaryEn": "This dispute turns on how scholars reconcile the hadith about al-Fatihah with the reports instructing followers to listen behind the imam. Qualified Sunni scholars treat it as a real fiqh difference, not a reason to tear apart congregational unity.",
+        "summaryUr": "اس اختلاف کی بنیاد اس بات پر ہے کہ علماء فاتحہ والی روایات اور امام کے پیچھے سننے والی روایات میں کیسے تطبیق دیتے ہیں۔ معتبر سنی علماء اسے حقیقی فقہی اختلاف مانتے ہیں، جماعتی اتحاد توڑنے کی وجہ نہیں۔",
+        "sourceUrl": "https://islamweb.net/en/fatwa/393400/reciting-al-faatihah-behind-the-imam"
+      }
+    ]
+  },
+  {
+    "key": "aameen",
+    "questionType": "fiqh-dispute",
+    "issueTitleEn": "Saying Aameen Aloud or Quietly",
+    "issueTitleUr": "آمین آہستہ یا بلند کہنا",
+    "keywords": [
+      "ameen aloud",
+      "aameen loud",
+      "say ameen loudly",
+      "say amin quietly",
+      "aameen quiet",
+      "imam says ameen",
+      "آمین بلند",
+      "آمین آہستہ"
+    ],
+    "neutralSummaryEn": "Saying Aameen after al-Fatihah is established in the Sunnah. The main dispute is whether the imam and follower say it aloud or quietly in audible prayer. Sunni jurists recognize both approaches within the madhhab tradition, although they differ on the preferred practice.",
+    "neutralSummaryUr": "فاتحہ کے بعد آمین کہنا سنت سے ثابت ہے۔ اصل اختلاف یہ ہے کہ جہری نماز میں امام اور مقتدی اسے بلند کہیں یا آہستہ۔ اہلِ سنت کے فقہاء دونوں طرزوں کو اپنے اپنے استدلال کے ساتھ بیان کرتے ہیں، اگرچہ ترجیح میں فرق ہے۔",
+    "safetyNote": "This is a recognized Sunni difference in prayer detail. Do not invalidate prayer over this issue. This is explanation, not a fatwa.",
+    "quranEvidence": [
+      {
+        "ref": "1:7",
+        "label": "End of al-Fatihah",
+        "excerptEn": "The discussion concerns what follows the recitation of al-Fatihah in prayer; the detailed ruling comes from the Sunnah.",
+        "excerptUr": "یہ بحث فاتحہ کے بعد کی عملی کیفیت سے متعلق ہے، جس کی تفصیل سنت سے معلوم ہوتی ہے۔",
+        "url": "https://quran.com/1/7"
+      }
+    ],
+    "hadithEvidence": [
+      {
+        "ref": "Bukhari 780",
+        "label": "Say Aameen when the imam says it",
+        "excerptEn": "The Prophet said to say Aameen when the imam says it, and whoever's Aameen coincides with the angels will be forgiven.",
+        "excerptUr": "نبی صلی اللہ علیہ وسلم نے فرمایا کہ جب امام آمین کہے تو تم بھی آمین کہو، اور جس کی آمین فرشتوں کی آمین سے مل جائے اس کی مغفرت ہو جائے گی۔",
+        "url": "https://sunnah.com/bukhari:780",
+        "grade": "Reported in Sahih al-Bukhari"
+      },
+      {
+        "ref": "Muslim - When the imam says Aameen, say Aameen",
+        "label": "Parallel report in Sahih Muslim",
+        "excerptEn": "Muslim also records the command to say Aameen after the imam, which is central to both loud and quiet positions.",
+        "excerptUr": "صحیح مسلم میں بھی امام کے بعد آمین کہنے کا حکم موجود ہے، اور دونوں موقف اسی نص سے استدلال کرتے ہیں۔",
+        "url": "https://sunnah.com/search?q=when+the+imam+says+Amin",
+        "grade": "Reported in Sahih Muslim; exact page link not verified in current source set"
+      }
+    ],
+    "madhhabViews": [
+      {
+        "imam": "Imam Abu Hanifa",
+        "school": "Hanafi",
+        "summaryEn": "The Hanafi school usually says Aameen quietly in prayer, including behind the imam.",
+        "summaryUr": "حنفی مذہب میں عموماً آمین آہستہ کہی جاتی ہے، امام کے پیچھے بھی۔",
+        "sourceLabel": "IslamWeb comparative note on Aameen aloud",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/347506/imaam-not-allowed-to-ban-people-for-difference-over-prayer-sunnah-acts"
+      },
+      {
+        "imam": "Imam Malik ibn Anas",
+        "school": "Maliki",
+        "summaryEn": "Maliki discussions contain detail, but the school is generally associated with quieter congregational practice in many settings.",
+        "summaryUr": "مالکی فقہ میں تفصیل موجود ہے، لیکن بہت سی عملی صورتوں میں جماعتی طور پر آہستہ آمین کا رجحان پایا جاتا ہے۔",
+        "sourceLabel": "IslamWeb comparative note on Aameen aloud",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/347506/imaam-not-allowed-to-ban-people-for-difference-over-prayer-sunnah-acts"
+      },
+      {
+        "imam": "Imam al-Shafi'i",
+        "school": "Shafi'i",
+        "summaryEn": "The Shafi'i school commonly recommends saying Aameen aloud in audible prayers for both imam and followers.",
+        "summaryUr": "شافعی مذہب میں جہری نمازوں میں امام اور مقتدی دونوں کے لیے بلند آمین کہنا عام طور پر مستحب سمجھا جاتا ہے۔",
+        "sourceLabel": "IslamWeb comparative note on Aameen aloud",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/347506/imaam-not-allowed-to-ban-people-for-difference-over-prayer-sunnah-acts"
+      },
+      {
+        "imam": "Imam Ahmad ibn Hanbal",
+        "school": "Hanbali",
+        "summaryEn": "The Hanbali school also commonly favors saying Aameen aloud in audible prayer based on the hadith corpus.",
+        "summaryUr": "حنبلی مذہب بھی احادیث کی بنیاد پر جہری نماز میں بلند آمین کے استحباب کی طرف مائل ہے۔",
+        "sourceLabel": "IslamWeb comparative note on Aameen aloud",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/347506/imaam-not-allowed-to-ban-people-for-difference-over-prayer-sunnah-acts"
+      }
+    ],
+    "khulafaPractice": [],
+    "scholarNotes": [
+      {
+        "label": "Qualified Sunni summary",
+        "summaryEn": "Qualified Sunni scholars treat the dispute over loud or quiet Aameen as a Sunnah-detail difference, not as a ground for mosque division or prayer invalidation.",
+        "summaryUr": "معتبر سنی علماء بلند یا آہستہ آمین کے اختلاف کو سنتی تفصیل کا اختلاف سمجھتے ہیں، نہ کہ مسجدی نزاع یا نماز کے بطلان کی بنیاد۔",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/347506/imaam-not-allowed-to-ban-people-for-difference-over-prayer-sunnah-acts"
+      }
+    ]
+  },
+  {
+    "key": "witr",
+    "questionType": "fiqh-dispute",
+    "issueTitleEn": "Witr Formats and Standing Status",
+    "issueTitleUr": "وتر کی رکعات اور فقہی حیثیت",
+    "keywords": [
+      "witr",
+      "witar",
+      "witr prayer",
+      "three witr",
+      "one witr",
+      "witr wajib",
+      "وتر",
+      "وتر واجب"
+    ],
+    "neutralSummaryEn": "The Witr prayer is firmly established in the Sunnah, but Sunni jurists differ on its exact legal status and preferred format. Hanafis strongly treat it as wajib, while the other three schools usually classify it as an emphasized Sunnah. The Prophet's practice shows more than one accepted format of Witr, so the issue is broader than a single fixed method.",
+    "neutralSummaryUr": "وتر سنت سے مضبوط طور پر ثابت ہے، لیکن اس کی فقہی حیثیت اور پسندیدہ طریقے میں سنی فقہاء کا اختلاف ہے۔ احناف اسے واجب کے قریب لیتے ہیں، جبکہ باقی تین مذاہب اسے عام طور پر سنتِ مؤکدہ کہتے ہیں۔ نبی صلی اللہ علیہ وسلم سے وتر کے ایک سے زیادہ طریقے ثابت ہیں، اس لیے اسے صرف ایک ہی شکل میں محدود نہیں کیا جاتا۔",
+    "safetyNote": "This is a recognized Sunni fiqh difference about classification and format. Do not invalidate prayer merely because someone follows a recognized Sunni way of performing Witr. This is explanation, not a fatwa.",
+    "quranEvidence": [
+      {
+        "ref": "17:79",
+        "label": "Night prayer",
+        "excerptEn": "The Quran establishes optional night worship, while the specific form of Witr is known from the Sunnah.",
+        "excerptUr": "قرآن تہجد اور رات کی عبادت کی اصل بتاتا ہے، جبکہ وتر کی مخصوص صورت سنت سے معلوم ہوتی ہے۔",
+        "url": "https://quran.com/17/79"
+      }
+    ],
+    "hadithEvidence": [
+      {
+        "ref": "Bukhari 1000",
+        "label": "The Prophet prayed Witr",
+        "excerptEn": "Bukhari records that the Prophet used to pray Witr, including while traveling on his mount in non-obligatory contexts.",
+        "excerptUr": "صحیح بخاری میں نبی صلی اللہ علیہ وسلم کے وتر پڑھنے کا ذکر ہے، یہاں تک کہ سفر میں نفلی صورتوں میں سواری پر بھی۔",
+        "url": "https://sunnah.com/bukhari:1000",
+        "grade": "Reported in Sahih al-Bukhari"
+      },
+      {
+        "ref": "Bulugh al-Maram - Witr is Sunnah",
+        "label": "Ali on the status of Witr",
+        "excerptEn": "A report from Ali states that Witr is not like the obligatory prayers but is a Sunnah established by the Messenger of Allah.",
+        "excerptUr": "حضرت علی رضی اللہ عنہ سے منقول ہے کہ وتر فرض نمازوں جیسا حتمی فرض نہیں بلکہ رسول اللہ صلی اللہ علیہ وسلم کی سنت ہے۔",
+        "url": "https://sunnah.com/bulugh/2",
+        "grade": "Hasan according to the cited summary on the page"
+      }
+    ],
+    "madhhabViews": [
+      {
+        "imam": "Imam Abu Hanifa",
+        "school": "Hanafi",
+        "summaryEn": "The Hanafi school strongly treats Witr as wajib and commonly performs it as three rak'ahs with one salam and a specific Qunoot placement.",
+        "summaryUr": "حنفی مذہب میں وتر کو واجب کے درجہ میں لیا جاتا ہے اور عموماً تین رکعات ایک سلام کے ساتھ پڑھی جاتی ہیں، مع مخصوص محلِ قنوت۔",
+        "sourceLabel": "IslamWeb on different manners of Witr",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      },
+      {
+        "imam": "Imam Malik ibn Anas",
+        "school": "Maliki",
+        "summaryEn": "The Maliki school generally treats Witr as an emphasized Sunnah and often prefers separating the final odd rak'ah from the earlier night prayer pattern.",
+        "summaryUr": "مالکی مذہب میں وتر عموماً سنتِ مؤکدہ ہے اور اکثر آخری طاق رکعت کو پہلے نفل سے جدا انداز میں ادا کرنے کی ترجیح ملتی ہے۔",
+        "sourceLabel": "IslamWeb on different manners of Witr",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      },
+      {
+        "imam": "Imam al-Shafi'i",
+        "school": "Shafi'i",
+        "summaryEn": "The Shafi'i school treats Witr as an emphasized Sunnah and allows different proven formats, including one rak'ah or three with separation.",
+        "summaryUr": "شافعی مذہب میں وتر سنتِ مؤکدہ ہے اور ایک رکعت یا تین رکعات سمیت مختلف ثابت شدہ صورتوں کی گنجائش مانی جاتی ہے۔",
+        "sourceLabel": "IslamWeb on different manners of Witr",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      },
+      {
+        "imam": "Imam Ahmad ibn Hanbal",
+        "school": "Hanbali",
+        "summaryEn": "The Hanbali school treats Witr as an emphasized Sunnah and permits multiple narrated forms, including one, three, five, and more, according to the Sunnah reports.",
+        "summaryUr": "حنبلی مذہب میں وتر سنتِ مؤکدہ ہے اور احادیث کے مطابق ایک، تین، پانچ اور اس سے زائد مختلف صورتوں کی اجازت دی جاتی ہے۔",
+        "sourceLabel": "IslamWeb on different manners of Witr",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      }
+    ],
+    "khulafaPractice": [
+      {
+        "name": "Ali ibn Abi Talib",
+        "summaryEn": "A well-known report from Ali is often cited to explain that Witr is established Sunnah and not identical in rank to the five obligatory prayers.",
+        "summaryUr": "حضرت علی رضی اللہ عنہ سے منقول روایت کو اکثر اس بات کی توضیح کے لیے ذکر کیا جاتا ہے کہ وتر سنتِ ثابتہ ہے اور پانچ فرض نمازوں کے درجے جیسا نہیں۔",
+        "sourceLabel": "Bulugh al-Maram via Sunnah.com",
+        "sourceUrl": "https://sunnah.com/bulugh/2"
+      }
+    ],
+    "scholarNotes": [
+      {
+        "label": "Qualified Sunni summary",
+        "summaryEn": "Qualified Sunni scholarship treats the exact format of Witr as an area of valid breadth in the Sunnah. The dispute is over preference and legal classification, not over the existence of the prayer itself.",
+        "summaryUr": "معتبر سنی فقہ کے نزدیک وتر کی ہیئت میں سنت کے اندر وسعت موجود ہے۔ اختلاف اصل نماز کے ثبوت میں نہیں، بلکہ اس کی ترجیحی صورت اور فقہی درجہ بندی میں ہے۔",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      }
+    ]
+  },
+  {
+    "key": "qunoot",
+    "questionType": "fiqh-dispute",
+    "issueTitleEn": "Qunoot in Witr and Its Placement",
+    "issueTitleUr": "وتر میں قنوت اور اس کا محل",
+    "keywords": [
+      "qunoot",
+      "kunut",
+      "qunut in witr",
+      "dua qunoot",
+      "before ruku qunoot",
+      "after ruku qunoot",
+      "قنوت",
+      "دعائے قنوت"
+    ],
+    "neutralSummaryEn": "Qunoot in Witr is established in the Sunnah, but jurists differ on whether it is regular or occasional, and whether it is recited before or after ruku'. Both before-ruku' and after-ruku' reports exist in the hadith corpus, and scholars reconcile them differently.",
+    "neutralSummaryUr": "وتر میں قنوت سنت سے ثابت ہے، لیکن فقہاء اس میں اختلاف کرتے ہیں کہ یہ ہمیشہ پڑھی جائے یا بعض اوقات، اور یہ رکوع سے پہلے ہو یا بعد میں۔ حدیث کے ذخیرے میں دونوں طرح کی روایات ملتی ہیں، اور علماء ان میں مختلف تطبیق دیتے ہیں۔",
+    "safetyNote": "This is a recognized Sunni difference. Do not invalidate prayer over the placement or regularity of Qunoot when a recognized Sunni position is being followed. This is explanation, not a fatwa.",
+    "quranEvidence": [
+      {
+        "ref": "2:238",
+        "label": "Stand before Allah devoutly",
+        "excerptEn": "Qunoot as humble supplication in prayer is understood through the Sunnah, while the Quran establishes standing devoutly before Allah.",
+        "excerptUr": "قنوت بطورِ دعا و خشوع کی تفصیل سنت سے معلوم ہوتی ہے، جبکہ قرآن اللہ کے سامنے عاجزی کے ساتھ کھڑے ہونے کی اصل بیان کرتا ہے۔",
+        "url": "https://quran.com/2/238"
+      }
+    ],
+    "hadithEvidence": [
+      {
+        "ref": "Tirmidhi 464",
+        "label": "Hasan ibn Ali taught the words of Qunoot",
+        "excerptEn": "The Prophet taught Hasan ibn Ali the famous supplication recited in Witr.",
+        "excerptUr": "نبی صلی اللہ علیہ وسلم نے حضرت حسن بن علی رضی اللہ عنہما کو وتر میں پڑھی جانے والی مشہور دعائے قنوت سکھائی۔",
+        "url": "https://sunnah.com/tirmidhi:464",
+        "grade": "Hasan Sahih in the Tirmidhi tradition set"
+      },
+      {
+        "ref": "Abu Dawud 1425",
+        "label": "Qunoot of Witr",
+        "excerptEn": "Abu Dawud records the same Qunoot wording for Witr through Hasan ibn Ali.",
+        "excerptUr": "ابو داود میں بھی حضرت حسن بن علی رضی اللہ عنہما کے واسطے سے وتر کی یہی دعائے قنوت منقول ہے۔",
+        "url": "https://sunnah.com/abudawud:1425",
+        "grade": "Sahih (Al-Albani)"
+      },
+      {
+        "ref": "Bukhari 1001",
+        "label": "Qunoot after bowing for a period",
+        "excerptEn": "Bukhari records reports about Qunoot after bowing, which some scholars use when discussing placement and type of Qunoot.",
+        "excerptUr": "صحیح بخاری میں رکوع کے بعد قنوت سے متعلق روایات موجود ہیں، جن سے بعض اہلِ علم محلِ قنوت پر استدلال کرتے ہیں۔",
+        "url": "https://sunnah.com/bukhari:1001",
+        "grade": "Reported in Sahih al-Bukhari"
+      }
+    ],
+    "madhhabViews": [
+      {
+        "imam": "Imam Abu Hanifa",
+        "school": "Hanafi",
+        "summaryEn": "The Hanafi school commonly reads Qunoot in Witr before ruku' in the third rak'ah, with a known regular practice.",
+        "summaryUr": "حنفی مذہب میں عام طور پر تیسری رکعت میں رکوع سے پہلے دعائے قنوت پڑھی جاتی ہے اور اس کا ایک معروف معمول ہے۔",
+        "sourceLabel": "IslamWeb on Witr and Qunoot manners",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      },
+      {
+        "imam": "Imam Malik ibn Anas",
+        "school": "Maliki",
+        "summaryEn": "The Maliki school does not center regular Witr Qunoot in the same way as the Hanafi practice and contains more restraint in this area.",
+        "summaryUr": "مالکی مذہب میں وتر کی باقاعدہ قنوت کو حنفی طریقے جیسی مرکزیت نہیں دی جاتی اور اس باب میں زیادہ احتیاط پائی جاتی ہے۔",
+        "sourceLabel": "IslamWeb on Witr and Qunoot manners",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      },
+      {
+        "imam": "Imam al-Shafi'i",
+        "school": "Shafi'i",
+        "summaryEn": "The Shafi'i school is known for regular Qunoot in certain contexts and recognizes specific Witr usage, especially in later Ramadan practice discussions.",
+        "summaryUr": "شافعی مذہب بعض مواقع پر باقاعدہ قنوت کے لیے معروف ہے اور وتر میں بھی مخصوص استعمال کو تسلیم کرتا ہے، خصوصاً رمضان کے آخری حصے کی بحث میں۔",
+        "sourceLabel": "IslamWeb on Witr and Qunoot manners",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      },
+      {
+        "imam": "Imam Ahmad ibn Hanbal",
+        "school": "Hanbali",
+        "summaryEn": "The Hanbali school accepts Qunoot in Witr and allows some flexibility regarding its placement in light of the narrations.",
+        "summaryUr": "حنبلی مذہب وتر میں قنوت کو مانتا ہے اور روایات کی روشنی میں اس کے محل میں کچھ وسعت رکھتا ہے۔",
+        "sourceLabel": "IslamWeb on Witr and Qunoot manners",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      }
+    ],
+    "khulafaPractice": [
+      {
+        "name": "Ali ibn Abi Talib",
+        "summaryEn": "Ali's transmission about the status of Witr and later Sunni usage around Witr Qunoot are often cited together in juristic discussion, though not every later detail is traced to him directly.",
+        "summaryUr": "حضرت علی رضی اللہ عنہ سے وتر کی حیثیت سے متعلق نقل اور بعد کے فقہی معمولات کو اکثر ایک ساتھ بیان کیا جاتا ہے، اگرچہ ہر تفصیل براہِ راست ان سے منقول نہیں۔",
+        "sourceLabel": "Bulugh al-Maram / Sunni fiqh discussion",
+        "sourceUrl": "https://sunnah.com/bulugh/2"
+      }
+    ],
+    "scholarNotes": [
+      {
+        "label": "Qualified Sunni summary",
+        "summaryEn": "Scholars differ because both the wording of Witr Qunoot and the placement discussions are drawn from multiple narrations. The safe Sunni way is to recognize the difference and not treat every variation as blameworthy.",
+        "summaryUr": "علماء کا اختلاف اس لیے ہے کہ وتر کی دعا اور اس کے محل دونوں سے متعلق متعدد روایات موجود ہیں۔ اہلِ سنت کا محتاط طریقہ یہی ہے کہ معتبر اختلاف کو تسلیم کیا جائے اور ہر فرق کو قابلِ نکیر نہ سمجھا جائے۔",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/359407/different-manners-of-praying-witr-and-reciting-qunoot"
+      }
+    ]
+  },
+  {
+    "key": "touching-spouse-wudu",
+    "questionType": "fiqh-dispute",
+    "issueTitleEn": "Touching One's Spouse and Wudu",
+    "issueTitleUr": "بیوی یا شوہر کو چھونے سے وضو",
+    "keywords": [
+      "touching spouse wudu",
+      "touching wife breaks wudu",
+      "touching husband breaks wudu",
+      "kiss wife wudu",
+      "spouse touch ablution",
+      "wife touch wudu",
+      "شوہر کو چھونا وضو",
+      "بیوی کو چھونا وضو"
+    ],
+    "neutralSummaryEn": "Touching one's spouse and whether it breaks wudu is a recognized Sunni fiqh difference. Some scholars take the Quranic phrase about contact more literally, while others interpret it in light of hadith reports showing the Prophet touching or kissing his wife and then praying. The issue therefore turns on evidences and interpretation, not on casual accusations of invalid prayer.",
+    "neutralSummaryUr": "شوہر یا بیوی کو چھونے سے وضو ٹوٹنے کا مسئلہ اہلِ سنت میں معروف فقہی اختلاف ہے۔ بعض علماء قرآن کی تعبیر کو ظاہر پر لیتے ہیں، جبکہ بعض حضرات ان احادیث کی روشنی میں سمجھتے ہیں جن میں نبی صلی اللہ علیہ وسلم کے بیوی کو بوسہ دینے یا چھونے کے بعد نماز پڑھنے کا ذکر ہے۔ اس لیے یہ مسئلہ دلیل اور فہم پر مبنی ہے، محض جلد بازی میں نماز باطل کہنے پر نہیں۔",
+    "safetyNote": "This is a recognized Sunni difference. Do not declare another Muslim's prayer invalid over this issue when they are following a recognized Sunni position. This is explanation, not a fatwa.",
+    "quranEvidence": [
+      {
+        "ref": "5:6",
+        "label": "The wudu verse",
+        "excerptEn": "The phrase about contact with women in the wudu verse is interpreted differently by Sunni jurists, and that is the core of the disagreement.",
+        "excerptUr": "آیتِ وضو میں عورتوں سے ملامست والی تعبیر کو سنی فقہاء مختلف طرح سے سمجھتے ہیں، اور یہی اس اختلاف کی جڑ ہے۔",
+        "url": "https://quran.com/5/6"
+      }
+    ],
+    "hadithEvidence": [
+      {
+        "ref": "Abu Dawud 178",
+        "label": "The Prophet kissed and did not renew wudu",
+        "excerptEn": "A report from Aishah states that the Prophet kissed one of his wives and then prayed without renewing wudu.",
+        "excerptUr": "حضرت عائشہ رضی اللہ عنہا کی روایت میں ہے کہ نبی صلی اللہ علیہ وسلم نے اپنی ازواج میں سے ایک کو بوسہ دیا اور پھر وضو تازہ کیے بغیر نماز پڑھی۔",
+        "url": "https://sunnah.com/abudawud:178",
+        "grade": "Sahih according to al-Albani; Abu Dawud also notes a mursal discussion in one route"
+      },
+      {
+        "ref": "IslamWeb 85184",
+        "label": "Touching women and purification",
+        "excerptEn": "A qualified Sunni summary notes that the strongest view in that source is that mere touching does not nullify wudu unless accompanied by another nullifier.",
+        "excerptUr": "ایک معتبر سنی خلاصہ کے مطابق اس ماخذ میں راجح رائے یہ بیان ہوئی کہ محض چھونا وضو نہیں توڑتا جب تک کوئی دوسرا ناقض نہ پایا جائے۔",
+        "url": "https://www.islamweb.net/en/fatwa/85184/touching-ladies-and-purification",
+        "grade": "Secondary Sunni summary source"
+      }
+    ],
+    "madhhabViews": [
+      {
+        "imam": "Imam Abu Hanifa",
+        "school": "Hanafi",
+        "summaryEn": "The Hanafi school generally holds that mere touching of the spouse does not break wudu unless something else exits or desire is linked to a separate ruling issue.",
+        "summaryUr": "حنفی مذہب میں محض میاں بیوی کا چھونا وضو نہیں توڑتا، جب تک کوئی دوسرا ناقض واقع نہ ہو یا شہوت سے متعلق الگ حکم نہ آئے۔",
+        "sourceLabel": "IslamWeb on touching women and purification",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/85184/touching-ladies-and-purification"
+      },
+      {
+        "imam": "Imam Malik ibn Anas",
+        "school": "Maliki",
+        "summaryEn": "Maliki discussions commonly connect the ruling more closely to desire and context than to bare skin contact alone.",
+        "summaryUr": "مالکی فقہ میں اس حکم کو عموماً محض چھونے کے بجائے خواہش اور سیاق سے زیادہ جوڑا جاتا ہے۔",
+        "sourceLabel": "IslamWeb on touching women and purification",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/85184/touching-ladies-and-purification"
+      },
+      {
+        "imam": "Imam al-Shafi'i",
+        "school": "Shafi'i",
+        "summaryEn": "The Shafi'i school is well known for treating direct skin contact with a marriageable spouse as nullifying wudu.",
+        "summaryUr": "شافعی مذہب اس بات کے لیے معروف ہے کہ نکاح کے قابل زوجین کے درمیان براہِ راست جلدی لمس کو ناقضِ وضو شمار کرتا ہے۔",
+        "sourceLabel": "IslamWeb on touching women and purification",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/85184/touching-ladies-and-purification"
+      },
+      {
+        "imam": "Imam Ahmad ibn Hanbal",
+        "school": "Hanbali",
+        "summaryEn": "The Hanbali school contains detail, but many Hanbali treatments tie nullification to desire rather than every instance of touch.",
+        "summaryUr": "حنبلی مذہب میں تفصیل پائی جاتی ہے، لیکن بہت سے حنبلی بیانات ہر لمس کے بجائے شہوت سے متعلق حالت کو اہم قرار دیتے ہیں۔",
+        "sourceLabel": "IslamWeb on touching women and purification",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/85184/touching-ladies-and-purification"
+      }
+    ],
+    "khulafaPractice": [],
+    "scholarNotes": [
+      {
+        "label": "Qualified Sunni summary",
+        "summaryEn": "This disagreement is rooted in how the jurists interpret Quran 5:6 alongside the hadith of Aishah. The question is juristic interpretation, not a license to accuse others of invalid prayer without knowledge.",
+        "summaryUr": "یہ اختلاف اس بات پر قائم ہے کہ فقہاء قرآن 5:6 اور حضرت عائشہ رضی اللہ عنہا کی حدیث میں کیسے تطبیق دیتے ہیں۔ یہ فقہی اجتہاد کا مسئلہ ہے، بغیر علم دوسروں کی نماز باطل کہنے کا جواز نہیں۔",
+        "sourceUrl": "https://www.islamweb.net/en/fatwa/85184/touching-ladies-and-purification"
+      }
+    ]
+  }
+]

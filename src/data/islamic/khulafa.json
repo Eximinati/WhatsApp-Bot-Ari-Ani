@@ -1,0 +1,158 @@
+{
+  "profiles": {
+    "abu-bakr": {
+      "key": "abu-bakr",
+      "name": "Abu Bakr al-Siddiq",
+      "nameArabic": "أبو بكر الصديق رضي الله عنه",
+      "title": "The Truthful, the first Caliph",
+      "titleUr": "الصديق، پہلے خلیفہ",
+      "summaryEn": "Abu Bakr al-Siddiq was the closest companion of the Messenger of Allah ﷺ and the first of the Rightly Guided Caliphs. His legacy is marked by truthfulness, firmness in apostasy wars, and deep loyalty to revelation.",
+      "summaryUr": "ابو بکر صدیق رضی اللہ عنہ رسول اللہ ﷺ کے سب سے قریبی صحابی اور خلفائے راشدین میں پہلے خلیفہ تھے۔ ان کی زندگی صدق، ارتداد کے فتنوں کے مقابل مضبوطی، اور وحی کے ساتھ کامل وفاداری سے بھری ہوئی تھی۔",
+      "sources": [
+        "Sahih al-Bukhari, Book of Virtues of the Companions",
+        "Tarikh al-Tabari, events after the passing of the Prophet ﷺ"
+      ],
+      "sayings": [
+        {
+          "arabic": "أطيعوني ما أطعت الله فيكم، فإن عصيته فلا طاعة لي عليكم",
+          "english": "Obey me so long as I obey Allah among you; if I disobey Him, then you owe me no obedience.",
+          "urdu": "میری اطاعت کرو جب تک میں تم میں اللہ کی اطاعت کرتا رہوں، اور اگر میں اس کی نافرمانی کروں تو تم پر میری اطاعت لازم نہیں۔",
+          "source": "Khutbat Abi Bakr after assuming the Caliphate"
+        }
+      ],
+      "incidents": [
+        {
+          "title": "Wars of Apostasy",
+          "english": "He stood firm against tribes that withheld zakah after the Prophet’s passing and preserved the unity of the Muslim community.",
+          "urdu": "آپ نے رسول اللہ ﷺ کے وصال کے بعد زکوٰۃ روکنے والے قبائل کے خلاف مضبوط موقف اختیار کیا اور امت کی وحدت کو محفوظ رکھا۔",
+          "source": "Sahih al-Bukhari, reports on fighting those who withheld zakah"
+        }
+      ]
+    },
+    "umar": {
+      "key": "umar",
+      "name": "Umar ibn al-Khattab",
+      "nameArabic": "عمر بن الخطاب رضي الله عنه",
+      "title": "Al-Faruq, the second Caliph",
+      "titleUr": "الفاروق، دوسرے خلیفہ",
+      "summaryEn": "Umar ibn al-Khattab embodied justice, discipline, consultation, and public accountability. His caliphate became a benchmark for governance rooted in fear of Allah and service to people.",
+      "summaryUr": "عمر بن خطاب رضی اللہ عنہ عدل، نظم، مشورہ، اور عوامی جواب دہی کی روشن مثال تھے۔ ان کی خلافت اللہ کے خوف اور بندوں کی خدمت پر قائم حکمرانی کا معیار بن گئی۔",
+      "sources": [
+        "Sahih al-Bukhari, Book of Virtues",
+        "Al-Bidayah wa al-Nihayah, events of Umar’s Caliphate"
+      ],
+      "sayings": [
+        {
+          "arabic": "متى استعبدتم الناس وقد ولدتهم أمهاتهم أحرارًا",
+          "english": "Since when have you enslaved people while their mothers gave birth to them free?",
+          "urdu": "تم نے لوگوں کو کب سے غلام بنانا شروع کر دیا جبکہ ان کی ماؤں نے انہیں آزاد جنا تھا؟",
+          "source": "Reported in historical works about Umar’s justice"
+        }
+      ],
+      "incidents": [
+        {
+          "title": "Night patrol and public welfare",
+          "english": "He personally walked at night to inspect the condition of people and feared being questioned by Allah about the weak and hungry.",
+          "urdu": "آپ رات کو خود نکل کر لوگوں کے حالات دیکھتے اور کمزوروں اور بھوکوں کے بارے میں اللہ کے حضور جواب دہی سے ڈرتے تھے۔",
+          "source": "Historical reports in Ibn al-Jawzi and Ibn Kathir"
+        }
+      ]
+    },
+    "uthman": {
+      "key": "uthman",
+      "name": "Uthman ibn Affan",
+      "nameArabic": "عثمان بن عفان رضي الله عنه",
+      "title": "Dhun-Nurayn, the third Caliph",
+      "titleUr": "ذوالنورین، تیسرے خلیفہ",
+      "summaryEn": "Uthman ibn Affan was known for modesty, generosity, and service to the Quran. His greatest public legacy was standardizing the mushaf for the Ummah.",
+      "summaryUr": "عثمان بن عفان رضی اللہ عنہ حیا، سخاوت، اور قرآن کی خدمت کے لیے معروف تھے۔ امت کے لیے ان کی سب سے بڑی خدمت مصحف کی تدوین و توحید تھی۔",
+      "sources": [
+        "Sahih al-Bukhari, Virtues of Uthman",
+        "Reports on the Uthmanic Mushaf in Sahih al-Bukhari"
+      ],
+      "sayings": [
+        {
+          "arabic": "لو طهرت قلوبنا ما شبعت من كلام ربنا",
+          "english": "If our hearts were pure, they would never be satisfied with the speech of our Lord.",
+          "urdu": "اگر ہمارے دل پاک ہوتے تو وہ اپنے رب کے کلام سے کبھی سیر نہ ہوتے۔",
+          "source": "Reported from Uthman in works on virtues of the Salaf"
+        }
+      ],
+      "incidents": [
+        {
+          "title": "Compilation of the Mushaf",
+          "english": "He commissioned the standard copies of the Quran to preserve the Ummah upon a unified written text.",
+          "urdu": "آپ نے امت کو ایک متفقہ مکتوب متن پر جمع رکھنے کے لیے مصحف کی معیاری نقول تیار کروا کر بھیجیں۔",
+          "source": "Sahih al-Bukhari, Book of Virtues of the Quran"
+        }
+      ]
+    },
+    "ali": {
+      "key": "ali",
+      "name": "Ali ibn Abi Talib",
+      "nameArabic": "علي بن أبي طالب رضي الله عنه",
+      "title": "The fourth Caliph and cousin of the Prophet ﷺ",
+      "titleUr": "چوتھے خلیفہ اور رسول اللہ ﷺ کے چچا زاد",
+      "summaryEn": "Ali ibn Abi Talib combined courage, knowledge, devotion, and wisdom. He is remembered for deep understanding, bravery, and reminders about sincerity and the Hereafter.",
+      "summaryUr": "علی بن ابی طالب رضی اللہ عنہ شجاعت، علم، عبادت، اور حکمت کا حسین امتزاج تھے۔ آپ اخلاص، آخرت، اور بصیرت بھرے اقوال کے لیے یاد کیے جاتے ہیں۔",
+      "sources": [
+        "Sahih al-Bukhari, Virtues of Ali",
+        "Nahj al-Balaghah themes and early historical reports"
+      ],
+      "sayings": [
+        {
+          "arabic": "قيمة كل امرئ ما يحسن",
+          "english": "The worth of a person is in what he excels at.",
+          "urdu": "انسان کی قدر اس چیز سے ہوتی ہے جس میں وہ مہارت رکھتا ہے۔",
+          "source": "Attributed to Ali in adab and wisdom compilations"
+        }
+      ],
+      "incidents": [
+        {
+          "title": "Knowledge and restraint",
+          "english": "He was known for courage in battle and careful restraint in times of civil trial, repeatedly calling people back to truth and patience.",
+          "urdu": "آپ جنگ میں شجاعت اور فتنوں کے وقت حکیمانہ ضبط کے لیے معروف تھے، اور لوگوں کو حق اور صبر کی طرف بلاتے رہے۔",
+          "source": "Early historical reports on Ali’s Caliphate"
+        }
+      ]
+    }
+  },
+  "topics": [
+    {
+      "key": "justice",
+      "title": "Justice and accountability",
+      "titleUr": "عدل اور جواب دہی",
+      "summaryEn": "The Rashidun treated justice as a trust before Allah, not a political slogan. Umar’s governance is especially cited for public accountability and fairness.",
+      "summaryUr": "خلفائے راشدین کے نزدیک عدل اللہ کے حضور ایک امانت تھا، صرف سیاسی نعرہ نہیں۔ عمر رضی اللہ عنہ کی خلافت عوامی جواب دہی اور انصاف کی روشن مثال ہے۔",
+      "sources": [
+        "Historical reports on Umar’s adjudication",
+        "Quran 4:58 and Quran 16:90 as foundational justice texts"
+      ],
+      "khalifas": ["umar", "ali"]
+    },
+    {
+      "key": "leadership",
+      "title": "Leadership as amanah",
+      "titleUr": "قیادت بطور امانت",
+      "summaryEn": "Abu Bakr’s opening sermon shows that leadership is conditional upon obedience to Allah and service to the Ummah.",
+      "summaryUr": "ابو بکر رضی اللہ عنہ کا ابتدائی خطبہ واضح کرتا ہے کہ قیادت اللہ کی اطاعت اور امت کی خدمت کے ساتھ مشروط امانت ہے۔",
+      "sources": [
+        "Abu Bakr’s first sermon after bay‘ah",
+        "Quran 4:59"
+      ],
+      "khalifas": ["abu-bakr", "umar"]
+    },
+    {
+      "key": "quran-service",
+      "title": "Service to the Quran",
+      "titleUr": "قرآن کی خدمت",
+      "summaryEn": "The preservation and transmission of the Quran remained central in the era of Abu Bakr and Uthman.",
+      "summaryUr": "ابو بکر اور عثمان رضی اللہ عنہما کے دور میں قرآن کی حفاظت اور امت تک اس کی صحیح ترسیل بنیادی خدمت رہی۔",
+      "sources": [
+        "Sahih al-Bukhari on compilation under Abu Bakr",
+        "Sahih al-Bukhari on the Uthmanic codex"
+      ],
+      "khalifas": ["abu-bakr", "uthman"]
+    }
+  ]
+}

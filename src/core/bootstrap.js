@@ -9,6 +9,7 @@ const { createPermissionService } = require("../services/permission-service");
 const { SettingsService } = require("../services/settings-service");
 const { UserService } = require("../services/user-service");
 const { XpService } = require("../services/xp-service");
+const { EconomyService } = require("../services/economy-service");
 const { NotesService } = require("../services/notes-service");
 const { ReminderService } = require("../services/reminder-service");
 const { GameService } = require("../services/game-service");
@@ -18,6 +19,8 @@ const { KeepaliveService } = require("../services/keepalive-service");
 const { MessageStoreService } = require("../services/message-store-service");
 const { GroupMetadataCacheService } = require("../services/group-metadata-cache-service");
 const { GroupModerationService } = require("../services/group-moderation-service");
+const { VisualCardService } = require("../services/visual-card-service");
+const { IslamicService } = require("../services/islamic-service");
 const {
   WhatsAppSessionHealthService,
 } = require("../services/whatsapp-session-health-service");
@@ -71,9 +74,12 @@ async function bootstrap() {
     user: new UserService(),
     settings: new SettingsService({ logger, rootDir: config.appRoot }),
     xp: new XpService(),
+    economy: new EconomyService(),
     notes: new NotesService(),
     reminders: new ReminderService({ config, logger }),
     games: new GameService(),
+    visuals: new VisualCardService(),
+    islamic: new IslamicService({ logger }),
     messages: new MessageStoreService(),
     cooldowns: new CooldownService(),
     permission: createPermissionService(config),

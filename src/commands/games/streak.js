@@ -1,3 +1,5 @@
+const { resolveTimezone } = require("../../utils/schedule");
+
 module.exports = {
   meta: {
     name: "streak",
@@ -11,6 +13,17 @@ module.exports = {
   },
   async execute(ctx) {
     const profile = await ctx.services.xp.getProfile(ctx.msg.sender);
-    await ctx.reply(`Your streak is *${profile.streakCount || 0}* day(s).`);
+    await ctx.services.visuals.sendQuoteCard({
+      ctx,
+      title: "STREAK STATUS",
+      jid: ctx.msg.sender,
+      username: await ctx.services.user.getDisplayName(ctx.msg.sender),
+      storedAvatarUrl: profile.avatarUrl,
+      lines: [
+        `Current streak: ${profile.streakCount || 0} day(s)`,
+        `Timezone: ${profile.timezone || resolveTimezone(ctx.config, ctx.userSettings)}`,
+      ],
+      color: "#f97316",
+    });
   },
 };

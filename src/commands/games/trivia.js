@@ -1,3 +1,6 @@
+const constants = require("../../config/constants");
+const { formatMoney } = require("../../services/economy-service");
+
 module.exports = {
   meta: {
     name: "trivia",
@@ -10,15 +13,23 @@ module.exports = {
     usage: "[answer]",
   },
   async execute(ctx) {
+    const displayName = await ctx.services.user.getDisplayName(ctx.msg.sender);
     const answer = ctx.args.join(" ").trim();
     if (!answer) {
       const question = ctx.services.games.startTrivia(ctx.msg.sender);
-      const lines = [`*Trivia* ${question.question}`];
+      const lines = [question.question];
       question.options.forEach((option, index) => {
         lines.push(`${index + 1}. ${option}`);
       });
       lines.push(`Answer with ${ctx.config.prefix}trivia <number>`);
-      await ctx.reply(lines.join("\n"));
+      await ctx.services.visuals.sendQuoteCard({
+        ctx,
+        title: "TRIVIA START",
+        jid: ctx.msg.sender,
+        username: displayName,
+        lines,
+        color: "#8b5cf6",
+      });
       return;
     }
 
@@ -29,11 +40,36 @@ module.exports = {
     }
 
     if (result.correct) {
-      await ctx.services.xp.addXp(ctx.msg.sender, 18);
-      await ctx.reply("Correct! You earned *18 XP*.");
+      const reward = constants.economy.gameRewards.trivia;
+      const [profile, balance] = await Promise.all([
+        ctx.services.xp.addXp(ctx.msg.sender, reward.xp),
+        ctx.services.economy.rewardGame(ctx.msg.sender, reward),
+      ]);
+      await ctx.services.visuals.sendQuoteCard({
+        ctx,
+        title: "TRIVIA WIN",
+        jid: ctx.msg.sender,
+        username: displayName,
+        storedAvatarUrl: profile.profile.avatarUrl,
+        lines: [
+          `Correct answer: ${result.correctIndex + 1}. ${result.correctAnswer}`,
+          `Reward: +${reward.xp} XP | +${formatMoney(reward.cash)}`,
+          `Wallet: ${formatMoney(balance.wallet)}`,
+        ],
+        color: "#22c55e",
+      });
       return;
     }
 
-    await ctx.reply(`Incorrect. The right answer was *${result.correctIndex + 1}. ${result.correctAnswer}*.`);
+    await ctx.services.visuals.sendQuoteCard({
+      ctx,
+      title: "TRIVIA MISS",
+      jid: ctx.msg.sender,
+      username: displayName,
+      lines: [
+        `Correct answer: ${result.correctIndex + 1}. ${result.correctAnswer}`,
+      ],
+      color: "#ef4444",
+    });
   },
 };

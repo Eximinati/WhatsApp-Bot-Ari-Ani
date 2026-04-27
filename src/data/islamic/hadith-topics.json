@@ -1,0 +1,92 @@
+[
+  {
+    "key": "intentions",
+    "keywords": ["intention", "intentions", "niyyah", "نیت", "نية"],
+    "collection": "Bukhari",
+    "number": 1,
+    "title": "Actions are by intentions",
+    "summaryEn": "This foundational hadith teaches that deeds are judged by intentions.",
+    "summaryUr": "یہ بنیادی حدیث بتاتی ہے کہ اعمال کا دار و مدار نیتوں پر ہے۔"
+  },
+  {
+    "key": "mercy",
+    "keywords": ["mercy", "رحمة", "kindness", "compassion"],
+    "collection": "Bukhari",
+    "number": 5997,
+    "title": "Mercy is shown to those who show mercy",
+    "summaryEn": "Mercy toward creation is tied to mercy from the Most Merciful.",
+    "summaryUr": "مخلوق پر رحم، ارحم الراحمین کی رحمت کے حصول کا سبب بنتا ہے۔"
+  },
+  {
+    "key": "knowledge",
+    "keywords": ["knowledge", "ilm", "علم", "learn", "study"],
+    "collection": "Nawawi40",
+    "number": 19,
+    "title": "Be mindful of Allah and know Him in ease",
+    "summaryEn": "A famous teaching on divine care, support, and spiritual awareness.",
+    "summaryUr": "اللہ کی حفاظت، نصرت، اور روحانی بیداری کے بارے میں مشہور تعلیم۔"
+  },
+  {
+    "key": "brotherhood",
+    "keywords": ["brotherhood", "love", "محبت", "brother", "اخوت"],
+    "collection": "Muslim",
+    "number": 45,
+    "title": "None of you truly believes until he loves for his brother",
+    "summaryEn": "Faith is linked to sincere goodwill and love for others.",
+    "summaryUr": "ایمان کو دوسروں کے لیے خیر خواہی اور محبت سے جوڑا گیا ہے۔"
+  },
+  {
+    "key": "truthfulness",
+    "keywords": ["truth", "truthfulness", "صدق", "lying", "جھوٹ"],
+    "collection": "Muslim",
+    "number": 2607,
+    "title": "Truth leads to righteousness",
+    "summaryEn": "Persistent truthfulness leads a servant toward righteousness and Paradise.",
+    "summaryUr": "ہمیشگی کے ساتھ سچائی انسان کو نیکی اور جنت کی طرف لے جاتی ہے۔"
+  },
+  {
+    "key": "repentance",
+    "keywords": ["repent", "tawbah", "توبہ", "forgiveness", "استغفار"],
+    "collection": "Muslim",
+    "number": 2749,
+    "title": "Allah rejoices at the repentance of His servant",
+    "summaryEn": "A major hadith on the mercy of Allah toward the repentant servant.",
+    "summaryUr": "توبہ کرنے والے بندے پر اللہ کی رحمت کے بارے میں عظیم حدیث۔"
+  },
+  {
+    "key": "charity",
+    "keywords": ["charity", "sadaqah", "زکوٰۃ", "صدقہ", "giving"],
+    "collection": "Muslim",
+    "number": 1009,
+    "title": "Every good deed is charity",
+    "summaryEn": "Charity in Islam includes broad acts of goodness, not wealth alone.",
+    "summaryUr": "اسلام میں صدقہ صرف مال تک محدود نہیں بلکہ ہر نیکی اس میں داخل ہے۔"
+  },
+  {
+    "key": "prayer",
+    "keywords": ["prayer", "salah", "نماز", "صلاة"],
+    "collection": "Bukhari",
+    "number": 527,
+    "title": "The most beloved deeds",
+    "summaryEn": "Prayer at its proper time is among the most beloved deeds to Allah.",
+    "summaryUr": "اپنے وقت پر نماز اللہ کو سب سے محبوب اعمال میں سے ہے۔"
+  },
+  {
+    "key": "patience",
+    "keywords": ["patience", "sabr", "صبر", "grief", "مصیبت"],
+    "collection": "Bukhari",
+    "number": 1283,
+    "title": "Patience is at the first strike of calamity",
+    "summaryEn": "True patience shows itself at the onset of hardship.",
+    "summaryUr": "حقیقی صبر مصیبت کے پہلے صدمے پر ظاہر ہوتا ہے۔"
+  },
+  {
+    "key": "modesty",
+    "keywords": ["modesty", "haya", "حياء", "حیا"],
+    "collection": "Bukhari",
+    "number": 24,
+    "title": "Modesty is a branch of faith",
+    "summaryEn": "Modesty is not weakness; it is a branch of iman.",
+    "summaryUr": "حیا کمزوری نہیں بلکہ ایمان کی ایک شاخ ہے۔"
+  }
+]
