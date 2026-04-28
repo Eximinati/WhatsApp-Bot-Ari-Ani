@@ -1,5 +1,21 @@
 const axios = require("axios");
 
+// 🔥 SAFE DOWNLOADER (FIX FOR YOUR ERROR)
+const fetchBuffer = async (url) => {
+  const res = await axios.get(url, {
+    responseType: "arraybuffer",
+    timeout: 30000,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "*/*",
+      "Referer": "https://www.instagram.com/"
+    }
+  });
+
+  return Buffer.from(res.data, "binary");
+};
+
 module.exports = {
   meta: {
     name: "instagram",
@@ -9,7 +25,7 @@ module.exports = {
     access: "user",
     chat: "both",
     usage: "instagram <url> [--all | --1 | --2]",
-    description: "Download media from Instagram, supports carousel posts"
+    description: "Download Instagram posts, reels, and carousels"
   },
 
   async execute(ctx) {
@@ -24,7 +40,7 @@ module.exports = {
     const arg = ctx.args.join(" ").trim();
 
     if (!arg) {
-      return ctx.reply("🟥 Please provide an Instagram URL");
+      return ctx.reply("❌ Please provide an Instagram URL");
     }
 
     const parts = arg.split(" ").filter(Boolean);
@@ -32,7 +48,7 @@ module.exports = {
     const flag = parts[1];
 
     if (!url.includes("instagram.com/")) {
-      return ctx.reply("🟥 Invalid URL. Please provide a valid Instagram link.");
+      return ctx.reply("❌ Invalid Instagram URL");
     }
 
     const getDownloadUrl = (m) => {
@@ -58,7 +74,7 @@ module.exports = {
       const data = res.data;
 
       if (!data || (!data.status && !data.result)) {
-        return ctx.reply("🟥 No media found or link not supported.");
+        return ctx.reply("❌ No media found or unsupported post.");
       }
 
       let mediaList = [];
@@ -73,54 +89,56 @@ module.exports = {
         mediaList = [data.media];
       }
 
-      if (mediaList.length === 0 && data.result) {
-        const fallbackKeys = ["downloadUrl", "url", "video", "videoUrl", "mediaUrl", "src"];
-        const found = fallbackKeys.map(k => data.result[k]).find(Boolean);
+      // fallback single link extraction
+      if (!mediaList.length && data.result) {
+        const keys = ["downloadUrl", "url", "video", "videoUrl", "mediaUrl", "src"];
+        const found = keys.map(k => data.result[k]).find(Boolean);
 
         if (found) {
           mediaList = [{
-            type: found.endsWith(".mp4") ? "video" : "image",
+            type: found.includes(".mp4") ? "video" : "image",
             downloadUrl: found
           }];
         }
       }
 
       if (!mediaList.length) {
-        return ctx.reply("🟥 No media found or unsupported post.");
+        return ctx.reply("❌ No media found in this post.");
       }
 
-      // MULTI MEDIA HANDLING
+      // ================= MULTI MEDIA =================
       if (mediaList.length > 1) {
+
         if (!flag) {
           return ctx.reply(
-`🟥 Multiple slides found:
- 
+`❌ Multiple media found:
+
 Use:
 
 • instagram <url> --1
-• instagram <url> --all
-• instagram <url> --2`
+• instagram <url> --2
+• instagram <url> --all`
           );
         }
 
+        // ALL MEDIA
         if (flag === "--all") {
           for (let i = 0; i < mediaList.length; i++) {
             const m = mediaList[i];
             const downloadUrl = getDownloadUrl(m);
 
-            const type =
-              (m.type || "").includes("video") || downloadUrl?.endsWith(".mp4")
-                ? "video"
-                : "image";
+            if (!downloadUrl) continue;
+
+            const isVideo =
+              (m.type || "").includes("video") ||
+              /\.mp4(\?|$)/i.test(downloadUrl);
 
             try {
-              if (!downloadUrl) throw new Error("No URL");
-
-              const buffer = await client.utils.getBuffer(downloadUrl);
+              const buffer = await fetchBuffer(downloadUrl);
 
               await client.sendMessage(
                 jid,
-                { [type]: buffer },
+                { [isVideo ? "video" : "image"]: buffer },
                 { quoted: msg }
               );
 
@@ -128,7 +146,7 @@ Use:
               await client.sendMessage(
                 jid,
                 {
-                  text: `🔗 Slide ${i + 1} failed. Open manually: ${downloadUrl || "N/A"}`
+                  text: `⚠ Slide ${i + 1} failed: ${downloadUrl || "N/A"}`
                 },
                 { quoted: msg }
               );
@@ -137,6 +155,7 @@ Use:
           return;
         }
 
+        // SINGLE INDEX
         let index = null;
 
         if (flag.startsWith("--")) {
@@ -147,64 +166,70 @@ Use:
         }
 
         if (index === null || index < 0 || index >= mediaList.length) {
-          return ctx.reply(`🟥 Invalid selection. This post has ${mediaList.length} items.`);
+          return ctx.reply(`❌ Invalid selection. Total items: ${mediaList.length}`);
         }
 
         const selected = mediaList[index];
         const downloadUrl = getDownloadUrl(selected);
 
-        const type =
-          (selected.type || "").includes("video") || downloadUrl?.endsWith(".mp4")
-            ? "video"
-            : "image";
+        if (!downloadUrl) {
+          return ctx.reply("❌ Invalid media URL from API");
+        }
+
+        const isVideo =
+          (selected.type || "").includes("video") ||
+          /\.mp4(\?|$)/i.test(downloadUrl);
 
         try {
-          const buffer = await client.utils.getBuffer(downloadUrl);
+          const buffer = await fetchBuffer(downloadUrl);
 
           return await client.sendMessage(
             jid,
-            { [type]: buffer },
+            { [isVideo ? "video" : "image"]: buffer },
             { quoted: msg }
           );
 
         } catch (e) {
           return client.sendMessage(
             jid,
-            { text: `🔗 Failed to fetch media: ${downloadUrl || "N/A"}` },
+            { text: `🔗 Failed to load media: ${downloadUrl}` },
             { quoted: msg }
           );
         }
       }
 
-      // SINGLE MEDIA
+      // ================= SINGLE MEDIA =================
       const media = mediaList[0];
       const downloadUrl = getDownloadUrl(media);
 
-      const type =
-        (media.type || "").includes("video") || downloadUrl?.endsWith(".mp4")
-          ? "video"
-          : "image";
+      if (!downloadUrl) {
+        return ctx.reply("❌ Invalid media URL");
+      }
+
+      const isVideo =
+        (media.type || "").includes("video") ||
+        /\.mp4(\?|$)/i.test(downloadUrl);
 
       try {
-        const buffer = await client.utils.getBuffer(downloadUrl);
+        const buffer = await fetchBuffer(downloadUrl);
 
         return await client.sendMessage(
           jid,
-          { [type]: buffer },
+          { [isVideo ? "video" : "image"]: buffer },
           { quoted: msg }
         );
 
       } catch (e) {
         return client.sendMessage(
           jid,
-          { text: `🔗 Could not fetch media: ${downloadUrl || "N/A"}` },
+          { text: `🔗 Could not fetch media: ${downloadUrl}` },
           { quoted: msg }
         );
       }
 
     } catch (err) {
       console.error("Instagram Command Error:", err);
-      return ctx.reply("🟥 Failed to fetch Instagram content.");
+      return ctx.reply("❌ Failed to fetch Instagram content.");
     }
   }
 };
