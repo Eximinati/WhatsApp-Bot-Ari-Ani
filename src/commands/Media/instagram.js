@@ -1,6 +1,5 @@
 const axios = require("axios");
 
-// 🔥 SAFE DOWNLOADER (FIX FOR YOUR ERROR)
 const fetchBuffer = async (url) => {
   const res = await axios.get(url, {
     responseType: "arraybuffer",
@@ -121,7 +120,7 @@ Use:
           );
         }
 
-        // ALL MEDIA
+        
         if (flag === "--all") {
           for (let i = 0; i < mediaList.length; i++) {
             const m = mediaList[i];
@@ -155,7 +154,7 @@ Use:
           return;
         }
 
-        // SINGLE INDEX
+        
         let index = null;
 
         if (flag.startsWith("--")) {
@@ -198,7 +197,7 @@ Use:
         }
       }
 
-      // ================= SINGLE MEDIA =================
+      
       const media = mediaList[0];
       const downloadUrl = getDownloadUrl(media);
 
