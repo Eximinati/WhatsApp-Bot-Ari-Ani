@@ -7,26 +7,89 @@ async function downloadBuffer(url, retries = 3) {
       const res = await axios.get(url, {
         responseType: "arraybuffer",
         timeout: 120000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       });
 
-      if (!res.data || res.data.length < 5000) {
+      const buf = Buffer.from(res.data);
+
+      if (!buf || buf.length < 5000) {
         throw new Error("Invalid or empty audio returned");
       }
 
-      return res.data;
+      return buf;
 
     } catch (err) {
-      console.log(`Download retry ${i + 1}:`, err.message);
+      console.log(
+        `Download retry ${i + 1}:`,
+        err.message
+      );
 
       if (i === retries - 1) throw err;
     }
   }
 }
 
+async function sendAudioSafe(
+  client,
+  jid,
+  buffer,
+  info,
+  url,
+  msg
+){
+
+  try {
+
+    return await client.sendMessage(
+      jid,
+      {
+        audio: buffer,
+        mimetype: "audio/mp4",
+        ptt: false,
+        fileName:
+          `${info.title.replace(/[\\/:*?"<>|]/g,"")}.mp3`,
+
+        contextInfo:{
+          externalAdReply:{
+            title: info.title,
+            body: info.author?.name || "Music",
+            thumbnailUrl: info.thumbnail,
+            mediaType:2,
+            mediaUrl:url,
+            sourceUrl:url
+          }
+        }
+
+      },
+      { quoted: msg }
+    );
+
+  } catch(e){
+
+    console.log(
+      "Audio send failed, trying document fallback..."
+    );
+
+    return await client.sendMessage(
+      jid,
+      {
+        document: buffer,
+        mimetype:"audio/mpeg",
+        fileName:
+          `${info.title.replace(/[\\/:*?"<>|]/g,"")}.mp3`
+      },
+      { quoted: msg }
+    );
+
+  }
+
+}
+
 module.exports = {
   meta: {
     name: "play",
-    aliases: ["yta", "song", "ytaudio", "playaudio"],
+    aliases: ["yta","song","ytaudio","playaudio"],
     category: "media",
     description: "Download and play audio from YouTube.",
     cooldownSeconds: 10,
@@ -35,7 +98,7 @@ module.exports = {
     usage: "<song name/link>",
   },
 
-  async execute(ctx) {
+  async execute(ctx){
 
     const arg = ctx.args.join(" ").trim();
     const client = ctx.client;
@@ -45,42 +108,48 @@ module.exports = {
       msg?.key?.remoteJid ||
       ctx.from;
 
-    if (!arg) {
-      return ctx.reply("❗ Provide a YouTube link or song name.");
+    if (!arg){
+      return ctx.reply(
+        "❗ Provide a YouTube link or song name."
+      );
     }
 
-    if (ctx.react) {
+    if (ctx.react){
       await ctx.react("✅");
     }
 
     try {
 
-      const search = async (term) => {
+      const search = async term=>{
         const { videos } = await yts(term);
-        return videos?.length ? videos[0] : null;
+        return videos?.length
+          ? videos[0]
+          : null;
       };
 
       const validYT =
-        /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//;
+       /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//;
 
       const isLink = validYT.test(arg);
 
       let info;
       let url;
 
-      if (isLink) {
+      if(isLink){
 
         const idMatch =
           arg.match(
-            /(?:v=|\/)([0-9A-Za-z_-]{11})/
+           /(?:v=|\/)([0-9A-Za-z_-]{11})/
           );
 
-        if (!idMatch) {
-          return ctx.reply("❗ Invalid YouTube link.");
+        if(!idMatch){
+          return ctx.reply(
+            "❗ Invalid YouTube link."
+          );
         }
 
         info = await yts({
-          videoId: idMatch[1]
+          videoId:idMatch[1]
         });
 
         url = arg;
@@ -89,84 +158,70 @@ module.exports = {
 
         info = await search(arg);
 
-        if (!info) {
-          return ctx.reply("❗ Song not found.");
+        if(!info){
+          return ctx.reply(
+            "❗ Song not found."
+          );
         }
 
         url = info.url;
       }
 
-      if (!info) {
+      if(!info){
         return ctx.reply(
-          "❗ Could not retrieve video details."
+         "❗ Could not retrieve video details."
         );
       }
 
-      if (Number(info.seconds) > 10800) {
+      if(Number(info.seconds) > 10800){
         return ctx.reply(
-          "❌ Cannot download audio longer than 3 hours."
+         "❌ Cannot download audio longer than 3 hours."
         );
       }
 
       await ctx.reply(
-        `🎵 Preparing audio: *${info.title}*`
+       `🎵 Preparing audio: *${info.title}*`
       );
 
-      // ===================================
-      // API 1
-      // ===================================
+
+      /* ---------------- API 1 ---------------- */
 
       try {
 
         console.log("Trying API1...");
 
         const apiUrl =
-          `https://apis.davidcyril.name.ng/play?query=${encodeURIComponent(url)}`;
+         `https://apis.davidcyril.name.ng/play?query=${encodeURIComponent(url)}`;
 
         const { data } =
-          await axios.get(apiUrl, {
-            timeout: 120000
-          });
+         await axios.get(apiUrl,{
+           timeout:120000
+         });
 
-        if (
+        if(
           data?.status &&
           data?.result?.download_url
-        ) {
+        ){
 
           console.log("API1 success");
 
           const audioBuffer =
-            await downloadBuffer(
-              data.result.download_url
-            );
+           await downloadBuffer(
+             data.result.download_url
+           );
 
-          return await client.sendMessage(
+          return await sendAudioSafe(
+            client,
             jid,
-            {
-              audio: audioBuffer,
-              mimetype: "audio/mpeg",
-              ptt: false,
-              fileName:
-                `${info.title.replace(/[\\/:*?"<>|]/g,"")}.mp3`,
-
-              contextInfo: {
-                externalAdReply: {
-                  title: info.title,
-                  body:
-                    info.author?.name || "",
-                  thumbnailUrl:
-                    data.result.thumbnail,
-                  mediaType: 2,
-                  mediaUrl: url,
-                  sourceUrl: url
-                }
-              }
-            },
-            { quoted: msg }
+            audioBuffer,
+            info,
+            url,
+            msg
           );
+
         }
 
-      } catch (err) {
+      } catch(err){
 
         console.log(
           "API1 failed:",
@@ -176,35 +231,30 @@ module.exports = {
       }
 
 
-      // ===================================
-      // API 2
-      // ===================================
+      /* ---------------- API 2 ---------------- */
 
       try {
 
         console.log("Trying API2...");
 
         const API_BASE =
-          "https://space2bnhz.tail9ef80b.ts.net";
+         "https://space2bnhz.tail9ef80b.ts.net";
 
         const response =
-          await axios.post(
-            `${API_BASE}/song/download`,
-            {
-              url: url
-            },
-            {
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-              timeout: 120000
-            }
-          );
+         await axios.post(
+           `${API_BASE}/song/download`,
+           { url },
+           {
+             headers:{
+               "Content-Type":"application/json"
+             },
+             timeout:120000
+           }
+         );
 
         const data = response.data;
 
-        if (!data?.file_url) {
+        if(!data?.file_url){
           throw new Error(
             "Invalid API2 response"
           );
@@ -213,52 +263,26 @@ module.exports = {
         console.log("API2 success");
 
         const fixedUrl =
-          data.file_url.replace(
-            "http://127.0.0.1:5000",
-            API_BASE
-          );
+         data.file_url.replace(
+           "http://127.0.0.1:5000",
+           API_BASE
+         );
 
         const audioBuffer =
-          await downloadBuffer(
-            fixedUrl
-          );
+         await downloadBuffer(
+           fixedUrl
+         );
 
-        return await client.sendMessage(
+        return await sendAudioSafe(
+          client,
           jid,
-          {
-            audio: audioBuffer,
-            mimetype: "audio/mpeg",
-            ptt: false,
-            fileName:
-              `${(data.title || info.title)
-                .replace(/[\\/:*?"<>|]/g,"")}.mp3`,
-
-            contextInfo: {
-              externalAdReply: {
-                title:
-                  data.title ||
-                  info.title,
-
-                body:
-                  "Download Complete 🎵",
-
-                thumbnailUrl:
-                  data.thumbnail,
-
-                mediaType: 2,
-
-                mediaUrl:
-                  data.url || url,
-
-                sourceUrl:
-                  data.url || url
-              }
-            }
-          },
-          { quoted: msg }
+          audioBuffer,
+          info,
+          url,
+          msg
         );
 
-      } catch (err) {
+      } catch(err){
 
         console.log(
           "API2 failed:",
@@ -268,28 +292,26 @@ module.exports = {
       }
 
 
-      // ===================================
-      // API 3
-      // ===================================
+      /* ---------------- API 3 ---------------- */
 
       try {
 
         console.log("Trying API3...");
 
         const api3 =
-          `https://apis-keith.vercel.app/download/dlmp3?url=${encodeURIComponent(url)}`;
+         `https://apis-keith.vercel.app/download/dlmp3?url=${encodeURIComponent(url)}`;
 
         const { data } =
-          await axios.get(api3, {
-            timeout: 120000
-          });
+         await axios.get(api3,{
+           timeout:120000
+         });
 
         const downloadUrl =
           data?.result?.download ||
           data?.download ||
           data?.url;
 
-        if (!downloadUrl) {
+        if(!downloadUrl){
           throw new Error(
             "Invalid API3 response"
           );
@@ -298,36 +320,20 @@ module.exports = {
         console.log("API3 success");
 
         const audioBuffer =
-          await downloadBuffer(
-            downloadUrl
-          );
+         await downloadBuffer(
+           downloadUrl
+         );
 
-        return await client.sendMessage(
+        return await sendAudioSafe(
+          client,
           jid,
-          {
-            audio: audioBuffer,
-            mimetype: "audio/mpeg",
-            ptt: false,
-            fileName:
-              `${info.title.replace(/[\\/:*?"<>|]/g,"")}.mp3`,
-
-            contextInfo: {
-              externalAdReply: {
-                title: info.title,
-                body:
-                  "Backup Download 🎵",
-                thumbnailUrl:
-                  info.thumbnail,
-                mediaType: 2,
-                mediaUrl: url,
-                sourceUrl: url
-              }
-            }
-          },
-          { quoted: msg }
+          audioBuffer,
+          info,
+          url,
+          msg
         );
 
-      } catch (err) {
+      } catch(err){
 
         console.log(
           "API3 failed:",
@@ -336,18 +342,15 @@ module.exports = {
 
       }
 
-
-      // Final failure
-
       console.log(
         "All download sources failed"
       );
 
       return ctx.reply(
-        "❌ Failed to download audio after trying all sources."
+       "❌ Failed to download audio after trying all sources."
       );
 
-    } catch (error) {
+    } catch(error){
 
       console.error(
         "Unexpected error:",
@@ -355,8 +358,9 @@ module.exports = {
       );
 
       return ctx.reply(
-        "❌ Unexpected error occurred."
+       "❌ Unexpected error occurred."
       );
     }
+
   }
 };
