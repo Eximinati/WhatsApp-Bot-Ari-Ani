@@ -69,7 +69,7 @@ module.exports = {
         return ctx.reply("❌ Cannot download audio longer than 3 hours.");
       }
 
-      await ctx.reply(`🎵 Preparing audio: 
+      await ctx.reply(`🎵 Preparing audio: *${info.title}*`);
       try {
         const apiUrl = (`https://apis.davidcyril.name.ng/play?query=${encodeURIComponent(url)}`);
         const { data } = await axios.get(apiUrl, { timeout: 120000 });
