@@ -1,6 +1,7 @@
 const acrcloud = require("acrcloud");
 const { createCanvas, loadImage } = require("canvas");
 const yts = require("yt-search");
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 
 module.exports = {
   meta: {
@@ -11,7 +12,7 @@ module.exports = {
     access: "user",
     chat: "both",
     usage: "reply audio/video with shazam",
-    description: "Identifies a song from audio or short video"
+    description: "Identify songs from audio/video"
   },
 
   async execute(ctx) {
@@ -23,41 +24,39 @@ module.exports = {
       return ctx.reply("❌ WhatsApp client not available.");
     }
 
-    const quoted =
-      ctx.quoted ||
-      ctx.msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-    if (!quoted) {
-      return ctx.reply("🎵 Reply to an audio or video file.");
-    }
-
-    let mime =
-      quoted?.audioMessage?.mimetype ||
-      quoted?.videoMessage?.mimetype ||
-      quoted?.message?.audioMessage?.mimetype ||
-      quoted?.message?.videoMessage?.mimetype ||
-      "";
-
-    if (!/audio|video/.test(mime)) {
-      return ctx.reply("🎵 Please reply to a valid audio or video file.");
-    }
-
     try {
-      
-      const buffer = await new Promise(async (resolve, reject) => {
-        try {
-          const data = await ctx.quoted.download();
-          resolve(data);
-        } catch (e) {
-          reject(e);
-        }
-      });
 
-      if (!buffer) {
-        return ctx.reply("❌ Failed to read media buffer.");
+      
+      const quotedMsg =
+        msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+      if (!quotedMsg) {
+        return ctx.reply("🎵 Reply to an audio or video file.");
       }
 
-     
+      const media =
+        quotedMsg.audioMessage ||
+        quotedMsg.videoMessage;
+
+      if (!media) {
+        return ctx.reply("❌ Please reply to valid media only.");
+      }
+
+      const type = media.mimetype?.includes("video") ? "video" : "audio";
+
+      const stream = await downloadContentFromMessage(media, type);
+
+      let buffer = Buffer.from([]);
+
+      for await (const chunk of stream) {
+        buffer = Buffer.concat([buffer, chunk]);
+      }
+
+      if (!buffer || buffer.length < 1000) {
+        return ctx.reply("❌ Media too small or invalid.");
+      }
+
+      
       const acr = new acrcloud({
         host: "identify-ap-southeast-1.acrcloud.com",
         access_key: "26afd4eec96b0f5e5ab16a7e6e05ab37",
@@ -66,21 +65,19 @@ module.exports = {
 
       const { status, metadata } = await acr.identify(buffer);
 
-      if (status?.code !== 0 || !metadata?.music?.length) {
-        return ctx.reply("❌ Song not recognized.");
+      if (status.code !== 0 || !metadata?.music?.length) {
+        return ctx.reply("❌ Song not recognizable.");
       }
 
       const song = metadata.music[0];
 
       const title = song.title || "Unknown";
-      const artists =
-        song.artists?.map(a => a.name).join(", ") || "Unknown";
+      const artists = song.artists?.map(a => a.name).join(", ") || "Unknown";
       const album = song.album?.name || "Unknown";
-      const genres =
-        song.genres?.map(g => g.name).join(", ") || "Unknown";
+      const genres = song.genres?.map(g => g.name).join(", ") || "Unknown";
       const release = song.release_date || "Unknown";
 
-     
+    
       let coverUrl =
         song.album?.coverart ||
         song.external_metadata?.spotify?.album?.images?.[0]?.url ||
@@ -95,7 +92,7 @@ module.exports = {
         } catch {}
       }
 
-    
+     
       const width = 900;
       const height = 600;
 
@@ -122,7 +119,7 @@ module.exports = {
 
       c.filter = "none";
 
-    
+      
       const size = 300;
 
       if (img) {
@@ -145,14 +142,12 @@ module.exports = {
         c.closePath();
 
         c.clip();
-
         c.drawImage(img, x, y, size, size);
-
         c.restore();
       }
 
-      
-      c.fillStyle = "#fff";
+    
+      c.fillStyle = "#ffffff";
       c.font = "bold 42px Arial";
       c.fillText(title, 400, 120);
 
@@ -171,10 +166,10 @@ module.exports = {
       c.arc(520, 424, 10, 0, Math.PI * 2);
       c.fill();
 
-      
+    
       c.fillStyle = "#1DB954";
       c.font = "bold 26px Arial";
-      c.fillText("Music Recognition Bot", 50, 520);
+      c.fillText("Deryl Music Recognition", 50, 520);
 
       c.fillStyle = "#888";
       c.font = "22px Arial";
@@ -182,6 +177,7 @@ module.exports = {
 
       const finalImage = canvas.toBuffer();
 
+      
       return await client.sendMessage(
         jid,
         {
