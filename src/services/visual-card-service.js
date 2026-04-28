@@ -236,6 +236,212 @@ class VisualCardService {
     }
   }
 
+  parseLineEntries(lines = []) {
+    return (Array.isArray(lines) ? lines : [])
+      .map((line) => {
+        const text = String(line || "").trim();
+        const separatorIndex = text.indexOf(":");
+        if (separatorIndex === -1) {
+          return {
+            label: "",
+            value: text,
+            raw: text,
+          };
+        }
+
+        return {
+          label: text.slice(0, separatorIndex).trim(),
+          value: text.slice(separatorIndex + 1).trim(),
+          raw: text,
+        };
+      })
+      .filter((entry) => entry.raw);
+  }
+
+  drawGlassPanel(ctx, x, y, width, height, radius, fill = "rgba(8, 15, 31, 0.66)") {
+    roundedRect(ctx, x, y, width, height, radius);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  drawEconomyBackground(ctx, width, height) {
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, "#081423");
+    gradient.addColorStop(0.52, "#10233f");
+    gradient.addColorStop(1, "#18385c");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    const glowLeft = ctx.createRadialGradient(120, 110, 10, 120, 110, 260);
+    glowLeft.addColorStop(0, "rgba(99, 102, 241, 0.28)");
+    glowLeft.addColorStop(1, "rgba(99, 102, 241, 0)");
+    ctx.fillStyle = glowLeft;
+    ctx.fillRect(0, 0, width, height);
+
+    const glowRight = ctx.createRadialGradient(width - 120, 90, 10, width - 120, 90, 220);
+    glowRight.addColorStop(0, "rgba(34, 211, 238, 0.24)");
+    glowRight.addColorStop(1, "rgba(34, 211, 238, 0)");
+    ctx.fillStyle = glowRight;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.045)";
+    ctx.lineWidth = 1;
+    for (let index = 0; index < 18; index += 1) {
+      ctx.beginPath();
+      ctx.moveTo(index * 78, 0);
+      ctx.lineTo(index * 78 - 180, height);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    for (let index = 0; index < 8; index += 1) {
+      const y = 48 + index * 58;
+      ctx.beginPath();
+      ctx.moveTo(28, y);
+      ctx.lineTo(width - 28, y);
+      ctx.stroke();
+    }
+
+    roundedRect(ctx, 20, 20, width - 40, height - 40, 30);
+    ctx.strokeStyle = "rgba(255,255,255,0.13)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  drawEconomyHeader(ctx, title, subtitle = "", chips = []) {
+    ctx.fillStyle = "rgba(255,255,255,0.96)";
+    ctx.font = "bold 48px Sans";
+    ctx.fillText(title, 48, 76);
+
+    ctx.fillStyle = "#8fd3ff";
+    ctx.font = "600 18px Sans";
+    ctx.fillText(subtitle || "Economy Board", 50, 104);
+
+    let chipX = 48;
+    const chipY = 126;
+    for (const chip of chips.filter(Boolean).slice(0, 4)) {
+      const text = String(chip);
+      ctx.font = "700 15px Sans";
+      const chipWidth = Math.ceil(ctx.measureText(text).width) + 26;
+      this.drawGlassPanel(ctx, chipX, chipY, chipWidth, 34, 17, "rgba(255,255,255,0.08)");
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.fillText(text, chipX + 13, chipY + 22);
+      chipX += chipWidth + 10;
+    }
+  }
+
+  drawEconomyInfoList(ctx, entries, x, startY, maxWidth) {
+    let y = startY;
+    for (const entry of entries.slice(0, 7)) {
+      if (entry.label) {
+        ctx.fillStyle = "rgba(255,255,255,0.52)";
+        ctx.font = "600 17px Sans";
+        ctx.fillText(entry.label.toUpperCase(), x, y, maxWidth);
+        y += 21;
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.96)";
+      ctx.font = "700 28px Sans";
+      ctx.fillText(entry.value || entry.raw, x, y, maxWidth);
+      y += 42;
+    }
+  }
+
+  drawEconomyStatCard(ctx, { x, y, width, height, label, value, accent }) {
+    const panelGradient = ctx.createLinearGradient(x, y, x + width, y + height);
+    panelGradient.addColorStop(0, "rgba(255,255,255,0.10)");
+    panelGradient.addColorStop(1, "rgba(255,255,255,0.05)");
+    this.drawGlassPanel(ctx, x, y, width, height, 22, panelGradient);
+
+    roundedRect(ctx, x + 14, y + 14, 6, height - 28, 3);
+    ctx.fillStyle = accent;
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,255,255,0.58)";
+    ctx.font = "600 15px Sans";
+    ctx.fillText(label, x + 32, y + 28);
+
+    ctx.fillStyle = "rgba(255,255,255,0.98)";
+    ctx.font = "bold 30px Sans";
+    ctx.fillText(value, x + 32, y + 62, width - 44);
+  }
+
+  async renderEconomyCard({
+    title,
+    subtitle = "",
+    lines = [],
+    chips = [],
+    stats = [],
+    avatarUrl = "",
+    panelTitle = "Economy",
+  }) {
+    const width = 960;
+    const height = 540;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    this.drawEconomyBackground(ctx, width, height);
+    this.drawEconomyHeader(ctx, title, subtitle, chips);
+
+    this.drawGlassPanel(ctx, 42, 178, 404, 318, 28, "rgba(6, 16, 32, 0.74)");
+    this.drawGlassPanel(ctx, 478, 92, 440, 404, 28, "rgba(7, 19, 38, 0.66)");
+
+    ctx.fillStyle = "#9bd6ff";
+    ctx.font = "700 18px Sans";
+    ctx.fillText("PROFILE SNAPSHOT", 72, 214);
+    ctx.fillText(panelTitle.toUpperCase(), 510, 128);
+
+    if (avatarUrl) {
+      await this.drawAvatar(ctx, avatarUrl, 66, 236, 104);
+    }
+
+    const lineEntries = this.parseLineEntries(lines);
+    this.drawEconomyInfoList(ctx, lineEntries, 194, 254, 220);
+
+    const statAccents = ["#22d3ee", "#f59e0b", "#818cf8", "#34d399", "#fb7185"];
+    const visibleStats = stats.filter(Boolean).slice(0, 5);
+    const statLayouts = [
+      { x: 508, y: 150, width: 184, height: 108 },
+      { x: 704, y: 150, width: 184, height: 108 },
+      { x: 508, y: 272, width: 184, height: 108 },
+      { x: 704, y: 272, width: 184, height: 108 },
+      { x: 508, y: 394, width: 380, height: 74 },
+    ];
+
+    visibleStats.forEach((stat, index) => {
+      const layout = statLayouts[index];
+      if (!layout) {
+        return;
+      }
+
+      this.drawEconomyStatCard(ctx, {
+        ...layout,
+        label: stat.label,
+        value: String(stat.value),
+        accent: statAccents[index % statAccents.length],
+      });
+    });
+
+    if (visibleStats.length < statLayouts.length) {
+      const footerText = lineEntries
+        .filter((entry) => entry.label && /job|faction|equipped tool|inventory/i.test(entry.label))
+        .map((entry) => `${entry.label}: ${entry.value}`)
+        .slice(0, 2)
+        .join("   •   ");
+
+      if (footerText) {
+        ctx.fillStyle = "rgba(255,255,255,0.62)";
+        ctx.font = "600 16px Sans";
+        ctx.fillText(footerText, 514, 452, 360);
+      }
+    }
+
+    return canvas.toBuffer("image/png");
+  }
+
   async renderCard({
     title,
     subtitle = "",
@@ -295,16 +501,26 @@ class VisualCardService {
   }) {
     const fallbackText = this.buildFallbackText(fallbackTitle || title, lines);
     try {
-      const image = await this.renderCard({
-        title,
-        subtitle,
-        lines,
-        chips,
-        stats,
-        theme,
-        avatarUrl,
-        panelTitle,
-      });
+      const image = theme === "economy"
+        ? await this.renderEconomyCard({
+          title,
+          subtitle,
+          lines,
+          chips,
+          stats,
+          avatarUrl,
+          panelTitle,
+        })
+        : await this.renderCard({
+          title,
+          subtitle,
+          lines,
+          chips,
+          stats,
+          theme,
+          avatarUrl,
+          panelTitle,
+        });
       await this.sendImageBuffer({
         ctx,
         image,

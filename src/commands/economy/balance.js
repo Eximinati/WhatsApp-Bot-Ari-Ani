@@ -38,15 +38,20 @@ module.exports = {
       ctx,
       title: "BALANCE",
       jid: targetJid,
-      subtitle: displayName,
+      subtitle: `${displayName} · Economy`,
       lines,
       caption: lines.join("\n"),
-      chips: [displayName, `#${wealthRank.rank}`, balance.jobKey || "No Job"],
+      chips: [
+        `Rank #${wealthRank.rank}`,
+        balance.jobKey || "No Job",
+        balance.factionKey || "No Faction",
+      ],
       stats: [
         { label: "Wallet", value: formatMoney(balance.wallet) },
         { label: "Bank", value: formatMoney(balance.bank) },
         { label: "Wealth", value: formatMoney(balance.totalWealth) },
         { label: "Items", value: String(itemCount) },
+        { label: "Tool", value: balance.equippedToolKey || "None" },
       ],
     });
   },
