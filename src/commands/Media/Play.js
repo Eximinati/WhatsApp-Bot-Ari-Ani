@@ -19,7 +19,7 @@ async function sendAudioSafe(
    return await client.sendMessage(
     jid,
     {
-      audio: { url: mediaUrl },
+      document: { url: mediaUrl },
       mimetype: "audio/mpeg",
       ptt: false,
       fileName: `${info.title.replace(/[\\/:*?"<>|]/g,"")}.mp3`,
@@ -59,7 +59,7 @@ module.exports = {
  meta: {
    name: "play",
    aliases: ["yta", "song", "ytaudio", "playaudio"],
-   category: "media",   // ✅ FIXED (this was missing / causing crash)
+   category: "media",   
    description: "Download and play audio from YouTube.",
    cooldownSeconds: 10,
    access: "user",
@@ -71,7 +71,7 @@ module.exports = {
 
   const arg = ctx.args.join(" ").trim();
 
-  // FIX: proper client fallback
+  
   const client =
     ctx.client ||
     ctx.sock ||
@@ -127,12 +127,7 @@ module.exports = {
     }
 
     await ctx.reply(`🎵 Preparing: *${info.title}*`);
-
-    /* =======================
-       API 1
-    ======================= */
-
-    try {
+       try {
 
       console.log("Trying API1...");
 
@@ -159,11 +154,7 @@ module.exports = {
       console.log("API1 failed:", e.message);
     }
 
-    /* =======================
-       API 2
-    ======================= */
-
-    try {
+   try {
 
       console.log("Trying API2...");
 
@@ -193,10 +184,6 @@ module.exports = {
     } catch (e) {
       console.log("API2 failed:", e.message);
     }
-
-    /* =======================
-       API 3
-    ======================= */
 
     try {
 
