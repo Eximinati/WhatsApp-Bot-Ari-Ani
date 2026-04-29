@@ -55,11 +55,18 @@ module.exports = {
       economy: "🎰",
       general: "🌀",
       group: "👥",
-      dev: "🖥️",
-      fun: "🎡",
+      mods: "🖥️",
+      games: "🎮",
       media: "🎵",
-      misc: "🉐"
-    };
+      misc: "🉐",
+      access: "📡",
+      islamic: "☪️",
+      productivity: "⏳️",
+      search: "🔍",
+      study: "📖",
+      utils: "🧩",
+      weeb: "🎴"
+ };
 
     for (const [category, commands] of Object.entries(grouped)) {
       const names = commands.map(c => c.meta.name).join(", ");
