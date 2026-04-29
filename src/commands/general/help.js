@@ -16,7 +16,7 @@ module.exports = {
   async execute(ctx) {
     const query = ctx.args[0]?.toLowerCase();
 
-  
+    
     if (query) {
       const command = ctx.services.commands.get(query);
 
@@ -37,19 +37,8 @@ module.exports = {
 💬 Chat: ${capitalize(meta.chat)}`
       );
     }
+
     const grouped = ctx.services.commands.grouped();
-
-    const lines = [
-`╭─❖─❖─❖─❖─❖─❖─❖─❖─╮
-│ 👋 ${getGreeting(ctx.config.timezone)}
-│ 🤖 Bot: ${ctx.config.botName}
-│ ⏰ Time: ${formatNow(ctx.config.timezone)}
-╰─❖─❖─❖─❖─❖─❖─❖─❖─╯
-
-🧧 𝐏𝐫𝐞𝐟𝐢𝐱: [ ${ctx.config.prefix} ]
-
-💡 Use categories below to explore commands.`
-    ];
 
     const icons = {
       economy: "🎰",
@@ -66,18 +55,36 @@ module.exports = {
       study: "📖",
       utils: "🧩",
       weeb: "🎴"
- };
+    };
+
+    const lines = [
+`╭─❖─❖─❖─❖─❖─❖─❖─❖─╮
+│ 👋 ${getGreeting(ctx.config.timezone)}
+│ 🤖 Bot: ${ctx.config.botName}
+│ ⏰ Time: ${formatNow(ctx.config.timezone)}
+╰─❖─❖─❖─❖─❖─❖─❖─❖─╯
+
+🧧 Prefix: [ ${ctx.config.prefix} ]
+
+💡 Use categories below to explore commands.
+
+━━━━━━━━━━━━━━━━━━━━━━━`
+    ];
 
     for (const [category, commands] of Object.entries(grouped)) {
-      const names = commands.map(c => c.meta.name).join(", ");
+
+      const names = commands
+        .map(c => c.meta.name)
+        .join(", ");
 
       lines.push(
 `*${capitalize(category)} ${icons[category] || "✨"} :-*
-\`\`\`${names}\`\`\``
-      );
+\`\`\`${names}\`\`\`
+
+`
+      ); 
     }
 
-    
     lines.push(
 `💡 Type *.help <cmd>* for details.`
     );
