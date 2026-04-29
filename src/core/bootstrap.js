@@ -21,6 +21,7 @@ const { GroupMetadataCacheService } = require("../services/group-metadata-cache-
 const { GroupModerationService } = require("../services/group-moderation-service");
 const { VisualCardService } = require("../services/visual-card-service");
 const { IslamicService } = require("../services/islamic-service");
+const { MediaInteractionService } = require("../services/media-interaction-service");
 const {
   WhatsAppSessionHealthService,
 } = require("../services/whatsapp-session-health-service");
@@ -60,8 +61,10 @@ async function bootstrap() {
   const qrBaseUrl = config.publicBaseUrl || `http://localhost:${config.port}`;
   const runtimeState = {
     startedAt: new Date().toISOString(),
+    startupCutoffTimestampMs: Date.now() - (config.startup.waBacklogGraceSeconds * 1000),
     connectionStatus: "starting",
     whatsappSessionHealth: "healthy",
+    historySyncMode: config.baileys.historySyncMode,
     qr: null,
     blocklist: new Set(),
     instanceId: config.runtime.instanceId,
@@ -95,6 +98,10 @@ async function bootstrap() {
       weather: new WeatherService({ apiKey: config.apis.weatherKey }),
     },
   };
+  services.media = new MediaInteractionService({
+    logger,
+    settings: services.settings,
+  });
   services.whatsappSessionHealth = new WhatsAppSessionHealthService({
     logger,
     runtimeState,

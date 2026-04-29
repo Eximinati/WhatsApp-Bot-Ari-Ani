@@ -15,6 +15,8 @@ test("terminal output filter suppresses libsignal decrypt spam and session dumps
   filter.writeChunk("Failed to decrypt message with any known session...\n");
   filter.writeChunk("Session error:Error: Bad MAC Error: Bad MAC\n");
   filter.writeChunk("    at verifyMAC (...)\n");
+  filter.writeChunk("Session error:SessionError: Over 2000 messages into the future! SessionError: Over 2000 messages into the future!\n");
+  filter.writeChunk("    at SessionCipher.fillMessageKeys (...)\n");
   filter.writeChunk("Closing open session in favor of incoming prekey bundle\n");
   filter.writeChunk("Closing session: SessionEntry {\n");
   filter.writeChunk("  indexInfo: {\n");
@@ -26,6 +28,7 @@ test("terminal output filter suppresses libsignal decrypt spam and session dumps
   const output = writes.join("");
   assert.doesNotMatch(output, /Failed to decrypt message with any known session/);
   assert.doesNotMatch(output, /Bad MAC/);
+  assert.doesNotMatch(output, /Over 2000 messages into the future/);
   assert.doesNotMatch(output, /Closing session: SessionEntry/);
   assert.match(output, /Command handled/);
 });

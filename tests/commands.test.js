@@ -16,6 +16,7 @@ const vuCommand = require("../src/commands/study/vu");
 const ayahCommand = require("../src/commands/islamic/ayah");
 const islamaskCommand = require("../src/commands/islamic/islamask");
 const prayersetCommand = require("../src/commands/islamic/prayerset");
+const mediaformatCommand = require("../src/commands/Media/mediaformat");
 
 function createCtx(overrides = {}) {
   const sent = [];
@@ -191,8 +192,26 @@ function createCtx(overrides = {}) {
       settings: {
         banUser: async () => {},
         updateUserSettings: async () => {},
+        getUserSettings: async () => ({
+          mediaPreferencesJson: "",
+        }),
         getBotSettings: async () => ({ chatMode: "all" }),
         setBotChatMode: async (chatMode) => ({ chatMode }),
+      },
+      media: {
+        describePreferences: () => [
+          { commandName: "video", mode: "ask", options: ["video", "document"] },
+          { commandName: "play", mode: "document", options: ["audio", "document"] },
+        ],
+        getSupportedCommands: () => ["video", "play", "tiktok", "instagram"],
+        getCommandConfig: (commandName) => ({
+          options: commandName === "play"
+            ? [{ mode: "audio" }, { mode: "document" }]
+            : [{ mode: "video" }, { mode: "document" }],
+        }),
+        setPreference: async () => {},
+        resetPreference: async () => {},
+        resetAllPreferences: async () => {},
       },
       vu: {
         login: async () => ({ assignments: [] }),
@@ -543,4 +562,13 @@ test("prayerset command persists prayer preferences", async () => {
   assert.equal(replies.length, 1);
   assert.match(replies[0], /Prayer settings saved/i);
   assert.match(replies[0], /Karachi/i);
+});
+
+test("mediaformat command renders saved preferences", async () => {
+  const { ctx, replies } = createCtx();
+  await mediaformatCommand.execute(ctx);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /Media Format Preferences/i);
+  assert.match(replies[0], /\/video: ask every time/i);
+  assert.match(replies[0], /\/play: document/i);
 });

@@ -194,3 +194,60 @@ test("messages upsert handler skips sender-key and protocol messages", async () 
 
   assert.deepEqual(calls, []);
 });
+
+test("messages upsert handler ignores stale backlog messages older than startup cutoff", async () => {
+  const calls = [];
+  const handler = createMessagesUpsertHandler({
+    dispatcher: {
+      dispatch: async () => {
+        calls.push(["dispatch"]);
+      },
+    },
+    logger: { error() {} },
+    services: {
+      whatsappSessionHealth: {
+        runtimeState: {
+          startupCutoffTimestampMs: 2_000_000,
+        },
+      },
+      messages: {
+        saveMessage: async () => {
+          calls.push(["save"]);
+        },
+      },
+      status: {
+        capture: async () => {
+          calls.push(["status"]);
+        },
+      },
+      user: {
+        touchFromMessage: async () => {
+          calls.push(["touch"]);
+        },
+      },
+    },
+  });
+
+  await handler(
+    { user: { id: "bot@s.whatsapp.net" }, sendMessage: async () => {} },
+    {
+      type: "notify",
+      messages: [
+        {
+          key: {
+            remoteJid: "123@s.whatsapp.net",
+            fromMe: false,
+            id: "OLD1",
+          },
+          messageTimestamp: 1000,
+          pushName: "Tester",
+          message: {
+            conversation: "/hi",
+          },
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(calls, []);
+});

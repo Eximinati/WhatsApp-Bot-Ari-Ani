@@ -1,19 +1,28 @@
 const axios = require("axios");
 
-const fetchBuffer = async (url) => {
-  const res = await axios.get(url, {
-    responseType: "arraybuffer",
-    timeout: 30000,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Accept": "*/*",
-      "Referer": "https://www.instagram.com/"
-    }
-  });
+function getDownloadUrl(media) {
+  if (!media) {
+    return null;
+  }
 
-  return Buffer.from(res.data, "binary");
-};
+  return (
+    media.downloadUrl ||
+    media.download_url ||
+    media.url ||
+    media.videoUrl ||
+    media.mediaUrl ||
+    media.src ||
+    media.href ||
+    null
+  );
+}
+
+function isVideoMedia(media, downloadUrl) {
+  return (
+    (media?.type || "").includes("video") ||
+    /\.mp4(\?|$)/i.test(downloadUrl || "")
+  );
+}
 
 module.exports = {
   meta: {
@@ -23,8 +32,8 @@ module.exports = {
     cooldownSeconds: 4,
     access: "user",
     chat: "both",
-    usage: "instagram <url> [--all | --1 | --2]",
-    description: "Download Instagram posts, reels, and carousels"
+    usage: "instagram <url> [--all | --1 | --2 | --ask]",
+    description: "Download Instagram posts, reels, and carousels",
   },
 
   async execute(ctx) {
@@ -36,8 +45,8 @@ module.exports = {
       return ctx.reply("❌ WhatsApp client not available.");
     }
 
-    const arg = ctx.args.join(" ").trim();
-
+    const { args, forcePrompt } = ctx.services.media.extractControlFlags(ctx.args);
+    const arg = args.join(" ").trim();
     if (!arg) {
       return ctx.reply("❌ Please provide an Instagram URL");
     }
@@ -50,34 +59,18 @@ module.exports = {
       return ctx.reply("❌ Invalid Instagram URL");
     }
 
-    const getDownloadUrl = (m) => {
-      if (!m) return null;
-      return (
-        m.downloadUrl ||
-        m.download_url ||
-        m.url ||
-        m.videoUrl ||
-        m.mediaUrl ||
-        m.src ||
-        m.href ||
-        null
-      );
-    };
-
     try {
-      const res = await axios.get(
+      const response = await axios.get(
         `https://neo-apii.vercel.app/api/igdl?url=${encodeURIComponent(url)}`,
-        { timeout: 20000 }
+        { timeout: 20000 },
       );
-
-      const data = res.data;
+      const data = response.data;
 
       if (!data || (!data.status && !data.result)) {
         return ctx.reply("❌ No media found or unsupported post.");
       }
 
       let mediaList = [];
-
       if (Array.isArray(data.result?.media)) {
         mediaList = data.result.media;
       } else if (data.result?.media) {
@@ -88,15 +81,15 @@ module.exports = {
         mediaList = [data.media];
       }
 
-      // fallback single link extraction
       if (!mediaList.length && data.result) {
-        const keys = ["downloadUrl", "url", "video", "videoUrl", "mediaUrl", "src"];
-        const found = keys.map(k => data.result[k]).find(Boolean);
+        const found = ["downloadUrl", "url", "video", "videoUrl", "mediaUrl", "src"]
+          .map((key) => data.result[key])
+          .find(Boolean);
 
         if (found) {
           mediaList = [{
             type: found.includes(".mp4") ? "video" : "image",
-            downloadUrl: found
+            downloadUrl: found,
           }];
         }
       }
@@ -105,63 +98,73 @@ module.exports = {
         return ctx.reply("❌ No media found in this post.");
       }
 
-      // ================= MULTI MEDIA =================
       if (mediaList.length > 1) {
-
         if (!flag) {
           return ctx.reply(
-`❌ Multiple media found:
-
-Use:
-
-• instagram <url> --1
-• instagram <url> --2
-• instagram <url> --all`
+            [
+              "❌ Multiple media found:",
+              "",
+              "Use:",
+              "- instagram <url> --1",
+              "- instagram <url> --2",
+              "- instagram <url> --all",
+            ].join("\n"),
           );
         }
 
-        
         if (flag === "--all") {
-          for (let i = 0; i < mediaList.length; i++) {
-            const m = mediaList[i];
-            const downloadUrl = getDownloadUrl(m);
+          const preferredMode = ctx.services.media.getPreference(ctx.userSettings, "instagram");
 
-            if (!downloadUrl) continue;
-
-            const isVideo =
-              (m.type || "").includes("video") ||
-              /\.mp4(\?|$)/i.test(downloadUrl);
+          for (let index = 0; index < mediaList.length; index += 1) {
+            const media = mediaList[index];
+            const downloadUrl = getDownloadUrl(media);
+            if (!downloadUrl) {
+              continue;
+            }
 
             try {
-              const buffer = await fetchBuffer(downloadUrl);
+              if (!isVideoMedia(media, downloadUrl)) {
+                await client.sendMessage(
+                  jid,
+                  { image: { url: downloadUrl } },
+                  { quoted: msg },
+                );
+                continue;
+              }
 
-              await client.sendMessage(
+              await ctx.services.media.sendMediaByMode({
+                sock: client,
                 jid,
-                { [isVideo ? "video" : "image"]: buffer },
-                { quoted: msg }
-              );
-
-            } catch (e) {
-              await client.sendMessage(
-                jid,
-                {
-                  text: `⚠ Slide ${i + 1} failed: ${downloadUrl || "N/A"}`
+                quoted: msg,
+                media: {
+                  title: `Instagram Slide ${index + 1}`,
+                  mediaUrl: downloadUrl,
+                  messageType: "video",
+                  mimetype: "video/mp4",
+                  fileName: `instagram-slide-${index + 1}.mp4`,
                 },
-                { quoted: msg }
+                mode: preferredMode === "document" ? "document" : "video",
+              });
+            } catch (error) {
+              await client.sendMessage(
+                jid,
+                { text: `⚠ Slide ${index + 1} failed: ${downloadUrl || "N/A"}` },
+                { quoted: msg },
               );
             }
           }
+
           return;
         }
 
-        
         let index = null;
-
         if (flag.startsWith("--")) {
           const n = flag.replace("--", "");
-          if (/^\d+$/.test(n)) index = parseInt(n) - 1;
+          if (/^\d+$/.test(n)) {
+            index = Number.parseInt(n, 10) - 1;
+          }
         } else if (/^\d+$/.test(flag)) {
-          index = parseInt(flag) - 1;
+          index = Number.parseInt(flag, 10) - 1;
         }
 
         if (index === null || index < 0 || index >= mediaList.length) {
@@ -170,65 +173,75 @@ Use:
 
         const selected = mediaList[index];
         const downloadUrl = getDownloadUrl(selected);
-
         if (!downloadUrl) {
           return ctx.reply("❌ Invalid media URL from API");
         }
 
-        const isVideo =
-          (selected.type || "").includes("video") ||
-          /\.mp4(\?|$)/i.test(downloadUrl);
-
-        try {
-          const buffer = await fetchBuffer(downloadUrl);
-
-          return await client.sendMessage(
-            jid,
-            { [isVideo ? "video" : "image"]: buffer },
-            { quoted: msg }
-          );
-
-        } catch (e) {
+        if (!isVideoMedia(selected, downloadUrl)) {
           return client.sendMessage(
             jid,
-            { text: `🔗 Failed to load media: ${downloadUrl}` },
-            { quoted: msg }
+            { image: { url: downloadUrl } },
+            { quoted: msg },
           );
         }
+
+        return ctx.services.media.sendOrPrompt({
+          sock: client,
+          message: {
+            from: jid,
+            sender: msg?.sender || ctx.msg.sender,
+            reply: ctx.reply,
+            quoted: msg,
+          },
+          userSettings: ctx.userSettings,
+          commandName: "instagram",
+          forcePrompt,
+          media: {
+            title: `Instagram Slide ${index + 1}`,
+            mediaUrl: downloadUrl,
+            messageType: "video",
+            mimetype: "video/mp4",
+            fileName: `instagram-slide-${index + 1}.mp4`,
+          },
+        });
       }
 
-      
       const media = mediaList[0];
       const downloadUrl = getDownloadUrl(media);
-
       if (!downloadUrl) {
         return ctx.reply("❌ Invalid media URL");
       }
 
-      const isVideo =
-        (media.type || "").includes("video") ||
-        /\.mp4(\?|$)/i.test(downloadUrl);
-
-      try {
-        const buffer = await fetchBuffer(downloadUrl);
-
-        return await client.sendMessage(
-          jid,
-          { [isVideo ? "video" : "image"]: buffer },
-          { quoted: msg }
-        );
-
-      } catch (e) {
+      if (!isVideoMedia(media, downloadUrl)) {
         return client.sendMessage(
           jid,
-          { text: `🔗 Could not fetch media: ${downloadUrl}` },
-          { quoted: msg }
+          { image: { url: downloadUrl } },
+          { quoted: msg },
         );
       }
 
-    } catch (err) {
-      console.error("Instagram Command Error:", err);
+      return ctx.services.media.sendOrPrompt({
+        sock: client,
+        message: {
+          from: jid,
+          sender: msg?.sender || ctx.msg.sender,
+          reply: ctx.reply,
+          quoted: msg,
+        },
+        userSettings: ctx.userSettings,
+        commandName: "instagram",
+        forcePrompt,
+        media: {
+          title: "Instagram Video",
+          mediaUrl: downloadUrl,
+          messageType: "video",
+          mimetype: "video/mp4",
+          fileName: "instagram-video.mp4",
+        },
+      });
+    } catch (error) {
+      console.error("Instagram Command Error:", error);
       return ctx.reply("❌ Failed to fetch Instagram content.");
     }
-  }
+  },
 };

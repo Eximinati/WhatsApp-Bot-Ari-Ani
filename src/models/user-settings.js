@@ -177,6 +177,14 @@ const userSettingsSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    mediaMenuStateJson: {
+      type: String,
+      default: "",
+    },
+    mediaPreferencesJson: {
+      type: String,
+      default: "",
+    },
     equippedToolKey: {
       type: String,
       default: "",

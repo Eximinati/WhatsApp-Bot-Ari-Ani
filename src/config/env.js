@@ -221,6 +221,10 @@ function buildConfig() {
       pingMongo: process.env.KEEPALIVE_PING_MONGO !== "false",
       pingSelf: process.env.KEEPALIVE_PING_SELF !== "false",
     },
+    startup: {
+      waBacklogGraceSeconds: parseIntegerEnv(process.env.STARTUP_WA_BACKLOG_GRACE_SECONDS, 120),
+      vuCatchupGraceMinutes: parseIntegerEnv(process.env.VU_STARTUP_CATCHUP_GRACE_MINUTES, 60),
+    },
   };
 
   validateConfig(config);

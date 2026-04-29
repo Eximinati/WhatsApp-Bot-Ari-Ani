@@ -77,6 +77,11 @@ function shouldSuppressLine(state, line) {
     return true;
   }
 
+  if (/^Session error:SessionError: Over 2000 messages into the future!/.test(line)) {
+    state.suppressBadMacStack = true;
+    return true;
+  }
+
   if (/^Closing open session in favor of incoming prekey bundle$/.test(line)) {
     return true;
   }

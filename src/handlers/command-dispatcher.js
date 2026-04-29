@@ -1,6 +1,6 @@
 const constants = require("../config/constants");
 const { capitalize } = require("../utils/text");
-const { maybeHandleVuMenuReply } = require("../services/vu-menu");
+const { maybeHandleReplyInteraction } = require("../services/reply-interactions");
 
 function createCommandDispatcher({
   config,
@@ -83,13 +83,14 @@ function createCommandDispatcher({
 
       if (!message.text.startsWith(config.prefix)) {
         if (services.permission.canUseBot(permission) && !userSettings.banned) {
-          const handledVuMenuReply = await maybeHandleVuMenuReply({
+          const handledReplyInteraction = await maybeHandleReplyInteraction({
             config,
             message,
             services,
+            sock,
             userSettings,
           });
-          if (handledVuMenuReply) {
+          if (handledReplyInteraction) {
             return;
           }
         }
