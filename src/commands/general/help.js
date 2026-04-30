@@ -1,10 +1,10 @@
-const { capitalize, commandUsage } = require("../../utils/text");
+const { capitalize } = require("../../utils/text");
 const { formatNow, getGreeting } = require("../../utils/time");
 
 module.exports = {
   meta: {
     name: "help",
-    aliases: ["h", "menu", "commands"],
+    aliases: ["h","commands"],
     category: "general",
     description: "Show command list or details",
     cooldownSeconds: 5,
@@ -35,14 +35,13 @@ module.exports = {
       const meta = command.meta;
 
       return ctx.reply(
-`📖 *COMMAND INFO*
+`📖 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐈𝐍𝐅𝐎
 
-🧩 Name: ${meta.name}
-📝 Description: ${meta.description}
-🔖 Aliases: ${meta.aliases?.join(", ") || "none"}
-📌 Usage: ${meta.usage}
-👤 Access: ${capitalize(meta.access)}
-💬 Chat: ${capitalize(meta.chat)}`
+🧩 𝐍𝐚𝐦𝐞: ${meta.name}
+📝 𝐃𝐞𝐬𝐜𝐫𝐢𝐩𝐭𝐢𝐨𝐧: ${meta.description}
+🔖 𝐀𝐥𝐢𝐚𝐬𝐞𝐬: ${meta.aliases?.join(", ") || "none"}
+📌 𝐔𝐬𝐚𝐠𝐞: ${meta.usage}
+👤 𝐀𝐜𝐜𝐞𝐬𝐬: ${meta.access}`
       );
     }
 
@@ -66,13 +65,14 @@ module.exports = {
       weeb: "🎴"
     };
 
+    
     let categories = "";
 
     for (const category of Object.keys(grouped)) {
-      categories += `┃ ${icons[category] || "✨"}  𝑪𝒂𝒕𝒆𝒈𝒐𝒓𝒚: ${capitalize(category)}\n`;
+      categories += `┃ ${icons[category] || "✨"} 𝐀𝐜𝐜𝐞𝐬𝐬: ${capitalize(category)}\n`;
     }
 
-    
+  
     let message = `
 👋 ${getGreeting(ctx.config.timezone)} ${ctx.pushName || "User"}, I'm Ari-Ani your WhatsApp assistant bot.
 
@@ -84,17 +84,16 @@ module.exports = {
 
 ⛩️ 𝐇𝐞𝐫𝐞 𝐚𝐫𝐞 𝐭𝐡𝐞 𝐜𝐚𝐭𝐞𝐠𝐨𝐫𝐲 𝐜𝐨𝐦𝐦𝐚𝐧𝐝𝐬:
 
-╭─📦 𝑪𝑨𝑻𝑬𝑮𝑶𝑹𝑰𝑬𝑺 ─╮
+╭─📦 𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒 ─╮
 
 ${categories}
-
 ╰──────────────────╯
 
-🌟 Usage: → ${ctx.config.prefix}menu <category>
-🌟 Usage: → ${ctx.config.prefix}help <command>
+🌟 𝐔𝐬𝐚𝐠𝐞: 𝐮𝐬𝐞 ${ctx.config.prefix}menu <category>
+🌟 𝐔𝐬𝐚𝐠𝐞: 𝐮𝐬𝐞 ${ctx.config.prefix}help <command>
 `;
 
-    
+  
     const imageUrl = "https://i.ibb.co/XkV6hgfw/Deryl.jpg";
 
     return client.sendMessage(
