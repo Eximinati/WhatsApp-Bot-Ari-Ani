@@ -63,12 +63,11 @@ module.exports = {
 
     for (const [category, cmds] of Object.entries(grouped)) {
       const names = cmds.map(c => c.meta.name).join(", ");
-
       commands += `*${capitalize(category)} ${icons[category] || "✨"}*\n\`\`\`${names}\`\`\`\n\n`;
     }
 
     
-    let message = `👋 ${getGreeting(ctx.config.timezone)} ${ctx.pushName || "User"}, l'm Ari-Ani your WhatsApp assistant bot.
+    let message = `👋 ${getGreeting(ctx.config.timezone)} ${ctx.pushName || "User"}, I'm Ari-Ani your WhatsApp assistant bot.
 
 🤖 *${ctx.config.botName}*
 ⏰ ${formatNow(ctx.config.timezone)}
@@ -80,9 +79,8 @@ module.exports = {
 → Stay updated and explore all features
 
 📋 *COMMAND LIST:*
-━━━━━━━━━━━━━━━━━━━━━━━
+
 ${commands}
-━━━━━━━━━━━━━━━━━━━━━━━
 
 🗃️ Thanks for using ${ctx.config.botName} 💖
 🌟 If you find me helpful, please share me with your friends and leave a review!`;
@@ -97,11 +95,9 @@ ${commands}
     const buffer = Buffer.from(data, "binary");
 
     
-    return ctx.sock.sendMessage(ctx.chat, {
+    return ctx.reply({
       image: buffer,
-      caption: message,
-      footer: ctx.config.botName,
-      headerType: 4
+      caption: message
     });
   }
 };
