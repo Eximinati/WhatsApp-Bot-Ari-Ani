@@ -69,7 +69,7 @@ module.exports = {
     let categories = "";
 
     for (const category of Object.keys(grouped)) {
-      categories += `┃ ${icons[category] || "✨"} 𝐀𝐜𝐜𝐞𝐬𝐬: ${capitalize(category)}\n`;
+      categories += `┃ ${icons[category] || "✨"} ${capitalize(category)}\n`;
     }
 
   
@@ -87,7 +87,7 @@ module.exports = {
 ╭─📦 𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒 ─╮
 
 ${categories}
-╰──────────────────╯
+╰───────────╯
 
 🌟 𝐔𝐬𝐚𝐠𝐞: 𝐮𝐬𝐞 ${ctx.config.prefix}menu <category>
 🌟 𝐔𝐬𝐚𝐠𝐞: 𝐮𝐬𝐞 ${ctx.config.prefix}help <command>
