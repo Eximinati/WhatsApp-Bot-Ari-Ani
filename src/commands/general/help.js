@@ -15,6 +15,23 @@ module.exports = {
 
   async execute(ctx) {
 
+    const icons = {
+      economy: "🎰",
+      general: "🌀",
+      group: "👥",
+      mods: "🖥️",
+      games: "🎮",
+      media: "🎵",
+      misc: "🧩",
+      access: "📡",
+      islamic: "☪️",
+      productivity: "⏳️",
+      search: "🔍",
+      study: "📖",
+      utils: "🧩",
+      weeb: "🎴"
+    };
+
     const query = ctx.args[0]?.toLowerCase();
 
     const client = ctx.client || ctx.sock || ctx.conn;
@@ -26,10 +43,31 @@ module.exports = {
 
     
     if (query) {
+      const grouped = ctx.services.commands.grouped();
+      const category = grouped[query];
+
+      if (category) {
+        const icon = icons[query] || "✨";
+
+        let cmdList = "";
+        for (const cmd of category) {
+          cmdList += `┃ ◦ ${cmd.meta.name}\n`;
+        }
+
+        return ctx.reply(
+`${icon} *${capitalize(query)}* (${category.length})
+
+${cmdList}
+┗━━━━━━━━━━━━╯
+
+📌 Use ${ctx.config.prefix}help <command> for details.`
+        );
+      }
+
       const command = ctx.services.commands.get(query);
 
       if (!command) {
-        return ctx.reply(`❌ No command named *${query}* found.`);
+        return ctx.reply(`❌ No command or category named *${query}* found.\n\nUse ${ctx.config.prefix}menu to see all categories.`);
       }
 
       const meta = command.meta;
@@ -47,23 +85,6 @@ module.exports = {
 
     
     const grouped = ctx.services.commands.grouped();
-
-    const icons = {
-      economy: "🎰",
-      general: "🌀",
-      group: "👥",
-      mods: "🖥️",
-      games: "🎮",
-      media: "🎵",
-      misc: "🧩",
-      access: "📡",
-      islamic: "☪️",
-      productivity: "⏳️",
-      search: "🔍",
-      study: "📖",
-      utils: "🧩",
-      weeb: "🎴"
-    };
 
     
     let categories = "";

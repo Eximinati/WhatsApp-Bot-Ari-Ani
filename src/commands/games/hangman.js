@@ -1,4 +1,4 @@
-const { createCanvas } = require("canvas");
+const { createCanvas } = require("@napi-rs/canvas");
 
 const hangmanWords = {
   easy: ["apple","banana","orange","grape","dog","cat","sun","tree","car","book"],
@@ -155,5 +155,5 @@ async function render(game) {
   ctx.fillText(game.display.join(" "), 200, 200);
   ctx.fillText(`Attempts: ${game.attempts}`, 220, 300);
 
-  return canvas.toBuffer();
+  return canvas.toBuffer("image/png");
 }
