@@ -1,6 +1,5 @@
 const { capitalize, commandUsage } = require("../../utils/text");
 const { formatNow, getGreeting } = require("../../utils/time");
-const axios = require("axios");
 
 module.exports = {
   meta: {
@@ -17,7 +16,14 @@ module.exports = {
   async execute(ctx) {
     const query = ctx.args[0]?.toLowerCase();
 
-    
+    const client = ctx.client || ctx.sock || ctx.conn;
+    const jid = ctx.msg?.key?.remoteJid || ctx.from;
+
+    if (!client?.sendMessage) {
+      return ctx.reply("❌ WhatsApp client unavailable.");
+    }
+
+  
     if (query) {
       const command = ctx.services.commands.get(query);
 
@@ -85,19 +91,17 @@ ${commands}
 🗃️ Thanks for using ${ctx.config.botName} 💖
 🌟 If you find me helpful, please share me with your friends and leave a review!`;
 
-    
+  
     const imageUrl = "https://i.ibb.co/XkV6hgfw/Deryl.jpg";
 
-    const { data } = await axios.get(imageUrl, {
-      responseType: "arraybuffer"
-    });
-
-    const buffer = Buffer.from(data, "binary");
-
     
-    return ctx.reply({
-      image: buffer,
-      caption: message
-    });
+    return client.sendMessage(
+      jid,
+      {
+        image: { url: imageUrl },
+        caption: message
+      },
+      { quoted: ctx.msg }
+    );
   }
 };
