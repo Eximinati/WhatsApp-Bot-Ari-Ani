@@ -1,5 +1,6 @@
 const { capitalize, commandUsage } = require("../../utils/text");
 const { formatNow, getGreeting } = require("../../utils/time");
+const axios = require("axios");
 
 module.exports = {
   meta: {
@@ -38,6 +39,7 @@ module.exports = {
       );
     }
 
+    
     const grouped = ctx.services.commands.grouped();
 
     const icons = {
@@ -57,38 +59,49 @@ module.exports = {
       weeb: "🎴"
     };
 
-    const lines = [
-`╭─❖─❖─❖─❖─❖─❖─❖─❖─╮
-│ 👋 ${getGreeting(ctx.config.timezone)}
-│ 🤖 Bot: ${ctx.config.botName}
-│ ⏰ Time: ${formatNow(ctx.config.timezone)}
-╰─❖─❖─❖─❖─❖─❖─❖─❖─╯
+    let commands = "";
+
+    for (const [category, cmds] of Object.entries(grouped)) {
+      const names = cmds.map(c => c.meta.name).join(", ");
+
+      commands += `*${capitalize(category)} ${icons[category] || "✨"}*\n\`\`\`${names}\`\`\`\n\n`;
+    }
+
+    
+    let message = `👋 ${getGreeting(ctx.config.timezone)} ${ctx.pushName || "User"}, l'm Ari-Ani your WhatsApp assistant bot.
+
+🤖 *${ctx.config.botName}*
+⏰ ${formatNow(ctx.config.timezone)}
 
 🧧 Prefix: [ ${ctx.config.prefix} ]
 
-💡 Use categories below to explore commands.
+💡 *Tips:*
+→ Type *${ctx.config.prefix}help <command>* to view details
+→ Stay updated and explore all features
 
-━━━━━━━━━━━━━━━━━━━━━━━`
-    ];
+📋 *COMMAND LIST:*
+━━━━━━━━━━━━━━━━━━━━━━━
+${commands}
+━━━━━━━━━━━━━━━━━━━━━━━
 
-    for (const [category, commands] of Object.entries(grouped)) {
+🗃️ Thanks for using ${ctx.config.botName} 💖
+🌟 If you find me helpful, please share me with your friends and leave a review!`;
 
-      const names = commands
-        .map(c => c.meta.name)
-        .join(", ");
+    
+    const imageUrl = "https://i.ibb.co/XkV6hgfw/Deryl.jpg";
 
-      lines.push(
-`*${capitalize(category)} ${icons[category] || "✨"} :-*
-\`\`\`${names}\`\`\`
+    const { data } = await axios.get(imageUrl, {
+      responseType: "arraybuffer"
+    });
 
-`
-      ); 
-    }
+    const buffer = Buffer.from(data, "binary");
 
-    lines.push(
-`💡 Type *.help <cmd>* for details.`
-    );
-
-    return ctx.reply(lines.join("\n"));
+    
+    return ctx.sock.sendMessage(ctx.chat, {
+      image: buffer,
+      caption: message,
+      footer: ctx.config.botName,
+      headerType: 4
+    });
   }
 };
