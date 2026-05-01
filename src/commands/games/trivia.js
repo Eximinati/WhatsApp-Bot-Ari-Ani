@@ -1,75 +1,97 @@
 const constants = require("../../config/constants");
 const { formatMoney } = require("../../services/economy-service");
+const { getProgressBar, getXpLevelText, getContextTip, getLoopHook } = require("../../utils/xp-utils");
+const { applyStatBonuses, getStatScalingText, getSafeStats } = require("../../utils/stat-utils");
+
+const FLAVOR_WIN = ["Knowledge pays off!", "Smart move!", "Well done!"];
+const FLAVOR_LOSE = ["So close!", "Better luck next time!", "Learn and try again!"];
 
 module.exports = {
   meta: {
     name: "trivia",
     aliases: [],
     category: "games",
-    description: "Start or answer a trivia question.",
+    description: "Answer trivia questions.",
     cooldownSeconds: 2,
     access: "user",
     chat: "both",
-    usage: "[answer]",
   },
   async execute(ctx) {
-    const displayName = await ctx.services.user.getDisplayName(ctx.msg.sender);
+    const senderId = ctx.msg.senderId;
     const answer = ctx.args.join(" ").trim();
-    if (!answer) {
-      const question = ctx.services.games.startTrivia(ctx.msg.sender);
-      const lines = [question.question];
+    const hasActiveSession = ctx.services.games._triviaSessions?.has(senderId);
+    const balance = await ctx.services.economy.getBalance(senderId);
+    const { stats: rawStats } = await ctx.services.xp.getStats(senderId);
+    const stats = getSafeStats({ statsJson: JSON.stringify(rawStats) });
+    
+    if (!answer && !hasActiveSession) {
+      const question = ctx.services.games.startTrivia(senderId);
+      let text = `🧠 *Trivia Challenge*\n\n*Question:*\n${question.question}\n\n`;
       question.options.forEach((option, index) => {
-        lines.push(`${index + 1}. ${option}`);
+        text += `${index + 1}. ${option}\n`;
       });
-      lines.push(`Answer with ${ctx.config.prefix}trivia <number>`);
-      await ctx.services.visuals.sendQuoteCard({
-        ctx,
-        title: "TRIVIA START",
-        jid: ctx.msg.sender,
-        username: displayName,
-        lines,
-        color: "#8b5cf6",
-      });
+      text += `\n━━━━━━━━━━━━━━━\n*Reply with a number.*\n━━━━━━━━━━━━━━━\n\n💡 Answer to win XP + coins!`;
+      await ctx.reply(text, { parse_mode: "Markdown" });
       return;
     }
-
-    const result = ctx.services.games.answerTrivia(ctx.msg.sender, answer);
+    
+    if (hasActiveSession && !answer) {
+      await ctx.reply(`Reply with a number (1-4).`);
+      return;
+    }
+    
+    const result = ctx.services.games.answerTrivia(senderId, answer);
     if (!result) {
-      await ctx.reply(`No active trivia question. Start one with ${ctx.config.prefix}trivia`);
+      await ctx.reply(`No active trivia. Use /trivia to start.`);
       return;
     }
-
-    if (result.correct) {
-      const reward = constants.economy.gameRewards.trivia;
-      const [profile, balance] = await Promise.all([
-        ctx.services.xp.addXp(ctx.msg.sender, reward.xp),
-        ctx.services.economy.rewardGame(ctx.msg.sender, reward),
-      ]);
-      await ctx.services.visuals.sendQuoteCard({
-        ctx,
-        title: "TRIVIA WIN",
-        jid: ctx.msg.sender,
-        username: displayName,
-        storedAvatarUrl: profile.profile.avatarUrl,
-        lines: [
-          `Correct answer: ${result.correctIndex + 1}. ${result.correctAnswer}`,
-          `Reward: +${reward.xp} XP | +${formatMoney(reward.cash)}`,
-          `Wallet: ${formatMoney(balance.wallet)}`,
-        ],
-        color: "#22c55e",
-      });
+    
+    const reward = constants.economy.gameRewards.trivia;
+    const success = result.correct;
+    
+    const statCalc = applyStatBonuses(reward.cash, reward.xp, stats);
+    const finalReward = { cash: statCalc.finalReward, xp: statCalc.finalXp };
+    
+    if (success) {
+      await ctx.services.economy.rewardGame(senderId, finalReward);
+    }
+    
+    const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, finalReward.xp);
+    const newBalance = await ctx.services.economy.getBalance(senderId);
+    const progress = getProgressBar(profile.xp, profile.level);
+    const levelText = getXpLevelText(profile.level);
+    const tip = getContextTip({ success }, balance, "game");
+    const loopHook = getLoopHook(0, success, "trivia");
+    
+    const xpLeft = Math.max(progress.xpLeft, 0);
+    const levelUpMsg = leveledUp ? `\n🎉 LEVEL UP! You are now Lv ${profile.level}!` : "";
+    
+    const scalingParts = getStatScalingText(statCalc.bonuses);
+    const bonusText = scalingParts.length > 0 ? scalingParts.map(p => ` (${p})`).join("") : "";
+    
+    if (success) {
+      const flavor = FLAVOR_WIN[Math.floor(Math.random() * FLAVOR_WIN.length)];
+      
+      let text = `✅ *Correct!*\n\n${flavor}\n\n━━━━━━━━━━━━━━━\n`;
+      text += `Answer: ${result.correctAnswer}\n`;
+      text += `💰 Earned: +${formatMoney(finalReward.cash)} coins${bonusText}\n`;
+      text += `✨ XP: +${finalReward.xp} ${levelText}\n`;
+      text += `📊 ${progress.bar}\n`;
+      text += `⬆️ ${xpLeft} XP to next level\n`;
+      text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
+      text += `👛 Wallet: ${formatMoney(newBalance.wallet)}\n\n`;
+      text += `${tip}\n${loopHook}`;
+      
+      await ctx.reply(text, { parse_mode: "Markdown" });
       return;
     }
-
-    await ctx.services.visuals.sendQuoteCard({
-      ctx,
-      title: "TRIVIA MISS",
-      jid: ctx.msg.sender,
-      username: displayName,
-      lines: [
-        `Correct answer: ${result.correctIndex + 1}. ${result.correctAnswer}`,
-      ],
-      color: "#ef4444",
-    });
+    
+    const flavor = FLAVOR_LOSE[Math.floor(Math.random() * FLAVOR_LOSE.length)];
+    let text = `❌ *Wrong!*\n\n${flavor}\n\n━━━━━━━━━━━━━━━\n`;
+    text += `Answer: ${result.correctAnswer}\n`;
+    text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
+    text += `${tip}\n${loopHook}`;
+    
+    await ctx.reply(text, { parse_mode: "Markdown" });
   },
 };

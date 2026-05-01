@@ -1,39 +1,57 @@
 const { formatMoney } = require("../../services/economy-service");
 
+const TRANSFER_FEE = 0.02;
+
 module.exports = {
   meta: {
     name: "withdraw",
-    aliases: ["with"],
+    aliases: [],
     category: "economy",
-    description: "Move money from your bank into your wallet.",
-    cooldownSeconds: 2,
+    description: "Withdraw money from bank.",
+    cooldownSeconds: 5,
     access: "user",
     chat: "both",
-    usage: "<amount|all>",
+    usage: "<amount>",
   },
   async execute(ctx) {
-    try {
-      const result = await ctx.services.economy.withdraw(ctx.msg.sender, ctx.args[0]);
-      await ctx.services.visuals.sendEconomyResultCard({
-        ctx,
-        title: "WITHDRAW COMPLETE",
-        jid: ctx.msg.sender,
-        lines: [
-          `Moved: ${formatMoney(result.amount)}`,
-          `Wallet: ${formatMoney(result.account.wallet)}`,
-          `Bank: ${formatMoney(result.account.bank)}`,
-        ],
-        subtitle: "Vault to wallet",
-        chips: ["Banking", "Withdraw"],
-        stats: [
-          { label: "Moved", value: formatMoney(result.amount) },
-          { label: "Wallet", value: formatMoney(result.account.wallet) },
-          { label: "Bank", value: formatMoney(result.account.bank) },
-          { label: "Wealth", value: formatMoney(result.account.totalWealth) },
-        ],
-      });
-    } catch (error) {
-      await ctx.reply(error.message);
+    const senderId = ctx.msg.senderId;
+    const amountInput = ctx.args[0];
+    
+    if (!amountInput) {
+      await ctx.reply(
+        `📜 *Usage:* /withdraw <amount>\n\nUse *all* to withdraw everything.`
+      , { parse_mode: "Markdown" });
+      return;
     }
+    
+    let amount = parseInt(amountInput.replace(/[$,]/g, ""), 10);
+    if (isNaN(amount) || amount <= 0) {
+      await ctx.reply("❌ Invalid amount.");
+      return;
+    }
+    
+    const balance = await ctx.services.economy.getBalance(senderId);
+    
+    if (amount > balance.bank) {
+      await ctx.reply(`❌ Insufficient bank: ${formatMoney(balance.bank)}`);
+      return;
+    }
+    
+    const fee = Math.floor(amount * TRANSFER_FEE);
+    const netAmount = amount - fee;
+    
+    await ctx.services.economy.addBank(senderId, -amount);
+    await ctx.services.economy.addWallet(senderId, netAmount);
+    
+    const newBalance = await ctx.services.economy.getBalance(senderId);
+    
+    await ctx.reply(
+      `💳 *Withdrawal Successful*\n\nYou moved money to your wallet.\n\n━━━━━━━━━━━━━━━\n` +
+      `💰 Withdrawn: ${formatMoney(netAmount)}\n` +
+      `📜 Fee: -${formatMoney(fee)}\n` +
+      `━━━━━━━━━━━━━━━\n\n` +
+      `👛 Wallet: ${formatMoney(newBalance.wallet)}\n` +
+      `🏦 Bank: ${formatMoney(newBalance.bank)}\n\n💡 Tip: /invest to grow!`
+    , { parse_mode: "Markdown" });
   },
 };

@@ -1,5 +1,6 @@
 const axios = require("axios");
 const yts = require("yt-search");
+const { isSpotifyLink, fetchSpotifyMetadata, PLAYLIST_LIMIT, TRACK_DELAY_MS, delay } = require("../../services/spotify-service");
 
 module.exports = {
   meta: {
@@ -23,9 +24,123 @@ module.exports = {
     }
 
     const { args, forcePrompt } = ctx.services.media.extractControlFlags(ctx.args);
-    const arg = args.join(" ").trim();
+    let arg = args.join(" ").trim();
     if (!arg) {
       return ctx.reply("❗ Provide a YouTube link or song name.");
+    }
+
+    // Handle Spotify links
+    if (isSpotifyLink(arg)) {
+      const spotifyData = await fetchSpotifyMetadata(arg);
+      if (!spotifyData) {
+        return ctx.reply("❌ Failed to fetch Spotify data.");
+      }
+
+      // Handle playlist with queue
+      if (spotifyData.type === "playlist") {
+        const trackCount = Math.min(spotifyData.tracks.length, PLAYLIST_LIMIT);
+        await ctx.reply(`📋 Processing playlist: *${spotifyData.name}* (${trackCount} tracks)`);
+
+        let successCount = 0;
+        for (let i = 0; i < spotifyData.tracks.length; i++) {
+          const track = spotifyData.tracks[i];
+          await ctx.reply(`🎵 [${i + 1}/${trackCount}] Processing: ${track.artist} - ${track.title}`);
+
+          try {
+            const { videos } = await yts(track.query + " official audio");
+            if (!videos?.length) {
+              await ctx.reply(`❌ Not found: ${track.query}`);
+              continue;
+            }
+
+            const info = videos[0];
+            const url = info.url;
+
+            let mediaUrl = "";
+            try {
+              const { data } = await axios.get(
+                `https://apis.davidcyril.name.ng/play?query=${encodeURIComponent(url)}`,
+                { timeout: 120000 },
+              );
+              if (data?.status && data?.result?.download_url) {
+                mediaUrl = data.result.download_url;
+              }
+            } catch (e) { /* fallbacks */ }
+
+            if (!mediaUrl) {
+              try {
+                const apiBase = "https://space2bnhz.tail9ef80b.ts.net";
+                const response = await axios.post(
+                  `${apiBase}/song/download`,
+                  { title: info.title },
+                  { timeout: 120000 },
+                );
+                if (response.data?.file_url) {
+                  mediaUrl = response.data.file_url.replace("http://127.0.0.1:5000", apiBase);
+                }
+              } catch (e) { /* fallbacks */ }
+            }
+
+            if (!mediaUrl) {
+              try {
+                const { data } = await axios.get(
+                  `https://apis-keith.vercel.app/download/dlmp3?url=${encodeURIComponent(url)}`,
+                  { timeout: 120000 },
+                );
+                mediaUrl = data?.result?.download || data?.download || data?.url || "";
+              } catch (e) { /* fallbacks */ }
+            }
+
+            if (mediaUrl) {
+              await ctx.services.media.sendOrPrompt({
+                sock: client,
+                message: {
+                  from: jid,
+                  senderId: msg?.senderId || ctx.msg?.senderId,
+                  reply: ctx.reply,
+                  quoted: msg,
+                },
+                userSettings: ctx.userSettings,
+                commandName: "play",
+                forcePrompt: false,
+                media: {
+                  title: info.title,
+                  mediaUrl,
+                  messageType: "audio",
+                  mimetype: "audio/mpeg",
+                  fileName: `${info.title}.mp3`,
+                  contextInfo: {
+                    externalAdReply: {
+                      title: info.title,
+                      body: info.author?.name || "Music",
+                      thumbnailUrl: info.thumbnail,
+                      mediaType: 2,
+                      mediaUrl: url,
+                      sourceUrl: url,
+                    },
+                  },
+                },
+              });
+              successCount++;
+            } else {
+              await ctx.reply(`❌ Download failed: ${track.query}`);
+            }
+          } catch (err) {
+            await ctx.reply(`❌ Error: ${track.query}`);
+          }
+
+          if (i < spotifyData.tracks.length - 1) {
+            await delay(TRACK_DELAY_MS);
+          }
+        }
+
+        return ctx.reply(`✅ Playlist complete! ${successCount}/${trackCount} tracks sent.`);
+      }
+
+      // Single track or album - convert to query and continue normal flow
+      const track = spotifyData.tracks[0];
+      await ctx.reply(`🎵 Spotify detected: ${track.artist} - ${track.title}`);
+      arg = track.query + " official audio";
     }
 
     try {
@@ -108,7 +223,7 @@ module.exports = {
         sock: client,
         message: {
           from: jid,
-          sender: msg?.sender || ctx.msg.sender,
+          senderId: msg?.senderId || ctx.msg?.senderId,
           reply: ctx.reply,
           quoted: msg,
         },

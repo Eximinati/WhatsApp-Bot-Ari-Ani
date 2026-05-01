@@ -1,86 +1,74 @@
 const constants = require("../../config/constants");
 const { formatMoney } = require("../../services/economy-service");
+const { getProgressBar, getXpLevelText, getContextTip, getLoopHook } = require("../../utils/xp-utils");
+
+const FLAVOR_WIN = ["Lucky guess!", "Spot on!", "You got it!"];
 
 module.exports = {
   meta: {
     name: "guess",
     aliases: [],
     category: "games",
-    description: "Start or continue a number guessing game.",
+    description: "Guess the number game.",
     cooldownSeconds: 2,
     access: "user",
     chat: "both",
-    usage: "[number]",
   },
   async execute(ctx) {
-    const displayName = await ctx.services.user.getDisplayName(ctx.msg.sender);
+    const senderId = ctx.msg.senderId;
     const guess = ctx.args[0];
+    const balance = await ctx.services.economy.getBalance(senderId);
+    
     if (!guess) {
-      const range = ctx.services.games.startGuess(ctx.msg.sender);
-      await ctx.services.visuals.sendQuoteCard({
-        ctx,
-        title: "GUESS START",
-        jid: ctx.msg.sender,
-        username: displayName,
-        lines: [
-          `I picked a number between ${range.min} and ${range.max}.`,
-          `Reply with ${ctx.config.prefix}guess <number>`,
-        ],
-        color: "#60a5fa",
-      });
+      const range = ctx.services.games.startGuess(senderId);
+      await ctx.reply(
+        `🎯 *Guess The Number*\n\n*Guess a number between ${range.min} and ${range.max}*\n\n` +
+        `Attempts: ${range.max}\n\n━━━━━━━━━━━━━━━\n*Reply with a number.*\n━━━━━━━━━━━━━━━\n\n💡 Win big XP + coins!`
+      , { parse_mode: "Markdown" });
       return;
     }
 
-    const result = ctx.services.games.submitGuess(ctx.msg.sender, guess);
+    const result = ctx.services.games.submitGuess(senderId, guess);
     if (!result) {
-      await ctx.reply(`No active guess game. Start one with ${ctx.config.prefix}guess`);
+      await ctx.reply(`No active game. Use /guess to start.`);
       return;
     }
 
     if (result.status === "correct") {
       const reward = constants.economy.gameRewards.guess;
       const [profile, balance] = await Promise.all([
-        ctx.services.xp.addXp(ctx.msg.sender, reward.xp),
-        ctx.services.economy.rewardGame(ctx.msg.sender, reward),
+        ctx.services.xp.addXp(senderId, reward.xp),
+        ctx.services.economy.rewardGame(senderId, reward),
       ]);
-      await ctx.services.visuals.sendQuoteCard({
-        ctx,
-        title: "GUESS WIN",
-        jid: ctx.msg.sender,
-        username: displayName,
-        storedAvatarUrl: profile.profile.avatarUrl,
-        lines: [
-          `Correct target: ${result.target}`,
-          `Reward: +${reward.xp} XP | +${formatMoney(reward.cash)}`,
-          `Wallet: ${formatMoney(balance.wallet)}`,
-        ],
-        color: "#22c55e",
-      });
+      const flavor = FLAVOR_WIN[Math.floor(Math.random() * FLAVOR_WIN.length)];
+      const progress = getProgressBar(profile.xp, profile.level);
+      const levelText = getXpLevelText(profile.level);
+      const tip = getContextTip({ success: true }, balance, "game");
+      
+      await ctx.reply(
+        `✅ *Correct!*\n\n${flavor}\n\n━━━━━━━━━━━━━━━\n` +
+        `The number was: ${result.target}\n` +
+        `💰 Earned: +${formatMoney(reward.cash)} coins\n` +
+        `✨ XP: +${reward.xp} ${levelText}\n` +
+        `📊 ${progress.bar}\n` +
+        `⬆️ ${progress.xpLeft} XP to next level\n` +
+        `━━━━━━━━━━━━━━━\n\n` +
+        `👛 Wallet: ${formatMoney(balance.wallet)}\n\n` +
+        `${tip}`
+      , { parse_mode: "Markdown" });
       return;
     }
 
     if (result.status === "lost") {
-      await ctx.services.visuals.sendQuoteCard({
-        ctx,
-        title: "GUESS OVER",
-        jid: ctx.msg.sender,
-        username: displayName,
-        lines: [`Game over. The number was ${result.target}.`],
-        color: "#ef4444",
-      });
+      const loopHook = getLoopHook(0, false, "guess");
+      await ctx.reply(
+        `❌ *Game Over*\n\n━━━━━━━━━━━━━━━\nThe number was: ${result.target}\n━━━━━━━━━━━━━━━\n\n${loopHook}`
+      , { parse_mode: "Markdown" });
       return;
     }
 
-    await ctx.services.visuals.sendQuoteCard({
-      ctx,
-      title: "GUESS HINT",
-      jid: ctx.msg.sender,
-      username: displayName,
-      lines: [
-        result.status === "higher" ? "Go higher." : "Go lower.",
-        `Attempts left: ${result.attemptsLeft}`,
-      ],
-      color: "#f59e0b",
-    });
+    await ctx.reply(
+      `📈 *Hint:* Try *${result.status}*\n\nAttempts left: ${result.attemptsLeft}`
+    , { parse_mode: "Markdown" });
   },
 };

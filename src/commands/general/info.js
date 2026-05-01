@@ -6,7 +6,7 @@ const Reminder = require("../../models/reminder");
 module.exports = {
   meta: {
     name: "info",
-    aliases: ["stats", "status"],
+    aliases: ["status"],
     category: "general",
     description: "Show bot statistics and runtime information",
     cooldownSeconds: 5,

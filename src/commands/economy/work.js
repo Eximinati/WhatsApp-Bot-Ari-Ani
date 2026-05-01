@@ -1,54 +1,79 @@
 const { formatMoney } = require("../../services/economy-service");
+const { getProgressBar, getXpLevelText, getContextTip, getLoopHook } = require("../../utils/xp-utils");
+const { applyStatBonuses, getStatScalingText, getSafeStats } = require("../../utils/stat-utils");
+
+const XP_GAINS = { fish: 8, mine: 10, hunt: 12, work: 15, beg: 3 };
+
+const FLAVOR = ["A productive shift!", "Work paid off today!", "Hard work earns rewards!", "Good earnings today!"];
 
 module.exports = {
   meta: {
     name: "work",
     aliases: [],
     category: "economy",
-    description: "Earn money from a timed work shift.",
+    description: "Work for money.",
     cooldownSeconds: 2,
     access: "user",
     chat: "both",
-    usage: "",
   },
   async execute(ctx) {
-    const result = await ctx.services.economy.work(ctx.msg.sender);
+    const senderId = ctx.msg.senderId;
+    
+    const result = await ctx.services.economy.work(senderId);
+    const balance = await ctx.services.economy.getBalance(senderId);
+    const { stats: rawStats } = await ctx.services.xp.getStats(senderId);
+    const stats = getSafeStats({ statsJson: JSON.stringify(rawStats) });
+    const xpGain = XP_GAINS.work;
+    
     if (!result.ok) {
-      await ctx.services.visuals.sendEconomyResultCard({
-        ctx,
-        title: "WORK COOLDOWN",
-        jid: ctx.msg.sender,
-        lines: [
-          `Try again in ${ctx.services.economy.formatCooldown(result.remainingMs)}.`,
-          `Wallet: ${formatMoney(result.account.wallet)}`,
-        ],
-        subtitle: "Shift timer",
-        chips: ["Life Sim", "Cooldown"],
-        stats: [
-          { label: "Cooldown", value: ctx.services.economy.formatCooldown(result.remainingMs) },
-          { label: "Wallet", value: formatMoney(result.account.wallet) },
-          { label: "Bank", value: formatMoney(result.account.bank) },
-        ],
-      });
+      const cooldownSec = Math.ceil((result.remainingMs || 0) / 1000);
+      await ctx.reply(
+        `💼 *Work*\n\n⏳ Cooldown: ${cooldownSec}s\n\n━━━━━━━━━━━━━━━\n` +
+        `👛 Wallet: ${formatMoney(result.account?.wallet || 0)}\n` +
+        `🏦 Bank: ${formatMoney(result.account?.bank || 0)}\n━━━━━━━━━━━━━━━\n\n` +
+        `👉 Work again in ${cooldownSec}s`
+      , { parse_mode: "Markdown" });
       return;
     }
-
-    await ctx.services.visuals.sendEconomyResultCard({
-      ctx,
-      title: "WORK PAYOUT",
-      jid: ctx.msg.sender,
-      lines: [
-        result.message,
-        `Earned: +${formatMoney(result.reward)}`,
-        `Wallet: ${formatMoney(result.account.wallet)}`,
-      ],
-      subtitle: "Shift cleared",
-      chips: ["Life Sim", "Work"],
-      stats: [
-        { label: "Earned", value: formatMoney(result.reward) },
-        { label: "Wallet", value: formatMoney(result.account.wallet) },
-        { label: "Bank", value: formatMoney(result.account.bank) },
-      ],
-    });
+    
+    const success = result.ok ?? false;
+    const baseReward = result.reward || 0;
+    const baseXp = xpGain;
+    
+    const statCalc = applyStatBonuses(baseReward, baseXp, stats);
+    const finalReward = statCalc.finalReward;
+    const finalXp = statCalc.finalXp;
+    
+    if (finalReward > 0 && success) {
+      await ctx.services.economy.addWallet(senderId, finalReward);
+    }
+    
+    const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, finalXp);
+    const newBalance = await ctx.services.economy.getBalance(senderId);
+    const progress = getProgressBar(profile.xp, profile.level);
+    const levelText = getXpLevelText(profile.level);
+    const tip = getContextTip({ success }, balance, "work");
+    const loopHook = getLoopHook(0, success, "work");
+    
+    const flavor = FLAVOR[Math.floor(Math.random() * FLAVOR.length)];
+    const xpLeft = Math.max(progress.xpLeft, 0);
+    const levelUpMsg = leveledUp ? `\n🎉 LEVEL UP! You are now Lv ${profile.level}!` : "";
+    
+    const scalingParts = getStatScalingText(statCalc.bonuses);
+    const bonusText = scalingParts.length > 0 ? scalingParts.map(p => ` (${p})`).join("") : "";
+    
+    let text = `💼 *Work Complete*\n\n💼 ${flavor}\n\n`;
+    text += `━━━━━━━━━━━━━━━\n`;
+    text += `💰 Earned: +${formatMoney(finalReward)} coins${bonusText}\n`;
+    text += `✨ XP: +${finalXp} ${levelText}\n`;
+    text += `📊 ${progress.bar}\n`;
+    text += `⬆️ ${xpLeft} XP to next level\n`;
+    text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
+    
+    text += `👛 Wallet: ${formatMoney(newBalance.wallet)}\n`;
+    text += `🏦 Bank: ${formatMoney(newBalance.bank)}\n\n`;
+    text += `${tip}\n${loopHook}`;
+    
+    await ctx.reply(text, { parse_mode: "Markdown" });
   },
 };

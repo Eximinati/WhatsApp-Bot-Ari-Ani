@@ -3,28 +3,24 @@ module.exports = {
     name: "leaderboard",
     aliases: ["top"],
     category: "games",
-    description: "Show the top XP leaderboard.",
+    description: "Show top XP players.",
     cooldownSeconds: 8,
     access: "user",
     chat: "both",
-    usage: "",
   },
   async execute(ctx) {
     const leaderboard = await ctx.services.xp.getLeaderboard(10);
     const lines = await Promise.all(
       leaderboard.map(async (entry, index) => {
         const name = await ctx.services.user.getDisplayName(entry.jid);
-        return `${index + 1}. ${name} - ${entry.xp} XP | Lv ${entry.level}`;
+        const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}.`;
+        return `${medal} ${name} - ${entry.xp} XP (Lv ${entry.level})`;
       }),
     );
 
-    await ctx.services.visuals.sendLeaderboardCard({
-      ctx,
-      title: "XP LEADERBOARD",
-      username: await ctx.services.user.getDisplayName(ctx.msg.sender),
-      jid: ctx.msg.sender,
-      lines,
-      caption: "Top XP ladder",
-    });
+    let text = `🏆 *XP Leaderboard*\n\n*Top 10 Players*\n\n`;
+    text += lines.join("\n");
+    
+    await ctx.reply(text, { parse_mode: "Markdown" });
   },
 };

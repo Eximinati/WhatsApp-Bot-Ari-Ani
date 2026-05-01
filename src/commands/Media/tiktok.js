@@ -58,7 +58,7 @@ module.exports = {
         sock: client,
         message: {
           from: jid,
-          sender: msg?.sender || ctx.msg.sender,
+          senderId: msg?.senderId || ctx.msg?.senderId,
           reply: ctx.reply,
           quoted: msg,
         },

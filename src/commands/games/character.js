@@ -135,17 +135,14 @@ module.exports = {
       const analysis =
 `🔮 *Character Analysis*
 
-👤 User:
-@${userToAnalyze.split("@")[0]}
-
+━━━━━━━━━━━━━━━
 ✨ Key Traits:
 ${scores.join("\n")}
+━━━━━━━━━━━━━━━
 
-🎯 Overall Rating:
-${overall}%
+🎯 Overall Rating: ${overall}%
 
-⚠️ Just for fun.
-`;
+⚠️ Just for fun.`;
 
       return await client.sendMessage(
         jid,

@@ -193,9 +193,17 @@ const userSettingsSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    activeBuffsJson: {
+activeBuffsJson: {
       type: String,
       default: "",
+    },
+    statsJson: {
+      type: String,
+      default: JSON.stringify({ luck: 1, strength: 1, intelligence: 1, defense: 1 }),
+    },
+    statPoints: {
+      type: Number,
+      default: 0,
     },
     economyStatsJson: {
       type: String,

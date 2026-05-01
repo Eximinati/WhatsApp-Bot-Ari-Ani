@@ -1,53 +1,106 @@
 const { formatMoney } = require("../../services/economy-service");
+const { getProgressBar, getXpLevelText, getContextTip, getLoopHook } = require("../../utils/xp-utils");
+const { rollRareEvent, applyStatBonuses, getStatScalingText, getSafeStats } = require("../../utils/stat-utils");
+
+const XP_GAINS = { fish: 8, mine: 10, hunt: 12, work: 15, beg: 3 };
+const BASE_BONUS = { fish: 100, mine: 150, hunt: 120, work: 80, beg: 20 };
+
+const FLAVOR = {
+  success: ["A successful hunt!", "Your prey was caught!", "The hunt paid off!"],
+  fail: ["Your prey escaped.", "No catch today.", "The wild remains free."]
+};
 
 module.exports = {
   meta: {
     name: "hunt",
     aliases: [],
     category: "economy",
-    description: "Track and hunt for a payout.",
+    description: "Go hunting.",
     cooldownSeconds: 2,
     access: "user",
     chat: "both",
-    usage: "",
   },
   async execute(ctx) {
-    const result = await ctx.services.economy.hunt(ctx.msg.sender);
+    const senderId = ctx.msg.senderId;
+    
+    const result = await ctx.services.economy.hunt(senderId);
+    const balance = await ctx.services.economy.getBalance(senderId);
+    const { stats: rawStats } = await ctx.services.xp.getStats(senderId);
+    const stats = getSafeStats({ statsJson: JSON.stringify(rawStats) });
+    const xpGain = XP_GAINS.hunt;
+    
     if (!result.ok) {
-      await ctx.services.visuals.sendEconomyResultCard({
-        ctx,
-        title: "HUNT COOLDOWN",
-        jid: ctx.msg.sender,
-        lines: [
-          `Try again in ${ctx.services.economy.formatCooldown(result.remainingMs)}.`,
-          `Wallet: ${formatMoney(result.account.wallet)}`,
-        ],
-        subtitle: "Trail needs time",
-        chips: ["Gather", "Hunt"],
-        stats: [
-          { label: "Cooldown", value: ctx.services.economy.formatCooldown(result.remainingMs) },
-          { label: "Wallet", value: formatMoney(result.account.wallet) },
-        ],
-      });
+      const cooldownSec = Math.ceil((result.remainingMs || 0) / 1000);
+      await ctx.reply(
+        `🏹 *Hunting*\n\n⏳ Cooldown: ${cooldownSec}s\n\n━━━━━━━━━━━━━━━\n` +
+        `👛 Wallet: ${formatMoney(result.account?.wallet || 0)}\n` +
+        `🏦 Bank: ${formatMoney(result.account?.bank || 0)}\n━━━━━━━━━━━━━━━\n\n` +
+        `👉 Hunt again in ${cooldownSec}s`
+      , { parse_mode: "Markdown" });
       return;
     }
-
-    await ctx.services.visuals.sendEconomyResultCard({
-      ctx,
-      title: result.success ? "HUNT REWARD" : "TRAIL GONE COLD",
-      jid: ctx.msg.sender,
-      lines: [
-        result.message,
-        `${result.success ? "Earned" : "Reward"}: ${formatMoney(result.reward)}`,
-        `Wallet: ${formatMoney(result.account.wallet)}`,
-      ],
-      subtitle: result.success ? "Target secured" : "Nothing to bring back",
-      chips: ["Gather", "Hunt", result.success ? "Success" : "Miss"],
-      stats: [
-        { label: result.success ? "Earned" : "Wallet", value: result.success ? formatMoney(result.reward) : formatMoney(result.account.wallet) },
-        { label: "Wallet", value: formatMoney(result.account.wallet) },
-        { label: "Bank", value: formatMoney(result.account.bank) },
-      ],
-    });
+    
+    const success = result.success ?? false;
+    const baseReward = result.reward || 0;
+    const baseXp = xpGain;
+    
+    const statCalc = applyStatBonuses(baseReward, baseXp, stats);
+    let finalReward = statCalc.finalReward;
+    let finalXp = statCalc.finalXp;
+    
+    const rare = rollRareEvent(BASE_BONUS.hunt, xpGain, stats);
+    if (rare && success) {
+      if (rare.coins) finalReward += rare.coins;
+      if (rare.xp) finalXp += rare.xp;
+      if (rare.multiplier) finalReward = Math.floor(finalReward * rare.multiplier);
+    }
+    
+    if (finalReward > 0 && success) {
+      await ctx.services.economy.addWallet(senderId, finalReward);
+    }
+    
+    const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, finalXp);
+    const newBalance = await ctx.services.economy.getBalance(senderId);
+    const progress = getProgressBar(profile.xp, profile.level);
+    const levelText = getXpLevelText(profile.level);
+    const tip = getContextTip({ success }, balance, "gathering");
+    const loopHook = getLoopHook(0, success, "hunt");
+    
+    const flavor = success 
+      ? FLAVOR.success[Math.floor(Math.random() * FLAVOR.success.length)]
+      : FLAVOR.fail[Math.floor(Math.random() * FLAVOR.fail.length)];
+    
+    const title = success ? "🏹 Hunting Result" : "🏹 No Catch";
+    const emoji = success ? "🦌" : "💨";
+    const xpLeft = Math.max(progress.xpLeft, 0);
+    const levelUpMsg = leveledUp ? `\n🎉 LEVEL UP! You are now Lv ${profile.level}!` : "";
+    
+    const scalingParts = getStatScalingText(statCalc.bonuses);
+    const bonusText = scalingParts.length > 0 ? scalingParts.map(p => ` (${p})`).join("") : "";
+    
+    let text = `${title}\n\n${emoji} ${flavor}\n\n`;
+    
+    if (rare && success) {
+      text += `🎉 *RARE EVENT!*\n${rare.text}\n\n━━━━━━━━━━━━━━━\n`;
+      text += `💰 Earned: +${formatMoney(finalReward)} coins\n`;
+      if (rare.coins) text += `🎁 Bonus: +${formatMoney(rare.coins)} coins!\n`;
+      text += `✨ XP: +${finalXp} ${levelText}${bonusText}\n`;
+      text += `📊 ${progress.bar}\n`;
+      text += `⬆️ ${xpLeft} XP to next level\n`;
+      text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
+    } else {
+      text += `━━━━━━━━━━━━━━━\n`;
+      text += `💰 Earned: ${success ? "+" : ""}${formatMoney(finalReward)} coins${bonusText}\n`;
+      text += `✨ XP: +${finalXp} ${levelText}\n`;
+      text += `📊 ${progress.bar}\n`;
+      text += `⬆️ ${xpLeft} XP to next level\n`;
+      text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
+    }
+    
+    text += `👛 Wallet: ${formatMoney(newBalance.wallet)}\n`;
+    text += `🏦 Bank: ${formatMoney(newBalance.bank)}\n\n`;
+    text += `${tip}\n${loopHook}`;
+    
+    await ctx.reply(text, { parse_mode: "Markdown" });
   },
 };

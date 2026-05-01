@@ -365,6 +365,14 @@ class EconomyService {
     return this.toBalanceSummary(account, progression);
   }
 
+  async addBank(jid, amount) {
+    const account = await this.getAccount(jid);
+    account.bank = clampMoney(account.bank + amount);
+    await account.save();
+    const progression = await this.getProgression(account);
+    return this.toBalanceSummary(account, progression);
+  }
+
   async deposit(jid, amountInput) {
     const account = await this.getAccount(jid);
     const amount = parseAmountInput(amountInput, account.wallet);
@@ -650,12 +658,23 @@ class EconomyService {
       );
     }
 
+    const isLoss = Math.random() < constants.economy.investLossRate;
     const multiplier = this.getPayoutMultiplier(progression, "invest");
-    const rawOutcome = randomBetween(
-      Math.round(amount * constants.economy.investMinMultiplier),
-      Math.round(amount * constants.economy.investMaxMultiplier),
-    );
-    const payout = this.applyPayoutMultiplier(rawOutcome, progression, "invest");
+    let rawOutcome, payout, outcomeMessage;
+
+    if (isLoss) {
+      rawOutcome = Math.round(amount * 0.5);
+      payout = 0;
+      outcomeMessage = "Your investment performed poorly this cycle.";
+    } else {
+      rawOutcome = randomBetween(
+        Math.round(amount * constants.economy.investMinMultiplier),
+        Math.round(amount * constants.economy.investMaxMultiplier),
+      );
+      payout = this.applyPayoutMultiplier(rawOutcome, progression, "invest");
+      outcomeMessage = "Your investment grew nicely.";
+    }
+
     const durationMs = this.adjustCooldown(
       constants.economy.investDurationMs,
       progression,
@@ -684,7 +703,7 @@ class EconomyService {
       amount,
       expectedPayout: payout,
       readyAt: pending.dueAt,
-      message: "Your money is on the market. Use /collect when the position matures.",
+      message: isLoss ? "Your investment didn't perform well this cycle. Use /collect to retrieve what's left." : "Your money is on the market. Use /collect when the position matures.",
       account: this.toBalanceSummary(account, progression),
     };
   }

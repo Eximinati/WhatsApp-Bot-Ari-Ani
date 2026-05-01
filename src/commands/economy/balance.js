@@ -5,11 +5,10 @@ module.exports = {
     name: "balance",
     aliases: ["bal"],
     category: "economy",
-    description: "Show your wallet, bank, and total wealth.",
+    description: "Show total wealth.",
     cooldownSeconds: 3,
     access: "user",
     chat: "both",
-    usage: "[@user]",
   },
   async execute(ctx) {
     const targetJid =
@@ -26,33 +25,22 @@ module.exports = {
       0,
     );
 
-    const lines = [
-      ...ctx.services.economy.formatBalanceLines(balance),
-      `Wealth rank: #${wealthRank.rank}`,
-      `Inventory items: ${itemCount}`,
-      `Job: ${balance.jobKey || "none"} | Faction: ${balance.factionKey || "none"}`,
-      `Equipped tool: ${balance.equippedToolKey || "none"}`,
-    ];
+    const total = balance.wallet + balance.bank;
+    const job = balance.jobKey || "None";
+    const tool = balance.equippedToolKey || "None";
+    const faction = balance.factionKey || "None";
 
-    await ctx.services.visuals.sendEconomyResultCard({
-      ctx,
-      title: "BALANCE",
-      jid: targetJid,
-      subtitle: `${displayName} · Economy`,
-      lines,
-      caption: lines.join("\n"),
-      chips: [
-        `Rank #${wealthRank.rank}`,
-        balance.jobKey || "No Job",
-        balance.factionKey || "No Faction",
-      ],
-      stats: [
-        { label: "Wallet", value: formatMoney(balance.wallet) },
-        { label: "Bank", value: formatMoney(balance.bank) },
-        { label: "Wealth", value: formatMoney(balance.totalWealth) },
-        { label: "Items", value: String(itemCount) },
-        { label: "Tool", value: balance.equippedToolKey || "None" },
-      ],
-    });
+    await ctx.reply(
+      `📊 *${displayName}'s Balance*\n\n` +
+      `━━━━━━━━━━━━━━━\n` +
+      `👛 Wallet: ${formatMoney(balance.wallet)}\n` +
+      `🏦 Bank: ${formatMoney(balance.bank)}\n` +
+      `💰 Total: ${formatMoney(total)}\n` +
+      `━━━━━━━━━━━━━━━\n\n` +
+      `📈 Rank: #${wealthRank.rank}\n` +
+      `🔧 Tool: ${tool}\n` +
+      `💼 Job: ${job}\n` +
+      `⚔️ Faction: ${faction}`
+    , { parse_mode: "Markdown" });
   },
 };
