@@ -8,12 +8,19 @@ function createGroupParticipantsHandler({ logger, services, groupMetadataCache }
   return async function handleGroupParticipantsUpdate(sock, update) {
     try {
       const settings = await services.settings.getGroupSettings(update.id);
-      if (!settings.welcomeEnabled) {
-        await groupMetadataCache.refresh(sock, update.id);
+
+      // Only refresh metadata; handle case where bot was just added and
+      // groupMetadata() returns "forbidden" until perms propagate.
+      const metadata = await groupMetadataCache.refresh(sock, update.id);
+      if (!metadata || !metadata.subject) {
+        // Metadata not available yet — likely bot just joined this group.
+        // The cache will populate on next command or participant event.
         return;
       }
 
-      const metadata = await groupMetadataCache.refresh(sock, update.id);
+      if (!settings.welcomeEnabled) {
+        return;
+      }
 
       for (const participant of update.participants) {
         const name = participant.split("@")[0];

@@ -1,4 +1,4 @@
-const { normalizeJid } = require("./jid");
+const { normalizeJid } = require("./identity-resolver");
 
 function clampMoney(value) {
   return Math.max(0, Math.floor(Number(value) || 0));

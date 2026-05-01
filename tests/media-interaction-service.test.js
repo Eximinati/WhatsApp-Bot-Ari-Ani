@@ -6,13 +6,18 @@ const { MediaInteractionService } = require("../src/services/media-interaction-s
 function createService(overrides = {}) {
   const updates = [];
   const users = new Map();
+  const normalize = (jid) => String(jid || "").split("@")[0];
   const settings = {
-    getUserSettings: async (jid) => users.get(jid) || { jid, mediaPreferencesJson: "", mediaMenuStateJson: "" },
+    getUserSettings: async (jid) => {
+      const key = normalize(jid);
+      return users.get(key) || { jid: key, mediaPreferencesJson: "", mediaMenuStateJson: "" };
+    },
     updateUserSettings: async (jid, patch) => {
+      const key = normalize(jid);
       updates.push({ jid, patch });
-      const current = users.get(jid) || { jid, mediaPreferencesJson: "", mediaMenuStateJson: "" };
+      const current = users.get(key) || { jid: key, mediaPreferencesJson: "", mediaMenuStateJson: "" };
       const next = { ...current, ...patch };
-      users.set(jid, next);
+      users.set(key, next);
       return next;
     },
   };
@@ -31,8 +36,8 @@ function createService(overrides = {}) {
 
 test("media interaction service saves and reads per-command preferences", async () => {
   const { service, settings } = createService();
-  await service.setPreference("user@s.whatsapp.net", "video", "document");
-  const user = await settings.getUserSettings("user@s.whatsapp.net");
+  await service.setPreference("user", "video", "document");
+  const user = await settings.getUserSettings("user");
 
   assert.equal(service.getPreference(user, "video"), "document");
   assert.equal(service.getPreference(user, "play"), "ask");
@@ -49,7 +54,7 @@ test("media interaction service prompts when no preference is saved", async () =
       sender: "user@s.whatsapp.net",
       reply: async (text) => replies.push(text),
     },
-    userSettings: await settings.getUserSettings("user@s.whatsapp.net"),
+    userSettings: await settings.getUserSettings("user"),
     commandName: "video",
     media: {
       title: "Test Video",
@@ -67,7 +72,7 @@ test("media interaction service sends immediately from saved preference", async 
   const { service, settings } = createService();
   const sent = [];
 
-  await service.setPreference("user@s.whatsapp.net", "play", "document");
+  await service.setPreference("user", "play", "document");
   await service.sendOrPrompt({
     sock: {
       sendMessage: async (_jid, payload) => {
@@ -79,7 +84,7 @@ test("media interaction service sends immediately from saved preference", async 
       sender: "user@s.whatsapp.net",
       reply: async () => {},
     },
-    userSettings: await settings.getUserSettings("user@s.whatsapp.net"),
+    userSettings: await settings.getUserSettings("user"),
     commandName: "play",
     media: {
       title: "Test Song",
@@ -98,7 +103,7 @@ test("media interaction service handles remembered choice replies", async () => 
   const sent = [];
   const replies = [];
 
-  await service.saveMenuState("user@s.whatsapp.net", {
+  await service.saveMenuState("user", {
     step: "format",
     commandName: "video",
     chatJid: "group@g.us",
@@ -119,14 +124,14 @@ test("media interaction service handles remembered choice replies", async () => 
     },
     message: {
       text: "4",
-      sender: "user@s.whatsapp.net",
+      senderId: "user",
       from: "group@g.us",
       reply: async (text) => replies.push(text),
     },
-    userSettings: await settings.getUserSettings("user@s.whatsapp.net"),
+    userSettings: await settings.getUserSettings("user"),
   });
 
-  const updated = await settings.getUserSettings("user@s.whatsapp.net");
+  const updated = await settings.getUserSettings("user");
   assert.equal(handled, true);
   assert.equal(service.getPreference(updated, "video"), "document");
   assert.equal(sent.length, 1);

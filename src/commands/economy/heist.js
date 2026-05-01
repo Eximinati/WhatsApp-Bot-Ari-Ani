@@ -1,6 +1,6 @@
 const { formatMoney } = require("../../services/economy-service");
 const { resolveTransferTarget } = require("../../utils/economy");
-const { mentionTag } = require("../../utils/jid");
+const { mentionTag } = require("../../utils/identity-resolver");
 
 module.exports = {
   meta: {

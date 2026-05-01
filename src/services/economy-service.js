@@ -15,6 +15,7 @@ const {
   stringifyInventory,
   totalWealth,
 } = require("../utils/economy");
+const { extract } = require("../utils/identity-resolver");
 
 function sumDomainModifier(entities, bucket, domain) {
   return entities.reduce((sum, entity) => {
@@ -121,9 +122,10 @@ class EconomyService {
   }
 
   async getAccount(jid) {
+    const id = extract(jid);
     const account = await UserSetting.findOneAndUpdate(
-      { jid },
-      { $setOnInsert: { jid } },
+      { jid: id },
+      { $setOnInsert: { jid: id } },
       {
         new: true,
         upsert: true,

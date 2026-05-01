@@ -155,7 +155,7 @@ async function maybeHandleVuMenuReply({
   }
 
   const choice = text.toLowerCase();
-  const sender = message.sender;
+  const sender = message.senderId;
 
   if (state.step === "login_username") {
     if (["0", "cancel", "exit"].includes(choice)) {

@@ -62,7 +62,7 @@ test("status handler resends captured text statuses for send and /send replies",
     message: {
       text: "/send",
       from: "chat@s.whatsapp.net",
-      sender: "user@s.whatsapp.net",
+      senderId: "user",
       raw: {},
       quoted: {
         id: "STATUS2",

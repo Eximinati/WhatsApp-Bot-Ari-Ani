@@ -93,7 +93,8 @@
     "heroku-prebuild": "npm install",
     "session:reset": "node src/scripts/session-reset.js",
     "session:unlock": "node src/scripts/session-unlock.js",
-    "test": "node --test"
+    "test": "node --test",
+    "lint:identity": "powershell -File scripts/check-identity-usage.ps1"
   },
 
   "author": "Aku",

@@ -1,5 +1,6 @@
 const { BufferJSON } = require("../utils/buffer-json");
 const { downloadMessageBuffer } = require("../utils/media");
+const { extract } = require("../utils/identity-resolver");
 
 function createStatusHandler({ logger, services }) {
   function parseRecord(record) {
@@ -71,7 +72,7 @@ function createStatusHandler({ logger, services }) {
         logger.info(
           {
             area: "STATUS",
-            sender: message.sender.split("@")[0],
+            sender: extract(message.senderId),
             quotedId: message.quoted.id,
             status: "missing",
           },
@@ -113,7 +114,7 @@ function createStatusHandler({ logger, services }) {
         logger.info(
           {
             area: "STATUS",
-            sender: message.sender.split("@")[0],
+            sender: extract(message.senderId),
             quotedId: message.quoted.id,
             status: "resent",
           },
@@ -123,7 +124,7 @@ function createStatusHandler({ logger, services }) {
         logger.warn(
           {
             area: "STATUS",
-            sender: message.sender.split("@")[0],
+            sender: extract(message.senderId),
             quotedId: message.quoted.id,
             error,
           },

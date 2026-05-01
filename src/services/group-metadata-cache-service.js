@@ -29,9 +29,18 @@ class GroupMetadataCacheService {
       return cached;
     }
 
-    const metadata = await sock.groupMetadata(jid);
-    this.set(jid, metadata);
-    return metadata;
+    try {
+      const metadata = await sock.groupMetadata(jid);
+      this.set(jid, metadata);
+      return metadata;
+    } catch (error) {
+      if (error?.message === "forbidden" || error?.statusCode === 500) {
+        this.logger.info({ jid }, "Group metadata not yet available (bot may have just joined)");
+      } else {
+        this.logger.warn({ error, jid }, "Failed to fetch group metadata");
+      }
+      return null;
+    }
   }
 
   async refresh(sock, jid) {
@@ -44,7 +53,13 @@ class GroupMetadataCacheService {
       this.set(jid, metadata);
       return metadata;
     } catch (error) {
-      this.logger.warn({ error, jid }, "Failed to refresh group metadata");
+      // "forbidden" is expected right after bot joins a group — metadata
+      // access hasn't propagated yet. Log at info level, not warn.
+      if (error?.message === "forbidden" || error?.statusCode === 500) {
+        this.logger.info({ jid }, "Group metadata not yet available (bot may have just joined)");
+      } else {
+        this.logger.warn({ error, jid }, "Failed to refresh group metadata");
+      }
       return this.get(jid);
     }
   }

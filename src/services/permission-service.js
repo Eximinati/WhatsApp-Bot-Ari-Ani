@@ -1,20 +1,50 @@
-function createPermissionService(config) {
+const { extract } = require("../utils/identity-resolver");
+
+function createPermissionService(config, userService = null) {
+  async function isOwnerAsync(jid) {
+    const id = extract(jid);
+    if (config.ownerIds.includes(id)) return true;
+    
+    // Check database for owner role
+    if (userService) {
+      const identity = await userService.getIdentity(id);
+      if (identity?.role === "owner") return true;
+    }
+    return false;
+  }
+
+  async function isModAsync(jid) {
+    const id = extract(jid);
+    if ((config.modIds || []).includes(id)) return true;
+    
+    // Check database for mod/owner role
+    if (userService) {
+      const identity = await userService.getIdentity(id);
+      if (identity?.role === "mod" || identity?.role === "owner") return true;
+    }
+    return false;
+  }
+
+  // Sync versions for backward compatibility
   function isOwner(jid) {
-    return config.ownerJids.includes(jid);
+    const id = extract(jid);
+    return config.ownerIds.includes(id);
   }
 
   function isMod(jid) {
-    return (config.modJids || []).includes(jid);
+    const id = extract(jid);
+    return (config.modIds || []).includes(id);
   }
 
-  function getPermissionContext(message, metadata, botJid, userSettings = null) {
+  async function getPermissionContext(message, metadata, botJid, userSettings = null) {
     const participants = metadata?.participants || [];
     const adminJids = participants
       .filter((participant) => participant.admin)
       .map((participant) => participant.id);
     const accessState = userSettings?.accessState || "none";
-    const owner = isOwner(message.sender);
-    const mod = isMod(message.sender);
+    const senderId = message.senderId;
+    const owner = await isOwnerAsync(senderId);
+    const mod = await isModAsync(senderId);
 
     return {
       accessState,
@@ -23,8 +53,8 @@ function createPermissionService(config) {
       isOwner: owner,
       isMod: mod,
       isStaff: owner || mod,
-      isAdmin: adminJids.includes(message.sender),
-      isBotAdmin: botJid ? adminJids.includes(botJid) : false,
+      isAdmin: adminJids.some((jid) => extract(jid) === senderId),
+      isBotAdmin: botJid ? adminJids.some((jid) => extract(jid) === extract(botJid)) : false,
       adminJids,
     };
   }

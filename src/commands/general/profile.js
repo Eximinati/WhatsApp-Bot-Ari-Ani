@@ -1,4 +1,4 @@
-const { mentionTag } = require("../../utils/jid");
+const { mentionTag } = require("../../utils/identity-resolver");
 const { formatMoney } = require("../../services/economy-service");
 
 module.exports = {

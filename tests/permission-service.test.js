@@ -11,7 +11,7 @@ test("permission service resolves owner and admin access", () => {
   });
 
   const context = permissions.getPermissionContext(
-    { sender: "admin@s.whatsapp.net", isGroup: true },
+    { senderId: "admin", isGroup: true },
     {
       participants: [
         { id: "admin@s.whatsapp.net", admin: "admin" },
@@ -35,19 +35,19 @@ test("permission service supports trusted access and private bot gating", () => 
   });
 
   const allowed = permissions.getPermissionContext(
-    { sender: "allowed@s.whatsapp.net", isGroup: false },
+    { senderId: "allowed", isGroup: false },
     null,
     null,
     { accessState: "allowed" },
   );
   const trusted = permissions.getPermissionContext(
-    { sender: "trusted@s.whatsapp.net", isGroup: false },
+    { senderId: "trusted", isGroup: false },
     null,
     null,
     { accessState: "trusted" },
   );
   const stranger = permissions.getPermissionContext(
-    { sender: "stranger@s.whatsapp.net", isGroup: false },
+    { senderId: "stranger", isGroup: false },
     null,
     null,
     { accessState: "none" },

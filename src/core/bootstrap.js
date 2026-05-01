@@ -1,6 +1,8 @@
 const path = require("path");
 const { config } = require("../config/env");
 const { createLogger } = require("../config/logger");
+const { initIdentityResolver, loadMappingsFromStore } = require("../utils/identity-resolver");
+const UserIdentity = require("../models/user-identity");
 const { connectDatabase, disconnectDatabase, pingDatabase } = require("./database");
 const { createHttpServer } = require("./http-server");
 const { CommandRegistry } = require("../services/command-registry");
@@ -58,6 +60,8 @@ const { ConnectionManager } = require("./whatsapp/connection-manager");
 
 async function bootstrap() {
   const logger = createLogger(config);
+  const { setLogger } = require("../utils/identity-resolver");
+  setLogger(logger);
   const qrBaseUrl = config.publicBaseUrl || `http://localhost:${config.port}`;
   const runtimeState = {
     startedAt: new Date().toISOString(),
@@ -72,6 +76,22 @@ async function bootstrap() {
 
   const dbConnection = await connectDatabase({ config, logger });
 
+  initIdentityResolver({
+    upsert: async (id, phone) => {
+      if (!id || id === "status") return;
+      await UserIdentity.updateOne(
+        { id },
+        {
+          $set: { phone: phone || undefined },
+          $setOnInsert: { id, role: "user", createdAt: new Date() },
+        },
+        { upsert: true },
+      );
+    },
+    loadAll: async () => UserIdentity.find({}).lean(),
+  });
+  await loadMappingsFromStore();
+
   const groupMetadataCache = new GroupMetadataCacheService({ logger });
   const services = {
     user: new UserService(),
@@ -85,7 +105,6 @@ async function bootstrap() {
     islamic: new IslamicService({ logger }),
     messages: new MessageStoreService(),
     cooldowns: new CooldownService(),
-    permission: createPermissionService(config),
     vu: new VuService({ config, logger }),
     external: {
       google: new GoogleSearchService({
@@ -111,6 +130,9 @@ async function bootstrap() {
     settings: services.settings,
   });
   services.status = createStatusHandler({ logger, services });
+  
+  // Initialize permission service AFTER services object is complete
+  services.permission = createPermissionService(config, services.user);
 
   await services.settings.importLegacyData();
 
@@ -133,7 +155,7 @@ async function bootstrap() {
     throw new Error(
       `Another active bot instance is still using SESSION_ID=${config.sessionId}. Active lease owner=${ownerLabel}.`
         + (retryAfterSeconds !== null ? ` Retry after about ${retryAfterSeconds}s.` : "")
-        + " If you already stopped the bot on this machine, run `npm run session:unlock` to clear the stale runtime lease.",
+        + " If you already stopped the bot on this machine, run `npm run session:unlock -- --confirm` to clear the stale runtime lease.",
     );
   }
 
@@ -237,12 +259,21 @@ async function bootstrap() {
     shuttingDown = true;
     logger.info({ signal }, "Shutting down Ari-Ani");
     clearInterval(leaseHeartbeat);
+
+    // Release the active instance lease FIRST with its own timeout so
+    // hung socket / DB operations below cannot block it.
+    await Promise.race([
+      activeInstance.release(),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ]).catch((error) => {
+      logger.error({ error }, "Failed to release active instance lease during shutdown");
+    });
+
     await Promise.allSettled([
       Promise.resolve().then(() => keepalive?.stop()),
       Promise.resolve().then(() => scheduler?.stop()),
       Promise.resolve().then(() => manager?.stop()),
       Promise.resolve().then(() => http?.close()),
-      activeInstance.release(),
       disconnectDatabase({ logger }),
     ]);
   };
@@ -267,13 +298,28 @@ async function bootstrap() {
     });
   }, config.runtime.renewIntervalMs);
 
-  process.on("SIGINT", async () => {
-    await shutdown("SIGINT");
+  const gracefulShutdown = async (signal) => {
+    // Force exit if anything hangs. The lease has already been released
+    // separately in shutdown().
+    const forceExitTimeout = setTimeout(() => {
+      logger.error({ signal }, "Shutdown timed out after 10s, forcing exit");
+      process.exit(1);
+    }, 10_000);
+
+    try {
+      await shutdown(signal);
+    } finally {
+      clearTimeout(forceExitTimeout);
+    }
+
     process.exit(0);
+  };
+
+  process.on("SIGINT", () => {
+    gracefulShutdown("SIGINT");
   });
-  process.on("SIGTERM", async () => {
-    await shutdown("SIGTERM");
-    process.exit(0);
+  process.on("SIGTERM", () => {
+    gracefulShutdown("SIGTERM");
   });
 
   return {

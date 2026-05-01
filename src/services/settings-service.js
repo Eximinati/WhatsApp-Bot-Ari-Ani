@@ -4,6 +4,7 @@ const BotSetting = require("../models/bot-settings");
 const GroupSetting = require("../models/group-settings");
 const UserSetting = require("../models/user-settings");
 const constants = require("../config/constants");
+const { extract } = require("../utils/identity-resolver");
 
 class SettingsService {
   constructor({ logger, rootDir }) {
@@ -63,10 +64,15 @@ class SettingsService {
     return this.updateBotSettings({ chatMode });
   }
 
+  _norm(jid) {
+    return extract(jid);
+  }
+
   async getUserSettings(jid) {
+    const id = this._norm(jid);
     return UserSetting.findOneAndUpdate(
-      { jid },
-      { $setOnInsert: { jid } },
+      { jid: id },
+      { $setOnInsert: { jid: id } },
       {
         upsert: true,
         new: true,
@@ -76,8 +82,9 @@ class SettingsService {
   }
 
   async updateUserSettings(jid, patch) {
+    const id = this._norm(jid);
     return UserSetting.findOneAndUpdate(
-      { jid },
+      { jid: id },
       { $set: patch },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );

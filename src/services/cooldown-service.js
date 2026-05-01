@@ -1,10 +1,16 @@
+const { extract } = require("../utils/identity-resolver");
+
+function _norm(jid) {
+  return extract(jid);
+}
+
 class CooldownService {
   constructor() {
     this.timestamps = new Map();
   }
 
   getKey(userJid, commandName) {
-    return `${userJid}:${commandName}`;
+    return `${_norm(userJid)}:${commandName.toLowerCase()}`;
   }
 
   check(userJid, commandName, cooldownSeconds) {

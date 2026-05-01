@@ -1,5 +1,6 @@
 const constants = require("../config/constants");
 const { capitalize } = require("../utils/text");
+const { extract } = require("../utils/identity-resolver");
 const { maybeHandleReplyInteraction } = require("../services/reply-interactions");
 
 function createCommandDispatcher({
@@ -16,7 +17,10 @@ function createCommandDispatcher({
     return groupMetadataCache.getOrFetch(sock, message.from);
   }
 
-  function parseCommandName(text) {
+  function parseCommandName(text, isMentionTriggered) {
+    if (isMentionTriggered) {
+      return text.trim().split(/\s+/)[0]?.toLowerCase();
+    }
     return text.slice(config.prefix.length).trim().split(/\s+/)[0]?.toLowerCase();
   }
 
@@ -32,10 +36,10 @@ function createCommandDispatcher({
     return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
   }
 
-  function buildCommandLog(message, metadata, commandName) {
-    return {
+  function buildCommandLog(message, metadata, commandName, botMentioned) {
+    const log = {
       command: commandName,
-      sender: shortJid(message.sender),
+      sender: shortJid(message.senderId),
       senderName: message.pushName || undefined,
       chatType: message.isGroup ? "group" : "private",
       chat: message.isGroup
@@ -43,17 +47,23 @@ function createCommandDispatcher({
         : shortJid(message.from),
       text: summarizeText(message.text),
     };
+    if (botMentioned) {
+      log.trigger = "mention";
+    }
+    return log;
   }
 
   return {
     async dispatch({ sock, message }) {
-      const metadata = await getMetadata(sock, message);
-      const userSettings = await services.settings.getUserSettings(message.sender);
-      const botSettings = await services.settings.getBotSettings();
       const botJid = sock.user?.id?.split(":")[0]
         ? `${sock.user.id.split(":")[0]}@s.whatsapp.net`
         : null;
-      const permission = services.permission.getPermissionContext(
+
+      const metadata = await getMetadata(sock, message);
+
+      const userSettings = await services.settings.getUserSettings(message.senderId);
+      const botSettings = await services.settings.getBotSettings();
+      const permission = await services.permission.getPermissionContext(
         message,
         metadata,
         botJid,
@@ -81,7 +91,26 @@ function createCommandDispatcher({
         return;
       }
 
-      if (!message.text.startsWith(config.prefix)) {
+      const mentionCommandsEnabled = config.mentionCommands !== false;
+
+      let botMentioned = false;
+      if (mentionCommandsEnabled && message.isGroup && message.mentions.length > 0) {
+        const botUserId = extract(botJid);
+
+        botMentioned = message.mentions.some((m) => extract(m) === botUserId);
+      }
+
+      let effectiveText = message.text;
+      if (botMentioned) {
+        effectiveText = message.text.replace(/@\d+/g, "").trim();
+        if (!effectiveText) {
+          effectiveText = `${config.prefix}help`;
+        }
+      }
+
+      const isPrefixCommand = message.text.startsWith(config.prefix);
+
+      if (!isPrefixCommand && !botMentioned) {
         if (services.permission.canUseBot(permission) && !userSettings.banned) {
           const handledReplyInteraction = await maybeHandleReplyInteraction({
             config,
@@ -98,12 +127,14 @@ function createCommandDispatcher({
         return;
       }
 
-      const commandName = parseCommandName(message.text);
+      const commandName = botMentioned && !isPrefixCommand
+        ? effectiveText.trim().split(/\s+/)[0]?.toLowerCase()
+        : parseCommandName(message.text, false);
       if (!commandName) {
         return;
       }
 
-      const commandLog = buildCommandLog(message, metadata, commandName);
+      const commandLog = buildCommandLog(message, metadata, commandName, botMentioned);
       if (!services.permission.canUseBot(permission)) {
         logger.warn(
           { area: "ACCESS", ...commandLog, status: "private-bot-blocked" },
@@ -158,7 +189,7 @@ function createCommandDispatcher({
       }
 
       const cooldown = services.cooldowns.check(
-        message.sender,
+        message.senderId,
         command.meta.name,
         command.meta.cooldownSeconds ?? constants.commands.defaultCooldownSeconds,
       );
@@ -180,16 +211,15 @@ function createCommandDispatcher({
         return;
       }
 
-      const args = message.text
-        .slice(config.prefix.length)
-        .trim()
-        .split(/\s+/)
-        .slice(1);
+      const args = botMentioned && !isPrefixCommand
+        ? effectiveText.trim().split(/\s+/).slice(1)
+        : message.text.slice(config.prefix.length).trim().split(/\s+/).slice(1);
       const text = args.join(" ").trim();
 
       const ctx = {
         sock,
         msg: message,
+        senderId: message.senderId,
         args,
         text,
         command,
@@ -207,13 +237,13 @@ function createCommandDispatcher({
       try {
         await command.execute(ctx);
         services.cooldowns.consume(
-          message.sender,
+          message.senderId,
           command.meta.name,
           command.meta.cooldownSeconds ?? constants.commands.defaultCooldownSeconds,
         );
 
         if (command.meta.trackXp !== false) {
-          await services.xp.awardCommandXp(message.sender);
+          await services.xp.awardCommandXp(message.senderId);
         }
 
         logger.info(

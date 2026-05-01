@@ -1,5 +1,6 @@
 const constants = require("../config/constants");
 const { formatDateTime, resolveTimezone, startOfTodayKey } = require("../utils/schedule");
+const { extract } = require("../utils/identity-resolver");
 
 class SchedulerService {
   constructor({ config, logger, services, getSocket }) {
@@ -72,7 +73,7 @@ class SchedulerService {
         this.logger.info(
           {
             area: "REMINDER",
-            user: reminder.userJid.split("@")[0],
+            user: extract(reminder.userJid),
             delivery: reminder.delivery,
             reminderId: String(reminder._id).slice(-6),
           },
@@ -118,8 +119,8 @@ class SchedulerService {
           await sock.sendMessage(account.userJid, { text: lines.join("\n") });
           await this.services.vu.markDailyDigestSent(account, todayKey);
           this.logger.info(
-            { area: "VU", user: account.userJid.split("@")[0] },
-            "VU daily digest sent",
+             { area: "VU", user: extract(account.userJid) },
+             "VU daily digest sent",
           );
         }
 
@@ -143,13 +144,13 @@ class SchedulerService {
             deadlineSoon.map((item) => item.notificationKey),
           );
           this.logger.info(
-            { area: "VU", user: account.userJid.split("@")[0], count: deadlineSoon.length },
+             { area: "VU", user: extract(account.userJid), count: deadlineSoon.length },
             "VU deadline alerts sent",
           );
         }
       } catch (error) {
         this.logger.warn(
-          { area: "VU", user: account.userJid.split("@")[0], error },
+           { area: "VU", user: extract(account.userJid), error },
           "VU scheduled sync failed",
         );
       }

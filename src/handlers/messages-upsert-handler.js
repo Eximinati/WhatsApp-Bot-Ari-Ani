@@ -49,7 +49,7 @@ function createMessagesUpsertHandler({ dispatcher, logger, services }) {
           continue;
         }
 
-        const message = normalizeMessage(sock, rawMessage);
+        const message = await normalizeMessage(sock, rawMessage);
         if (!message || !message.message || !message.type) {
           continue;
         }
@@ -67,6 +67,13 @@ function createMessagesUpsertHandler({ dispatcher, logger, services }) {
           source: event.type || "upsert",
         });
         await services.user.touchFromMessage(message);
+        
+        // Auto-learn identity (LID-first)
+        await services.user.upsertIdentity({
+          id: message.senderId,
+          phone: message.phoneId || null,
+        });
+        
         await dispatcher.dispatch({ sock, message });
       } catch (error) {
         if (isSenderKeyDistributionMessage(rawMessage) && isSessionError(error)) {

@@ -30,33 +30,28 @@ function normalizeOwnerJid(value) {
   return `${digits}@s.whatsapp.net`;
 }
 
-function parseOwnerJids() {
-  const raw = process.env.OWNER_JIDS || process.env.MODS || "";
-  const owners = raw
+function parseOwnerIds() {
+  const raw = process.env.OWNER_IDS || process.env.OWNER_JIDS || process.env.MODS || "";
+  return raw
     .split(",")
-    .map(normalizeOwnerJid)
+    .map((id) => {
+      const trimmed = String(id).trim();
+      const digits = trimmed.replace(/\D/g, "");
+      return digits || trimmed || null;
+    })
     .filter(Boolean);
-
-  if (!process.env.OWNER_JIDS && process.env.MODS) {
-    process.emitWarning(
-      "MODS is deprecated. Use OWNER_JIDS for bot owners.",
-      "DeprecationWarning",
-    );
-  }
-
-  return [...new Set(owners)];
 }
 
-function parseModJids() {
-  const raw = process.env.MOD_JIDS || "";
-  return [
-    ...new Set(
-      raw
-        .split(",")
-        .map(normalizeOwnerJid)
-        .filter(Boolean),
-    ),
-  ];
+function parseModIds() {
+  const raw = process.env.MOD_IDS || process.env.MOD_JIDS || "";
+  return raw
+    .split(",")
+    .map((id) => {
+      const trimmed = String(id).trim();
+      const digits = trimmed.replace(/\D/g, "");
+      return digits || trimmed || null;
+    })
+    .filter(Boolean);
 }
 
 function createQrToken() {
@@ -145,8 +140,8 @@ function validateConfig(config) {
     throw new Error("MONGO_URI must be a valid MongoDB connection string.");
   }
 
-  if (config.ownerJids.length === 0) {
-    throw new Error("Set OWNER_JIDS or MODS with at least one owner JID.");
+  if (config.ownerIds.length === 0) {
+    throw new Error("Set OWNER_IDS with at least one owner ID.");
   }
 
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
@@ -171,8 +166,8 @@ function buildConfig() {
     sessionId: process.env.SESSION_ID,
     prefix: process.env.PREFIX || "/",
     port: parseIntegerEnv(process.env.PORT, 3000),
-    ownerJids: parseOwnerJids(),
-    modJids: parseModJids(),
+    ownerIds: parseOwnerIds(),
+    modIds: parseModIds(),
     qrToken: createQrToken(),
     botName: process.env.NAME || "Ari-Ani",
     packname: process.env.PACKNAME || "Ari-Ani",
@@ -182,6 +177,7 @@ function buildConfig() {
     platform,
     publicBaseUrl: createPublicBaseUrl(),
     privateBot: process.env.PRIVATE_BOT === "true",
+    mentionCommands: process.env.MENTION_COMMANDS !== "false",
     security: {
       appEncryptionKey: process.env.APP_ENCRYPTION_KEY || "",
     },

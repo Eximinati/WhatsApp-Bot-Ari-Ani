@@ -1,4 +1,4 @@
-const { normalizeJid } = require("../../utils/jid");
+const { normalizeJid } = require("../../utils/identity-resolver");
 
 module.exports = {
   meta: {

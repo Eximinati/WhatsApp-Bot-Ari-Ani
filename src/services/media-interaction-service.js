@@ -362,7 +362,7 @@ class MediaInteractionService {
     return this.promptFormatChoice({
       sock,
       message,
-      userJid: message.sender,
+      userJid: message.senderId,
       chatJid: message.from,
       commandName,
       media,
@@ -386,7 +386,7 @@ class MediaInteractionService {
     }
 
     if (Date.now() > Number(state.expiresAt || 0)) {
-      await this.clearMenuState(message.sender);
+      await this.clearMenuState(message.senderId);
       await message.reply("That media choice expired. Run the command again.");
       return true;
     }
@@ -401,7 +401,7 @@ class MediaInteractionService {
     }
 
     if (["0", "back", "menu", "cancel", "exit"].includes(choice)) {
-      await this.clearMenuState(message.sender);
+      await this.clearMenuState(message.senderId);
       await message.reply("Media format menu closed.");
       return true;
     }
@@ -417,10 +417,10 @@ class MediaInteractionService {
       return true;
     }
 
-    await this.clearMenuState(message.sender);
+    await this.clearMenuState(message.senderId);
 
     if (action.remember) {
-      await this.setPreference(message.sender, state.commandName, action.mode);
+      await this.setPreference(message.senderId, state.commandName, action.mode);
     }
 
     await this.sendMediaByMode({

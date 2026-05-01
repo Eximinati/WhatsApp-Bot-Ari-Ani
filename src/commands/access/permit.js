@@ -1,4 +1,4 @@
-const { mentionTag, normalizeJid } = require("../../utils/jid");
+const { mentionTag, normalizeJid } = require("../../utils/identity-resolver");
 
 module.exports = {
   meta: {

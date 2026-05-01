@@ -1,6 +1,7 @@
 const axios = require("axios");
 const VuAccount = require("../models/vu-account");
 const { decryptString, encryptString } = require("../utils/secure-store");
+const { extract } = require("../utils/identity-resolver");
 
 function compact(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -142,7 +143,7 @@ class VuService {
     this.logger.info(
       {
         area: "VU",
-        user: userJid.split("@")[0],
+        user: extract(userJid),
         items: assignments.length,
       },
       "VU sync completed",
@@ -256,7 +257,7 @@ class VuService {
         this.logger.warn(
           {
             area: "VU",
-            user: userJid.split("@")[0],
+            user: extract(userJid),
             error,
           },
           "VU refresh failed, using cached snapshot",
