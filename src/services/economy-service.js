@@ -17,6 +17,80 @@ const {
 } = require("../utils/economy");
 const { extract } = require("../utils/identity-resolver");
 
+const REWARD_CAPS = {
+  fish: 500,
+  mine: 800,
+  hunt: 700,
+  beg: 100,
+  work: 150,
+};
+
+const RARE_METER_TIMEOUT = 5 * 60 * 1000;
+
+const STREAK_STREAMS = {};
+const STREAK_TIMEOUT = 5 * 60 * 1000;
+
+function getStreakCount(jid, domain) {
+  const key = `${extract(jid)}_${domain}`;
+  const stream = STREAK_STREAMS[key];
+  if (!stream) return 0;
+  if (Date.now() - stream.lastAt > STREAK_TIMEOUT) {
+    delete STREAK_STREAMS[key];
+    return 0;
+  }
+  return stream.count;
+}
+
+function updateStreak(jid, domain, success) {
+  const key = `${extract(jid)}_${domain}`;
+  if (success) {
+    STREAK_STREAMS[key] = { count: (STREAK_STREAMS[key]?.count || 0) + 1, lastAt: Date.now() };
+    return STREAK_STREAMS[key].count;
+  } else {
+    delete STREAK_STREAMS[key];
+    return 0;
+  }
+}
+
+function getStreakBonus(streakCount) {
+  return Math.min(streakCount * 0.05, 0.5);
+}
+
+function updateSession(account) {
+  const now = Date.now();
+  const lastAction = account.lastActionAt ? new Date(account.lastActionAt).getTime() : 0;
+  
+  if (lastAction && (now - lastAction) < RARE_METER_TIMEOUT) {
+    account.sessionCount = (account.sessionCount || 0) + 1;
+  } else {
+    account.sessionCount = 1;
+  }
+  account.lastActionAt = new Date();
+  return account.sessionCount;
+}
+
+const RARE_EVENTS = [
+  { text: "💰 Hidden treasure!", type: "coins", bonusMult: 5 },
+  { text: "✨ XP Surge!", type: "xp", bonusMult: 2 },
+  { text: "⚡ Lucky strike!", type: "coins", bonusMult: 3 },
+  { text: "🌟 Rare find!", type: "coins", bonusMult: 4 },
+  { text: "🎯 Perfect catch!", type: "multi", bonusMult: 2 },
+];
+
+function rollRareEvent(baseBonus, baseXp, domain, rareMeter = 0) {
+  const domainChance = { fish: 0.03, mine: 0.035, hunt: 0.04, work: 0.02, beg: 0.015 };
+  const baseChance = domainChance[domain] || 0.02;
+  const boostedChance = baseChance + (rareMeter / 100) * 0.1;
+  if (Math.random() > boostedChance) return null;
+  const event = RARE_EVENTS[Math.floor(Math.random() * RARE_EVENTS.length)];
+  return {
+    ...event,
+    type: event.type,
+    bonus: event.type === "coins" ? Math.floor(baseBonus * event.bonusMult) : 0,
+    xpBonus: event.type === "xp" ? Math.floor(baseXp * event.bonusMult) : 0,
+  };
+}
+
 function sumDomainModifier(entities, bucket, domain) {
   return entities.reduce((sum, entity) => {
     const base = entity?.modifiers || entity?.bonusProfile || {};
@@ -442,21 +516,79 @@ class EconomyService {
     if (remainingMs > 0) {
       return {
         ok: false,
+        success: false,
         reason: "cooldown",
         remainingMs,
+        rareMeter: account.rareMeter || 0,
+        sessionCount: account.sessionCount || 0,
+        failStreak: account.failStreak || 0,
+        lastResult: account.lastResult || "",
         account: this.toBalanceSummary(account, progression),
       };
     }
 
+    updateStreak(jid, domain, false);
+    const sessionCount = updateSession(account);
+
     const reward = this.applyRewardMultiplier(randomBetween(min, max), progression, domain);
+    const cap = REWARD_CAPS[domain] || Infinity;
+
+    const streak = getStreakCount(jid, domain);
+    const currentRareMeter = account.rareMeter || 0;
+
+    const rare = rollRareEvent(reward, min, domain, currentRareMeter);
+    if (rare && rare.type === "coins") {
+      const rawReward = reward;
+      const rareBonus = rare?.bonus || 0;
+      const totalBeforeCap = rawReward + rareBonus;
+      const finalReward = Math.min(totalBeforeCap, cap);
+      const appliedRare = Math.max(0, finalReward - rawReward);
+      account[stampKey] = new Date();
+      account.wallet = clampMoney(account.wallet + finalReward);
+      account.rareMeter = 0;
+      account.failStreak = 0;
+      account.lastResult = "win";
+      await this.incrementStats(account, { [`${domain}Runs`]: 1 });
+      await account.save();
+      const newStreak = updateStreak(jid, domain, true);
+      console.log(`[ECONOMY] ${domain} | user=${extract(jid)} | reward=${finalReward} | rare=${appliedRare} | streak=${newStreak}`);
+      return {
+        ok: true,
+        success: true,
+        reward: finalReward,
+        streak: newStreak,
+        rareMeter: 0,
+        sessionCount,
+        failStreak: 0,
+        lastResult: "win",
+        rare: { type: rare.type, bonus: appliedRare, text: rare.text },
+        message: successMessage,
+        account: this.toBalanceSummary(account, progression),
+      };
+    }
+
+    const rawReward = reward;
+    const finalCapped = Math.min(rawReward, cap);
+
+    account.rareMeter = Math.min((currentRareMeter || 0) + randomBetween(3, 7), 100);
+    account.failStreak = 0;
+    account.lastResult = "win";
     account[stampKey] = new Date();
-    account.wallet = clampMoney(account.wallet + reward);
+    account.wallet = clampMoney(account.wallet + finalCapped);
     await this.incrementStats(account, { [`${domain}Runs`]: 1 });
     await account.save();
+    const newStreak = updateStreak(jid, domain, true);
+    console.log(`[ECONOMY] ${domain} | user=${extract(jid)} | reward=${finalCapped} | streak=${newStreak}`);
 
     return {
       ok: true,
-      reward,
+      success: true,
+      reward: finalCapped,
+      streak: newStreak,
+      rareMeter: account.rareMeter,
+      sessionCount,
+      failStreak: 0,
+      lastResult: "win",
       message: successMessage,
       account: this.toBalanceSummary(account, progression),
     };
@@ -495,12 +627,18 @@ class EconomyService {
     if (remainingMs > 0) {
       return {
         ok: false,
+        success: false,
         reason: "cooldown",
         remainingMs,
+        rareMeter: account.rareMeter || 0,
+        sessionCount: account.sessionCount || 0,
+        failStreak: account.failStreak || 0,
+        lastResult: account.lastResult || "",
         account: this.toBalanceSummary(account, progression),
       };
     }
 
+    const sessionCount = updateSession(account);
     const successRate = Math.min(
       0.95,
       1 - options.missRate + this.getSuccessBonus(progression, options.domain),
@@ -508,33 +646,92 @@ class EconomyService {
     account[options.stampKey] = new Date();
 
     if (Math.random() > successRate) {
+      account.failStreak = Math.min((account.failStreak || 0) + 1, 10);
+      account.lastResult = "fail";
       await this.incrementStats(account, { [`${options.domain}Fails`]: 1 });
       await account.save();
+      updateStreak(jid, options.domain, false);
       return {
         ok: true,
         success: false,
         reward: 0,
+        streak: 0,
+        rareMeter: account.rareMeter || 0,
+        sessionCount,
+        failStreak: account.failStreak,
+        lastResult: "fail",
         message: options.failMessage,
         account: this.toBalanceSummary(account, progression),
       };
     }
 
-    const reward = this.applyRewardMultiplier(
+    const streak = getStreakCount(jid, options.domain);
+    const baseReward = this.applyRewardMultiplier(
       randomBetween(options.min, options.max),
       progression,
       options.domain,
     );
-    account.wallet = clampMoney(account.wallet + reward);
+    const cap = REWARD_CAPS[options.domain] || Infinity;
+    const currentRareMeter = account.rareMeter || 0;
+
+    const rare = rollRareEvent(baseReward, options.min, options.domain, currentRareMeter);
+    if (rare && rare.type === "coins") {
+      const rawReward = baseReward;
+      const rareBonus = rare?.bonus || 0;
+      const totalBeforeCap = rawReward + rareBonus;
+      const finalReward = Math.min(totalBeforeCap, cap);
+      const appliedRare = Math.max(0, finalReward - rawReward);
+      account.wallet = clampMoney(account.wallet + finalReward);
+      account.rareMeter = 0;
+      account.failStreak = 0;
+      account.lastResult = "win";
+      await this.incrementStats(account, {
+        [`${options.domain}Runs`]: 1,
+        [`${options.domain}Wins`]: 1,
+      });
+      await account.save();
+      const newStreak = updateStreak(jid, options.domain, true);
+      console.log(`[ECONOMY] ${options.domain} | user=${extract(jid)} | reward=${finalReward} | rare=${appliedRare} | streak=${newStreak}`);
+      return {
+        ok: true,
+        success: true,
+        reward: finalReward,
+        streak: newStreak,
+        rareMeter: 0,
+        sessionCount,
+        failStreak: 0,
+        lastResult: "win",
+        rare: { type: rare.type, bonus: appliedRare, text: rare.text },
+        message: options.successMessage,
+        account: this.toBalanceSummary(account, progression),
+      };
+    }
+
+    const rawReward = baseReward;
+    const finalReward = Math.min(rawReward, cap);
+
+    account.rareMeter = Math.min((currentRareMeter || 0) + randomBetween(3, 7), 100);
+    account.failStreak = 0;
+    account.lastResult = "win";
+
+    account.wallet = clampMoney(account.wallet + finalReward);
     await this.incrementStats(account, {
       [`${options.domain}Runs`]: 1,
       [`${options.domain}Wins`]: 1,
     });
     await account.save();
+    const newStreak = updateStreak(jid, options.domain, true);
+    console.log(`[ECONOMY] ${options.domain} | user=${extract(jid)} | reward=${finalReward} | streak=${newStreak}`);
 
     return {
       ok: true,
       success: true,
-      reward,
+      reward: finalReward,
+      streak: newStreak,
+      rareMeter: account.rareMeter,
+      sessionCount,
+      failStreak: 0,
+      lastResult: "win",
       message: options.successMessage,
       account: this.toBalanceSummary(account, progression),
     };
@@ -720,6 +917,7 @@ class EconomyService {
     if (remainingMs > 0) {
       return {
         ok: false,
+        success: false,
         reason: "cooldown",
         remainingMs,
         account: this.toBalanceSummary(account, progression),
@@ -789,6 +987,7 @@ class EconomyService {
     if (remainingMs > 0) {
       return {
         ok: false,
+        success: false,
         reason: "cooldown",
         remainingMs,
         account: this.toBalanceSummary(account, progression),
@@ -817,9 +1016,11 @@ class EconomyService {
     if (success) {
       account.wallet = clampMoney(account.wallet + amount);
       await this.incrementStats(account, { crimesWon: 1 });
+      console.log(`[ECONOMY] crime | user=${extract(jid)} | reward=${amount} | success=true`);
     } else {
       account.wallet = clampMoney(account.wallet - amount);
       await this.incrementStats(account, { crimesLost: 1 });
+      console.log(`[ECONOMY] crime | user=${extract(jid)} | loss=${amount}`);
     }
     await account.save();
 
@@ -934,6 +1135,7 @@ class EconomyService {
     if (remainingMs > 0) {
       return {
         ok: false,
+        success: false,
         reason: "cooldown",
         remainingMs,
         thief: this.toBalanceSummary(thief, progression),
@@ -1018,6 +1220,7 @@ class EconomyService {
     if (remainingMs > 0) {
       return {
         ok: false,
+        success: false,
         reason: "cooldown",
         remainingMs,
       };

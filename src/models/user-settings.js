@@ -164,6 +164,31 @@ const userSettingsSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    rareMeter: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    lastActionAt: {
+      type: Date,
+      default: null,
+    },
+    sessionCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    failStreak: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastResult: {
+      type: String,
+      enum: ["win", "fail", ""],
+      default: "",
+    },
     lastXpAwardedAt: {
       type: Date,
       default: null,

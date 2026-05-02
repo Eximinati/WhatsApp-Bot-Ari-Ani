@@ -1,6 +1,27 @@
 const { formatMoney } = require("../../services/economy-service");
 const { getProgressBar, getXpLevelText, getContextTip, getLoopHook } = require("../../utils/xp-utils");
-const { applyStatBonuses, getStatScalingText, getSafeStats } = require("../../utils/stat-utils");
+const { getStatBonuses, getSafeStats } = require("../../utils/stat-utils");
+const {
+  getAnticipationLine,
+  getCooldownPsychology,
+  getSuccessHook,
+  getFailHook,
+  getNearMissLine,
+  getSessionHook,
+  getCurrentTier,
+  getProgressToNextTier,
+  getStreakText,
+  getStreakTierText,
+  getFakeRareReveal,
+  getRareMeterDisplay,
+  getNearRareMessage,
+  getFailurePsychology,
+  getMomentumText,
+  getRareBuildupMessage,
+  getLossAversionHook,
+  getNextActionHook,
+  getMiniJackpotIllusion,
+} = require("../../utils/addiction-engine");
 
 const XP_GAINS = { fish: 8, mine: 10, hunt: 12, work: 15, beg: 3 };
 
@@ -15,71 +36,140 @@ module.exports = {
     aliases: [],
     category: "economy",
     description: "Beg for money.",
-    cooldownSeconds: 2,
+    cooldownSeconds: 600,
     access: "user",
     chat: "both",
   },
   async execute(ctx) {
     const senderId = ctx.msg.senderId;
-    
-    const result = await ctx.services.economy.beg(senderId);
-    const balance = await ctx.services.economy.getBalance(senderId);
-    const { stats: rawStats } = await ctx.services.xp.getStats(senderId);
-    const stats = getSafeStats({ statsJson: JSON.stringify(rawStats) });
     const xpGain = XP_GAINS.beg;
-    
-    if (!result.ok) {
-      const cooldownSec = Math.ceil((result.remainingMs || 0) / 1000);
-      await ctx.reply(
-        `🙏 *Begging*\n\n⏳ Cooldown: ${cooldownSec}s\n\n━━━━━━━━━━━━━━━\n` +
-        `👛 Wallet: ${formatMoney(result.account?.wallet || 0)}\n` +
-        `🏦 Bank: ${formatMoney(result.account?.bank || 0)}\n━━━━━━━━━━━━━━━\n\n` +
-        `👉 Try again in ${cooldownSec}s`
-      , { parse_mode: "Markdown" });
-      return;
+    const totalCooldown = ctx.command.meta.cooldownSeconds * 1000;
+
+    await ctx.reply(`🙏 ${getAnticipationLine("beg")}`);
+
+    try {
+      const result = await ctx.services.economy.beg(senderId);
+      const { stats: rawStats } = await ctx.services.xp.getStats(senderId);
+      const stats = getSafeStats({ statsJson: JSON.stringify(rawStats) });
+
+      if (!result.ok) {
+        const remainingSec = Math.ceil((result.remainingMs || 0) / 1000);
+        const cooldownMsg = getCooldownPsychology(result.remainingMs, totalCooldown);
+        const failStreak = result.failStreak || 0;
+        const lastResult = result.lastResult || "";
+        const sessionHook = getSessionHook("afterCooldown");
+        const rareMeter = result.rareMeter || 0;
+        const rareMeterDisplay = getRareMeterDisplay(rareMeter);
+        const sessionCount = result.sessionCount || 0;
+        const momentumText = getMomentumText(sessionCount);
+        const lossAversionHook = getLossAversionHook(failStreak);
+        const nextActionHook = getNextActionHook({ onCooldown: true });
+        
+        await ctx.reply(
+          `🙏 *Begging*\n\n⏳ ${remainingSec}s — ${cooldownMsg}\n\n━━━━━━━━━━━━━━━\n${rareMeterDisplay}\n${momentumText || ""}\n━━━━━━━━━━━━━━━\n👛 Wallet: ${formatMoney(result.account?.wallet || 0)}\n🏦 Bank: ${formatMoney(result.account?.bank || 0)}\n━━━━━━━━━━━━━━━\n${sessionHook}\n${lossAversionHook || ""}\n\n${nextActionHook}`
+        , { parse_mode: "Markdown" });
+        return;
+      }
+
+      const success = result.success ?? false;
+      const baseReward = result.reward || 0;
+      const baseXp = xpGain;
+      const streak = result.streak || 0;
+      const rareMeter = result.rareMeter || 0;
+      const sessionCount = result.sessionCount || 0;
+      const failStreak = result.failStreak || 0;
+      const lastResult = result.lastResult || "";
+      const triggeredRare = !!result.rare;
+
+      const bonuses = getStatBonuses(stats);
+      const potentialBonus = Math.floor(baseReward * (bonuses.rewardScale - 1));
+      const intBonus = Math.floor(baseXp * (bonuses.xpScale - 1));
+
+      const displayXp = baseXp + intBonus;
+
+      const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, displayXp);
+      const newBalance = await ctx.services.economy.getBalance(senderId);
+      const progress = getProgressBar(profile.xp, profile.level);
+      const levelText = getXpLevelText(profile.level);
+      const tip = getContextTip({ success }, newBalance, "beg");
+      const loopHook = getLoopHook(0, success, "beg");
+      const sessionHook = success ? getSuccessHook() : getFailHook();
+      const currentTier = getCurrentTier(profile.level);
+      const tierProgress = getProgressToNextTier(profile.xp, profile.level);
+
+      const flavor = success
+        ? FLAVOR.success[Math.floor(Math.random() * FLAVOR.success.length)]
+        : FLAVOR.fail[Math.floor(Math.random() * FLAVOR.fail.length)];
+
+      const xpLeft = Math.max(progress.xpLeft, 0);
+      const levelUpMsg = leveledUp ? `\n🎉 LEVEL UP! You are now Lv ${profile.level}!` : "";
+
+      let text = `🙏 *Begging Result*\n\n💕 ${flavor}\n\n`;
+
+      const emotionalHook = getNearRareMessage(rareMeter, triggeredRare) 
+        || getRareBuildupMessage(rareMeter, triggeredRare)
+        || getMiniJackpotIllusion(rareMeter, triggeredRare)
+        || (success ? null : getFailurePsychology("beg"));
+      
+      if (emotionalHook) {
+        text += `${emotionalHook}\n\n`;
+      }
+
+      if (!success) {
+        const lossAversionHook = getLossAversionHook(failStreak);
+        if (lossAversionHook) {
+          text += `${lossAversionHook}\n`;
+        }
+        if (Math.random() < 0.5) {
+          text += `😬 ${getNearMissLine()}\n\n`;
+        }
+      }
+
+      text += `━━━━━━━━━━━━━━━\n`;
+
+      if (result.rare) {
+        text += `🎉 *RARE EVENT!*\n${result.rare.text}\n\n━━━━━━━━━━━━━━━\n`;
+      }
+
+      text += `💰 Earned: ${success ? "+" : ""}${formatMoney(baseReward)} coins\n`;
+      
+      const streakTierText = getStreakTierText(streak);
+      if (streakTierText) text += `${streakTierText}\n`;
+      
+      if (success) {
+        const rareMeterDisplay = getRareMeterDisplay(rareMeter);
+        text += `${rareMeterDisplay}\n`;
+      }
+      
+      if (potentialBonus > 0) text += `📈 Potential Bonus (locked): +${formatMoney(potentialBonus)} coins\n`;
+      text += `✨ XP: +${baseXp}\n`;
+      if (intBonus > 0) text += `🧠 INT Bonus: +${intBonus} XP applied\n`;
+      text += `📊 ${progress.bar}\n`;
+      text += `⬆️ ${xpLeft} XP to next level\n`;
+      if (tierProgress < 100) {
+        text += `🎖️ Tier [${currentTier}]: ${tierProgress}% to next\n`;
+      }
+      text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
+
+      const momentumText = getMomentumText(sessionCount);
+      if (momentumText) {
+        text += `${momentumText}\n`;
+      }
+
+      if (success && !result.rare && Math.random() < 0.2) {
+        text += `✨ ${getFakeRareReveal()}\n\n`;
+      }
+
+      text += `👛 Wallet: ${formatMoney(newBalance.wallet)}\n`;
+      text += `🏦 Bank: ${formatMoney(newBalance.bank)}\n\n`;
+      
+      const nextActionHook = getNextActionHook({ rareMeter, streak, failStreak, lastResult, triggeredRare });
+      text += `${sessionHook}\n${nextActionHook}\n${loopHook}`;
+
+      await ctx.reply(text, { parse_mode: "Markdown" });
+
+    } catch (err) {
+      console.error(err);
     }
-    
-    const success = result.ok ?? false;
-    const baseReward = result.reward || 0;
-    const baseXp = xpGain;
-    
-    const statCalc = applyStatBonuses(baseReward, baseXp, stats);
-    const finalReward = statCalc.finalReward;
-    const finalXp = statCalc.finalXp;
-    
-    if (finalReward > 0 && success) {
-      await ctx.services.economy.addWallet(senderId, finalReward);
-    }
-    
-    const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, finalXp);
-    const newBalance = await ctx.services.economy.getBalance(senderId);
-    const progress = getProgressBar(profile.xp, profile.level);
-    const levelText = getXpLevelText(profile.level);
-    const tip = getContextTip({ success }, balance, "beg");
-    const loopHook = getLoopHook(0, success, "beg");
-    
-    const flavor = success 
-      ? FLAVOR.success[Math.floor(Math.random() * FLAVOR.success.length)]
-      : FLAVOR.fail[Math.floor(Math.random() * FLAVOR.fail.length)];
-    
-    const xpLeft = Math.max(progress.xpLeft, 0);
-    const levelUpMsg = leveledUp ? `\n🎉 LEVEL UP! You are now Lv ${profile.level}!` : "";
-    
-    const scalingParts = getStatScalingText(statCalc.bonuses);
-    const bonusText = scalingParts.length > 0 ? scalingParts.map(p => ` (${p})`).join("") : "";
-    
-    let text = `🙏 *Begging Result*\n\n💕 ${flavor}\n\n`;
-    text += `━━━━━━━━━━━━━━━\n`;
-    text += `💰 Earned: ${success ? "+" : ""}${formatMoney(finalReward)} coins${bonusText}\n`;
-    text += `✨ XP: +${finalXp} ${levelText}\n`;
-    text += `📊 ${progress.bar}\n`;
-    text += `⬆️ ${xpLeft} XP to next level\n`;
-    text += `━━━━━━━━━━━━━━━\n${levelUpMsg}\n\n`;
-    
-    text += `👛 Wallet: ${formatMoney(newBalance.wallet)}\n`;
-    text += `🏦 Bank: ${formatMoney(newBalance.bank)}\n\n`;
-    text += `${tip}\n${loopHook}`;
-    
-    await ctx.reply(text, { parse_mode: "Markdown" });
   },
 };

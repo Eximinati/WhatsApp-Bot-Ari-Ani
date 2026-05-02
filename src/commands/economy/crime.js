@@ -61,9 +61,6 @@ module.exports = {
       finalXp = Math.floor(xpBase * bonuses.xpScale);
     }
     
-    // Apply reward/loss
-    await ctx.services.economy.addWallet(senderId, rewardChange);
-    
     // Add XP
     const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, finalXp);
     const newBalance = await ctx.services.economy.getBalance(senderId);
