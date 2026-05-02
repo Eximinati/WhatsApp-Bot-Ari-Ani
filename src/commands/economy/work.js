@@ -21,6 +21,7 @@ const {
   getLossAversionHook,
   getNextActionHook,
   getMiniJackpotIllusion,
+  getFailBiasText,
 } = require("../../utils/addiction-engine");
 
 const XP_GAINS = { fish: 8, mine: 10, hunt: 12, work: 15, beg: 3 };
@@ -100,7 +101,9 @@ module.exports = {
 
       let text = `💼 *Work Complete*\n\n💼 ${flavor}\n\n`;
 
-      const emotionalHook = getNearRareMessage(rareMeter, triggeredRare) 
+      const failBiasText = !success ? getFailBiasText(failStreak) : null;
+      const emotionalHook = failBiasText
+        || getNearRareMessage(rareMeter, triggeredRare) 
         || getRareBuildupMessage(rareMeter, triggeredRare)
         || getMiniJackpotIllusion(rareMeter, triggeredRare)
         || (success ? null : getFailurePsychology("work"));
@@ -111,7 +114,7 @@ module.exports = {
 
       if (!success) {
         const lossAversionHook = getLossAversionHook(failStreak);
-        if (lossAversionHook) {
+        if (lossAversionHook && !failBiasText) {
           text += `${lossAversionHook}\n`;
         }
         if (Math.random() < 0.5) {

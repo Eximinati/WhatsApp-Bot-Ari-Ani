@@ -421,6 +421,17 @@ function getMiniJackpotIllusion(rareMeter, triggeredRare) {
   return null;
 }
 
+const FAIL_BIAS_TEXTS = {
+  due: "…you're due for a win.",
+  shifting: "…luck is shifting.",
+};
+
+function getFailBiasText(failStreak) {
+  if (failStreak >= 3) return FAIL_BIAS_TEXTS.due;
+  if (failStreak === 2) return FAIL_BIAS_TEXTS.shifting;
+  return null;
+}
+
 module.exports = {
   getStreakBonus,
   getStreakText,
@@ -432,8 +443,10 @@ module.exports = {
   getMomentumText,
   getRareBuildupMessage,
   getLossAversionHook,
+  getLossAversionHook,
   getNextActionHook,
   getMiniJackpotIllusion,
+  getFailBiasText,
   getAnticipationLine,
   getCooldownPsychology,
   getSuccessHook,

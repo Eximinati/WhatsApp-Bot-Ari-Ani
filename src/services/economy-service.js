@@ -529,6 +529,10 @@ class EconomyService {
 
     updateStreak(jid, domain, false);
     const sessionCount = updateSession(account);
+    const failStreak = account.failStreak || 0;
+    const biasBoost = Math.min(failStreak * 0.02, 0.08);
+    const successChance = 0.5 + biasBoost + this.getSuccessBonus(progression, domain);
+    const isSuccess = Math.random() < successChance;
 
     const reward = this.applyRewardMultiplier(randomBetween(min, max), progression, domain);
     const cap = REWARD_CAPS[domain] || Infinity;
@@ -537,7 +541,7 @@ class EconomyService {
     const currentRareMeter = account.rareMeter || 0;
 
     const rare = rollRareEvent(reward, min, domain, currentRareMeter);
-    if (rare && rare.type === "coins") {
+    if (isSuccess && rare && rare.type === "coins") {
       const rawReward = reward;
       const rareBonus = rare?.bonus || 0;
       const totalBeforeCap = rawReward + rareBonus;
@@ -569,6 +573,27 @@ class EconomyService {
 
     const rawReward = reward;
     const finalCapped = Math.min(rawReward, cap);
+
+    if (!isSuccess) {
+      account.failStreak = Math.min((account.failStreak || 0) + 1, 10);
+      account.lastResult = "fail";
+      account[stampKey] = new Date();
+      await this.incrementStats(account, { [`${domain}Runs`]: 1 });
+      await account.save();
+      updateStreak(jid, domain, false);
+      return {
+        ok: true,
+        success: false,
+        reward: 0,
+        streak: 0,
+        rareMeter: account.rareMeter || 0,
+        sessionCount,
+        failStreak: account.failStreak,
+        lastResult: "fail",
+        message: successMessage,
+        account: this.toBalanceSummary(account, progression),
+      };
+    }
 
     account.rareMeter = Math.min((currentRareMeter || 0) + randomBetween(3, 7), 100);
     account.failStreak = 0;
@@ -639,9 +664,11 @@ class EconomyService {
     }
 
     const sessionCount = updateSession(account);
+    const failStreak = account.failStreak || 0;
+    const biasBoost = Math.min(failStreak * 0.02, 0.08);
     const successRate = Math.min(
       0.95,
-      1 - options.missRate + this.getSuccessBonus(progression, options.domain),
+      1 - options.missRate + this.getSuccessBonus(progression, options.domain) + biasBoost,
     );
     account[options.stampKey] = new Date();
 
