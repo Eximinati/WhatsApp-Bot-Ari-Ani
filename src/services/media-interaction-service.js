@@ -370,10 +370,12 @@ class MediaInteractionService {
   }
 
   async maybeHandleReply({
+    ctx,
     config,
     message,
     sock,
     userSettings,
+    services,
   }) {
     const state = this.parseMenuState(userSettings?.mediaMenuStateJson);
     if (!state || !message.text) {
@@ -383,6 +385,94 @@ class MediaInteractionService {
     const text = String(message.text || "").trim();
     if (!text || text.startsWith(config.prefix)) {
       return false;
+    }
+
+    if (state.step === "playlistBatchSelect") {
+      const choice = text.trim();
+      console.log("[PlaylistBatch] READ:", message.senderId, "choice:", choice);
+
+      if (Date.now() > Number(state.expiresAt || 0)) {
+        await this.clearMenuState(message.senderId);
+        await ctx.reply("⌛ Session expired. Please run /play again.");
+        return true;
+      }
+
+      if (choice === "0") {
+        await this.clearMenuState(message.senderId);
+        await ctx.reply("❌ Cancelled.");
+        return true;
+      }
+
+      const batchIndex = parseInt(choice, 10) - 1;
+      const batches = state.batches || [];
+      
+      if (isNaN(batchIndex) || batchIndex < 0 || batchIndex >= batches.length) {
+        await ctx.reply(`❌ Invalid choice. Reply with a number between 1 and ${batches.length}, or 0 to cancel.`);
+        return true;
+      }
+
+      const selectedTracks = batches[batchIndex];
+      const totalTracks = (state.playlistData?.tracks || []).length;
+      const startTrack = batchIndex * PLAYLIST_LIMIT + 1;
+      const endTrack = Math.min((batchIndex + 1) * PLAYLIST_LIMIT, totalTracks);
+
+      console.log("[PlaylistBatch] Selected batch:", batchIndex + 1, "tracks:", selectedTracks.length);
+
+      await this.clearMenuState(message.senderId);
+
+      await this.saveMenuState(message.senderId, {
+        step: "playlistDelivery",
+        playlistData: { name: state.playlistData?.name, tracks: selectedTracks },
+        expiresAt: Date.now() + 30000,
+        commandName: "play",
+        chatJid: message.from,
+      });
+
+      return ctx.reply(`📦 Selected: Tracks ${startTrack}–${endTrack} (${selectedTracks.length} tracks)
+
+Choose how you want it:
+
+1 - Stream one by one (audio)
+2 - Download as ZIP file
+0 - Cancel`);
+    }
+
+    if (state.step === "playlistDelivery") {
+      const choice = text.trim();
+      console.log("[PlaylistUX] READ:", message.senderId, "choice:", choice);
+
+      if (Date.now() > Number(state.expiresAt || 0)) {
+        await this.clearMenuState(message.senderId);
+        await ctx.reply("⌛ Session expired. Please run /play again.");
+        return true;
+      }
+
+      if (choice === "0") {
+        await this.clearMenuState(message.senderId);
+        await ctx.reply("❌ Cancelled.");
+        return true;
+      }
+
+      if (choice === "2") {
+        await this.clearMenuState(message.senderId);
+        await ctx.services.playlistZip.processZip({
+          ctx,
+          playlistData: state.playlistData,
+        });
+        return true;
+      }
+
+      if (choice === "1") {
+        await this.clearMenuState(message.senderId);
+        await ctx.services.playlist.processStream({
+          ctx,
+          playlistData: state.playlistData,
+        });
+        return true;
+      }
+
+      await ctx.reply("Reply with 1, 2, or 0.");
+      return true;
     }
 
     if (Date.now() > Number(state.expiresAt || 0)) {

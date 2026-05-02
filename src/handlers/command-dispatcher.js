@@ -110,9 +110,28 @@ function createCommandDispatcher({
 
       const isPrefixCommand = message.text.startsWith(config.prefix);
 
+      const ctx = {
+        sock,
+        msg: message,
+        senderId: message.senderId,
+        from: message.key.remoteJid,
+        args: [],
+        text: "",
+        command: null,
+        logger,
+        config,
+        services,
+        metadata,
+        permission,
+        userSettings,
+        reply: (value, options = {}) => message.reply(value, options),
+        send: (jid, payload, options = {}) => sock.sendMessage(jid, payload, options),
+      };
+
       if (!isPrefixCommand && !botMentioned) {
         if (services.permission.canUseBot(permission) && !userSettings.banned) {
           const handledReplyInteraction = await maybeHandleReplyInteraction({
+            ctx,
             config,
             message,
             services,
@@ -216,22 +235,9 @@ function createCommandDispatcher({
         : message.text.slice(config.prefix.length).trim().split(/\s+/).slice(1);
       const text = args.join(" ").trim();
 
-      const ctx = {
-        sock,
-        msg: message,
-        senderId: message.senderId,
-        args,
-        text,
-        command,
-        logger,
-        config,
-        services,
-        metadata,
-        permission,
-        userSettings,
-        reply: (value, options = {}) => message.reply(value, options),
-        send: (jid, payload, options = {}) => sock.sendMessage(jid, payload, options),
-      };
+      ctx.args = args;
+      ctx.text = text;
+      ctx.command = command;
 
       const startedAt = Date.now();
       try {

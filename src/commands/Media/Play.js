@@ -1,6 +1,49 @@
 const axios = require("axios");
 const yts = require("yt-search");
 const { isSpotifyLink, fetchSpotifyMetadata, PLAYLIST_LIMIT, TRACK_DELAY_MS, delay } = require("../../services/spotify-service");
+const { getBestMatch } = require("../../services/playlist-service");
+
+function splitBatches(tracks, batchSize = PLAYLIST_LIMIT) {
+  const batches = [];
+  for (let i = 0; i < tracks.length; i += batchSize) {
+    batches.push(tracks.slice(i, i + batchSize));
+  }
+  return batches;
+}
+
+function isOwnerOrMod(permission, userSettings) {
+  console.log("[PlaylistBatch] Permission check:", JSON.stringify({ 
+    isOwner: permission?.isOwner, 
+    isMod: permission?.isMod,
+    isStaff: permission?.isStaff,
+    role: userSettings?.role,
+    senderId: permission?.senderId 
+  }));
+  
+  // Check permission object (isStaff covers both owner and mod)
+  if (permission?.isStaff === true) return true;
+  if (permission?.isOwner === true) return true;
+  if (permission?.isMod === true) return true;
+  
+  // Check userSettings role
+  const role = userSettings?.role?.toLowerCase();
+  if (role === "owner" || role === "mod") return true;
+  
+  return false;
+}
+
+function parseTrackRange(arg) {
+  // Match patterns like "1-100", "101-200", "1-100" at end of string
+  const rangeMatch = arg.match(/(\d+)-(\d+)\s*$/);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1], 10);
+    const end = parseInt(rangeMatch[2], 10);
+    if (start > 0 && end >= start) {
+      return { start, end };
+    }
+  }
+  return null;
+}
 
 module.exports = {
   meta: {
@@ -11,7 +54,7 @@ module.exports = {
     cooldownSeconds: 10,
     access: "user",
     chat: "both",
-    usage: "<song name/link> [--ask]",
+    usage: "<song name/link> [start-end] [--ask]",
   },
 
   async execute(ctx) {
@@ -31,110 +74,90 @@ module.exports = {
 
     // Handle Spotify links
     if (isSpotifyLink(arg)) {
-      const spotifyData = await fetchSpotifyMetadata(arg);
+      // Parse track range flag (e.g., "1-100" or "101-200")
+      const trackRange = parseTrackRange(arg);
+      if (trackRange) {
+        arg = arg.replace(/-\d+\s*$/, "").trim();
+      }
+      
+      // Check if owner/mod - bypass pagination BEFORE fetching
+      const isPrivileged = isOwnerOrMod(ctx.permission, ctx.userSettings);
+      const fetchLimit = isPrivileged ? 5000 : 100; // Get all tracks for privileged users
+      
+      console.log("[Play] Fetching Spotify with limit:", fetchLimit);
+      const spotifyData = await fetchSpotifyMetadata(arg, fetchLimit);
       if (!spotifyData) {
         return ctx.reply("❌ Failed to fetch Spotify data.");
       }
 
       // Handle playlist with queue
       if (spotifyData.type === "playlist") {
-        const trackCount = Math.min(spotifyData.tracks.length, PLAYLIST_LIMIT);
-        await ctx.reply(`📋 Processing playlist: *${spotifyData.name}* (${trackCount} tracks)`);
+        console.log("[Play] Spotify tracks fetched:", spotifyData.tracks.length);
+        console.log("[Play] Spotify total:", spotifyData.total);
+        
+        // Apply track range if specified
+        let tracks = spotifyData.tracks;
+        if (trackRange) {
+          const startIndex = trackRange.start - 1;
+          const endIndex = trackRange.end;
+          tracks = tracks.slice(startIndex, endIndex);
+          console.log("[Play] Using range:", trackRange.start, "-", trackRange.end, "tracks:", tracks.length);
+        }
+        
+        const senderId = ctx.msg.senderId;
+        const totalTracks = tracks.length;
+        
+        // If user specified a range OR user is privileged OR tracks <= limit, skip batch selection
+        const useRange = trackRange !== null;
+        
+        if (isPrivileged || totalTracks <= PLAYLIST_LIMIT || useRange) {
+          console.log("[PlaylistUX] isPrivileged:", isPrivileged, "totalTracks:", totalTracks, "useRange:", useRange);
+          
+          // Create playlist data with the tracks (already sliced if range specified)
+          const playlistToSave = { ...spotifyData, tracks: tracks };
+          
+          console.log("[PlaylistUX] Saving tracks count:", playlistToSave.tracks.length);
+          console.log("[PlaylistUX] SAVE:", senderId);
+          await ctx.services.media.saveMenuState(senderId, {
+            step: "playlistDelivery",
+            playlistData: playlistToSave,
+            expiresAt: Date.now() + 30000,
+            commandName: "play",
+            chatJid: ctx.from,
+          });
 
-        let successCount = 0;
-        for (let i = 0; i < spotifyData.tracks.length; i++) {
-          const track = spotifyData.tracks[i];
-          await ctx.reply(`🎵 [${i + 1}/${trackCount}] Processing: ${track.artist} - ${track.title}`);
+          const label = useRange ? ` (tracks ${trackRange.start}-${trackRange.end})` : (isPrivileged ? " (full playlist)" : "");
+          return ctx.reply(`📦 Playlist detected: ${spotifyData.name} (${totalTracks} tracks)${label}
 
-          try {
-            const { videos } = await yts(track.query + " official audio");
-            if (!videos?.length) {
-              await ctx.reply(`❌ Not found: ${track.query}`);
-              continue;
-            }
+Choose how you want it:
 
-            const info = videos[0];
-            const url = info.url;
-
-            let mediaUrl = "";
-            try {
-              const { data } = await axios.get(
-                `https://apis.davidcyril.name.ng/play?query=${encodeURIComponent(url)}`,
-                { timeout: 120000 },
-              );
-              if (data?.status && data?.result?.download_url) {
-                mediaUrl = data.result.download_url;
-              }
-            } catch (e) { /* fallbacks */ }
-
-            if (!mediaUrl) {
-              try {
-                const apiBase = "https://space2bnhz.tail9ef80b.ts.net";
-                const response = await axios.post(
-                  `${apiBase}/song/download`,
-                  { title: info.title },
-                  { timeout: 120000 },
-                );
-                if (response.data?.file_url) {
-                  mediaUrl = response.data.file_url.replace("http://127.0.0.1:5000", apiBase);
-                }
-              } catch (e) { /* fallbacks */ }
-            }
-
-            if (!mediaUrl) {
-              try {
-                const { data } = await axios.get(
-                  `https://apis-keith.vercel.app/download/dlmp3?url=${encodeURIComponent(url)}`,
-                  { timeout: 120000 },
-                );
-                mediaUrl = data?.result?.download || data?.download || data?.url || "";
-              } catch (e) { /* fallbacks */ }
-            }
-
-            if (mediaUrl) {
-              await ctx.services.media.sendOrPrompt({
-                sock: client,
-                message: {
-                  from: jid,
-                  senderId: msg?.senderId || ctx.msg?.senderId,
-                  reply: ctx.reply,
-                  quoted: msg,
-                },
-                userSettings: ctx.userSettings,
-                commandName: "play",
-                forcePrompt: false,
-                media: {
-                  title: info.title,
-                  mediaUrl,
-                  messageType: "audio",
-                  mimetype: "audio/mpeg",
-                  fileName: `${info.title}.mp3`,
-                  contextInfo: {
-                    externalAdReply: {
-                      title: info.title,
-                      body: info.author?.name || "Music",
-                      thumbnailUrl: info.thumbnail,
-                      mediaType: 2,
-                      mediaUrl: url,
-                      sourceUrl: url,
-                    },
-                  },
-                },
-              });
-              successCount++;
-            } else {
-              await ctx.reply(`❌ Download failed: ${track.query}`);
-            }
-          } catch (err) {
-            await ctx.reply(`❌ Error: ${track.query}`);
-          }
-
-          if (i < spotifyData.tracks.length - 1) {
-            await delay(TRACK_DELAY_MS);
-          }
+1 - Stream one by one (audio)
+2 - Download as ZIP file
+0 - Cancel`);
         }
 
-        return ctx.reply(`✅ Playlist complete! ${successCount}/${trackCount} tracks sent.`);
+        // More than 10 tracks - show batch selection
+        console.log("[PlaylistBatch] SAVE:", senderId);
+        const batches = splitBatches(tracks, PLAYLIST_LIMIT);
+        
+        await ctx.services.media.saveMenuState(senderId, {
+          step: "playlistBatchSelect",
+          playlistData: { ...spotifyData, tracks: tracks },
+          batches: batches,
+          expiresAt: Date.now() + 30000,
+          commandName: "play",
+          chatJid: ctx.from,
+        });
+
+        let batchMenu = `📦 Playlist detected: ${spotifyData.name} (${totalTracks} tracks)\n\nChoose range:\n`;
+        batches.forEach((batch, index) => {
+          const start = index * PLAYLIST_LIMIT + 1;
+          const end = Math.min((index + 1) * PLAYLIST_LIMIT, totalTracks);
+          batchMenu += `\n${index + 1} - Tracks ${start}–${end}`;
+        });
+        batchMenu += `\n\n0 - Cancel`;
+
+        return ctx.reply(batchMenu);
       }
 
       // Single track or album - convert to query and continue normal flow
@@ -164,7 +187,7 @@ module.exports = {
           return ctx.reply("❗ Song not found.");
         }
 
-        info = videos[0];
+        info = getBestMatch(videos.slice(0, 5), { title: arg, artist: "", query: arg, duration: null });
         url = info.url;
       }
 

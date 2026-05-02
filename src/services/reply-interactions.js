@@ -1,6 +1,7 @@
 const { maybeHandleVuMenuReply } = require("./vu-menu");
 
 async function maybeHandleReplyInteraction({
+  ctx,
   config,
   message,
   services,
@@ -8,10 +9,12 @@ async function maybeHandleReplyInteraction({
   userSettings,
 }) {
   const handledMediaReply = await services.media?.maybeHandleReply?.({
+    ctx,
     config,
     message,
     sock,
     userSettings,
+    services,
   });
   if (handledMediaReply) {
     return true;

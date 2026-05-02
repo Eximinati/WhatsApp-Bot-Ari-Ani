@@ -130,7 +130,9 @@ async function bootstrap() {
     settings: services.settings,
   });
   services.status = createStatusHandler({ logger, services });
-  
+  services.playlist = require("../services/playlist-service");
+  services.playlistZip = require("../services/playlist-zip-service");
+
   // Initialize permission service AFTER services object is complete
   services.permission = createPermissionService(config, services.user);
 
