@@ -27,27 +27,47 @@ const REWARD_CAPS = {
 
 const RARE_METER_TIMEOUT = 5 * 60 * 1000;
 
-const STREAK_STREAMS = {};
 const STREAK_TIMEOUT = 5 * 60 * 1000;
 
-function getStreakCount(jid, domain) {
-  const key = `${extract(jid)}_${domain}`;
-  const stream = STREAK_STREAMS[key];
-  if (!stream) return 0;
-  if (Date.now() - stream.lastAt > STREAK_TIMEOUT) {
-    delete STREAK_STREAMS[key];
-    return 0;
-  }
-  return stream.count;
+async function getStreakCount(jid, domain) {
+  const id = extract(jid);
+  const user = await UserSetting.findOne({ jid: id }).lean();
+  if (!user || user.streakDomain !== domain) return 0;
+  if (!user.lastStreakAt) return 0;
+  if (Date.now() - new Date(user.lastStreakAt).getTime() > STREAK_TIMEOUT) return 0;
+  return user.streakCount || 0;
 }
 
-function updateStreak(jid, domain, success) {
-  const key = `${extract(jid)}_${domain}`;
+async function updateStreak(jid, domain, success) {
+  const id = extract(jid);
+  const now = new Date();
+  
   if (success) {
-    STREAK_STREAMS[key] = { count: (STREAK_STREAMS[key]?.count || 0) + 1, lastAt: Date.now() };
-    return STREAK_STREAMS[key].count;
+    const result = await UserSetting.findOneAndUpdate(
+      { 
+        jid: id, 
+        streakDomain: domain,
+        lastStreakAt: { $gt: new Date(Date.now() - STREAK_TIMEOUT) }
+      },
+      { 
+        $inc: { streakCount: 1 },
+        $set: { lastStreakAt: now }
+      },
+      { new: true }
+    );
+    
+    if (result) return result.streakCount;
+    
+    await UserSetting.updateOne(
+      { jid: id },
+      { $set: { streakCount: 1, streakDomain: domain, lastStreakAt: now } }
+    );
+    return 1;
   } else {
-    delete STREAK_STREAMS[key];
+    await UserSetting.updateOne(
+      { jid: id },
+      { $set: { streakCount: 0, streakDomain: "", lastStreakAt: null } }
+    );
     return 0;
   }
 }
@@ -89,6 +109,13 @@ function rollRareEvent(baseBonus, baseXp, domain, rareMeter = 0) {
     bonus: event.type === "coins" ? Math.floor(baseBonus * event.bonusMult) : 0,
     xpBonus: event.type === "xp" ? Math.floor(baseXp * event.bonusMult) : 0,
   };
+}
+
+function applyRareMeterDecay(account) {
+  if (!account.lastRareMeterAt || !account.rareMeter) return 0;
+  const hoursPassed = (Date.now() - new Date(account.lastRareMeterAt).getTime()) / (60 * 60 * 1000);
+  const decay = Math.floor(hoursPassed / 24) * 10;
+  return Math.max(0, account.rareMeter - decay);
 }
 
 function sumDomainModifier(entities, bucket, domain) {
@@ -206,6 +233,13 @@ class EconomyService {
         setDefaultsOnInsert: true,
       },
     );
+
+    const decayed = applyRareMeterDecay(account);
+    if (decayed !== account.rareMeter) {
+      account.rareMeter = decayed;
+      account.lastRareMeterAt = new Date();
+      await account.save();
+    }
 
     const buffs = this.parseActiveBuffs(account);
     const filtered = buffs.filter((entry) => {
@@ -509,25 +543,36 @@ class EconomyService {
     successMessage,
     domain,
   }) {
-    const account = await this.getAccount(jid);
-    const progression = await this.getProgression(account);
-    const adjustedCooldown = this.adjustCooldown(cooldownMs, progression, domain);
-    const remainingMs = this.getRemainingCooldown(account[stampKey], adjustedCooldown);
-    if (remainingMs > 0) {
+    const id = extract(jid);
+    const progressionData = await this.getProgression(await this.getAccount(jid));
+    const adjustedCooldown = this.adjustCooldown(cooldownMs, progressionData, domain);
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
+
+    const account = await UserSetting.findOneAndUpdate(
+      { jid: id, [stampKey]: { $lte: cooldownExpired } },
+      { $set: { [stampKey]: new Date() } },
+      { new: true }
+    );
+
+    if (!account) {
+      const existing = await this.getAccount(jid);
+      const progression = await this.getProgression(existing);
+      const remainingMs = this.getRemainingCooldown(existing[stampKey], adjustedCooldown);
       return {
         ok: false,
         success: false,
         reason: "cooldown",
         remainingMs,
-        rareMeter: account.rareMeter || 0,
-        sessionCount: account.sessionCount || 0,
-        failStreak: account.failStreak || 0,
-        lastResult: account.lastResult || "",
-        account: this.toBalanceSummary(account, progression),
+        rareMeter: existing.rareMeter || 0,
+        sessionCount: existing.sessionCount || 0,
+        failStreak: existing.failStreak || 0,
+        lastResult: existing.lastResult || "",
+        account: this.toBalanceSummary(existing, progression),
       };
     }
 
-    updateStreak(jid, domain, false);
+    await updateStreak(jid, domain, false);
+    const progression = await this.getProgression(account);
     const sessionCount = updateSession(account);
     const failStreak = account.failStreak || 0;
     const biasBoost = Math.min(failStreak * 0.02, 0.08);
@@ -537,7 +582,7 @@ class EconomyService {
     const reward = this.applyRewardMultiplier(randomBetween(min, max), progression, domain);
     const cap = REWARD_CAPS[domain] || Infinity;
 
-    const streak = getStreakCount(jid, domain);
+    const streak = await getStreakCount(jid, domain);
     const currentRareMeter = account.rareMeter || 0;
 
     const rare = rollRareEvent(reward, min, domain, currentRareMeter);
@@ -547,15 +592,15 @@ class EconomyService {
       const totalBeforeCap = rawReward + rareBonus;
       const finalReward = Math.min(totalBeforeCap, cap);
       const appliedRare = Math.max(0, finalReward - rawReward);
-      account[stampKey] = new Date();
       account.wallet = clampMoney(account.wallet + finalReward);
       account.rareMeter = 0;
+      account.lastRareMeterAt = new Date();
       account.failStreak = 0;
       account.lastResult = "win";
       await this.incrementStats(account, { [`${domain}Runs`]: 1 });
       await account.save();
-      const newStreak = updateStreak(jid, domain, true);
-      console.log(`[ECONOMY] ${domain} | user=${extract(jid)} | reward=${finalReward} | rare=${appliedRare} | streak=${newStreak}`);
+      const newStreak = await updateStreak(jid, domain, true);
+      console.log(`[ECONOMY] ${domain} | user=${id} | reward=${finalReward} | rare=${appliedRare} | streak=${newStreak}`);
       return {
         ok: true,
         success: true,
@@ -577,10 +622,9 @@ class EconomyService {
     if (!isSuccess) {
       account.failStreak = Math.min((account.failStreak || 0) + 1, 10);
       account.lastResult = "fail";
-      account[stampKey] = new Date();
       await this.incrementStats(account, { [`${domain}Runs`]: 1 });
       await account.save();
-      updateStreak(jid, domain, false);
+      await updateStreak(jid, domain, false);
       return {
         ok: true,
         success: false,
@@ -596,14 +640,15 @@ class EconomyService {
     }
 
     account.rareMeter = Math.min((currentRareMeter || 0) + randomBetween(3, 7), 100);
+    account.rareMeter = applyRareMeterDecay(account);
+    account.lastRareMeterAt = new Date();
     account.failStreak = 0;
     account.lastResult = "win";
-    account[stampKey] = new Date();
     account.wallet = clampMoney(account.wallet + finalCapped);
     await this.incrementStats(account, { [`${domain}Runs`]: 1 });
     await account.save();
-    const newStreak = updateStreak(jid, domain, true);
-    console.log(`[ECONOMY] ${domain} | user=${extract(jid)} | reward=${finalCapped} | streak=${newStreak}`);
+    const newStreak = await updateStreak(jid, domain, true);
+    console.log(`[ECONOMY] ${domain} | user=${id} | reward=${finalCapped} | streak=${newStreak}`);
 
     return {
       ok: true,
@@ -644,25 +689,35 @@ class EconomyService {
   }
 
   async performGather(jid, options) {
-    const account = await this.getAccount(jid);
-    const progression = await this.getProgression(account);
-    const adjustedCooldown = this.adjustCooldown(options.cooldownMs, progression, options.domain);
-    const remainingMs = this.getRemainingCooldown(account[options.stampKey], adjustedCooldown);
+    const id = extract(jid);
+    const progressionData = await this.getProgression(await this.getAccount(jid));
+    const adjustedCooldown = this.adjustCooldown(options.cooldownMs, progressionData, options.domain);
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
 
-    if (remainingMs > 0) {
+    const account = await UserSetting.findOneAndUpdate(
+      { jid: id, [options.stampKey]: { $lte: cooldownExpired } },
+      { $set: { [options.stampKey]: new Date() } },
+      { new: true }
+    );
+
+    if (!account) {
+      const existing = await this.getAccount(jid);
+      const progression = await this.getProgression(existing);
+      const remainingMs = this.getRemainingCooldown(existing[options.stampKey], adjustedCooldown);
       return {
         ok: false,
         success: false,
         reason: "cooldown",
         remainingMs,
-        rareMeter: account.rareMeter || 0,
-        sessionCount: account.sessionCount || 0,
-        failStreak: account.failStreak || 0,
-        lastResult: account.lastResult || "",
-        account: this.toBalanceSummary(account, progression),
+        rareMeter: existing.rareMeter || 0,
+        sessionCount: existing.sessionCount || 0,
+        failStreak: existing.failStreak || 0,
+        lastResult: existing.lastResult || "",
+        account: this.toBalanceSummary(existing, progression),
       };
     }
 
+    const progression = await this.getProgression(account);
     const sessionCount = updateSession(account);
     const failStreak = account.failStreak || 0;
     const biasBoost = Math.min(failStreak * 0.02, 0.08);
@@ -670,14 +725,13 @@ class EconomyService {
       0.95,
       1 - options.missRate + this.getSuccessBonus(progression, options.domain) + biasBoost,
     );
-    account[options.stampKey] = new Date();
 
     if (Math.random() > successRate) {
       account.failStreak = Math.min((account.failStreak || 0) + 1, 10);
       account.lastResult = "fail";
       await this.incrementStats(account, { [`${options.domain}Fails`]: 1 });
       await account.save();
-      updateStreak(jid, options.domain, false);
+      await updateStreak(jid, options.domain, false);
       return {
         ok: true,
         success: false,
@@ -710,6 +764,7 @@ class EconomyService {
       const appliedRare = Math.max(0, finalReward - rawReward);
       account.wallet = clampMoney(account.wallet + finalReward);
       account.rareMeter = 0;
+      account.lastRareMeterAt = new Date();
       account.failStreak = 0;
       account.lastResult = "win";
       await this.incrementStats(account, {
@@ -717,8 +772,8 @@ class EconomyService {
         [`${options.domain}Wins`]: 1,
       });
       await account.save();
-      const newStreak = updateStreak(jid, options.domain, true);
-      console.log(`[ECONOMY] ${options.domain} | user=${extract(jid)} | reward=${finalReward} | rare=${appliedRare} | streak=${newStreak}`);
+      const newStreak = await updateStreak(jid, options.domain, true);
+      console.log(`[ECONOMY] ${options.domain} | user=${id} | reward=${finalReward} | rare=${appliedRare} | streak=${newStreak}`);
       return {
         ok: true,
         success: true,
@@ -738,6 +793,8 @@ class EconomyService {
     const finalReward = Math.min(rawReward, cap);
 
     account.rareMeter = Math.min((currentRareMeter || 0) + randomBetween(3, 7), 100);
+    account.rareMeter = applyRareMeterDecay(account);
+    account.lastRareMeterAt = new Date();
     account.failStreak = 0;
     account.lastResult = "win";
 
@@ -747,8 +804,8 @@ class EconomyService {
       [`${options.domain}Wins`]: 1,
     });
     await account.save();
-    const newStreak = updateStreak(jid, options.domain, true);
-    console.log(`[ECONOMY] ${options.domain} | user=${extract(jid)} | reward=${finalReward} | streak=${newStreak}`);
+    const newStreak = await updateStreak(jid, options.domain, true);
+    console.log(`[ECONOMY] ${options.domain} | user=${id} | reward=${finalReward} | streak=${newStreak}`);
 
     return {
       ok: true,
@@ -933,24 +990,35 @@ class EconomyService {
   }
 
   async collect(jid) {
-    const account = await this.getAccount(jid);
-    const progression = await this.getProgression(account);
+    const id = extract(jid);
+    const progressionData = await this.getProgression(await this.getAccount(jid));
     const adjustedCooldown = this.adjustCooldown(
       constants.economy.collectCooldownMs,
-      progression,
+      progressionData,
       "collect",
     );
-    const remainingMs = this.getRemainingCooldown(account.lastCollectAt, adjustedCooldown);
-    if (remainingMs > 0) {
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
+
+    const account = await UserSetting.findOneAndUpdate(
+      { jid: id, lastCollectAt: { $lte: cooldownExpired } },
+      { $set: { lastCollectAt: new Date() } },
+      { new: true }
+    );
+
+    if (!account) {
+      const existing = await this.getAccount(jid);
+      const progression = await this.getProgression(existing);
+      const remainingMs = this.getRemainingCooldown(existing.lastCollectAt, adjustedCooldown);
       return {
         ok: false,
         success: false,
         reason: "cooldown",
         remainingMs,
-        account: this.toBalanceSummary(account, progression),
+        account: this.toBalanceSummary(existing, progression),
       };
     }
 
+    const progression = await this.getProgression(account);
     const pending = this.parseActiveBuffs(account).filter((entry) => entry.type === "pending");
     const ready = pending.filter(
       (entry) => new Date(entry.dueAt).getTime() <= Date.now(),
@@ -986,7 +1054,6 @@ class EconomyService {
     }
 
     account.wallet = clampMoney(account.wallet + total);
-    account.lastCollectAt = new Date();
     await this.removePendingActions(
       account,
       ready.map((entry) => entry.key),
@@ -1003,24 +1070,35 @@ class EconomyService {
   }
 
   async crime(jid) {
-    const account = await this.getAccount(jid);
-    const progression = await this.getProgression(account);
+    const id = extract(jid);
+    const progressionData = await this.getProgression(await this.getAccount(jid));
     const adjustedCooldown = this.adjustCooldown(
       constants.economy.crimeCooldownMs,
-      progression,
+      progressionData,
       "crime",
     );
-    const remainingMs = this.getRemainingCooldown(account.lastCrimeAt, adjustedCooldown);
-    if (remainingMs > 0) {
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
+
+    const account = await UserSetting.findOneAndUpdate(
+      { jid: id, lastCrimeAt: { $lte: cooldownExpired } },
+      { $set: { lastCrimeAt: new Date() } },
+      { new: true }
+    );
+
+    if (!account) {
+      const existing = await this.getAccount(jid);
+      const progression = await this.getProgression(existing);
+      const remainingMs = this.getRemainingCooldown(existing.lastCrimeAt, adjustedCooldown);
       return {
         ok: false,
         success: false,
         reason: "cooldown",
         remainingMs,
-        account: this.toBalanceSummary(account, progression),
+        account: this.toBalanceSummary(existing, progression),
       };
     }
 
+    const progression = await this.getProgression(account);
     const successRate = Math.min(
       0.95,
       constants.economy.crimeSuccessRate + this.getSuccessBonus(progression, "crime"),
@@ -1039,15 +1117,14 @@ class EconomyService {
       "crime",
     );
 
-    account.lastCrimeAt = new Date();
     if (success) {
       account.wallet = clampMoney(account.wallet + amount);
       await this.incrementStats(account, { crimesWon: 1 });
-      console.log(`[ECONOMY] crime | user=${extract(jid)} | reward=${amount} | success=true`);
+      console.log(`[ECONOMY] crime | user=${id} | reward=${amount} | success=true`);
     } else {
       account.wallet = clampMoney(account.wallet - amount);
       await this.incrementStats(account, { crimesLost: 1 });
-      console.log(`[ECONOMY] crime | user=${extract(jid)} | loss=${amount}`);
+      console.log(`[ECONOMY] crime | user=${id} | loss=${amount}`);
     }
     await account.save();
 
@@ -1067,18 +1144,28 @@ class EconomyService {
       throw new Error("You cannot rob yourself.");
     }
 
+    const thiefId = extract(fromJid);
     const [thief, target] = await Promise.all([
       this.getAccount(fromJid),
       this.getAccount(targetJid),
     ]);
-    const progression = await this.getProgression(thief);
+    const progressionData = await this.getProgression(thief);
     const adjustedCooldown = this.adjustCooldown(
       constants.economy.robCooldownMs,
-      progression,
+      progressionData,
       "rob",
     );
-    const remainingMs = this.getRemainingCooldown(thief.lastRobAt, adjustedCooldown);
-    if (remainingMs > 0) {
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
+
+    const updatedThief = await UserSetting.findOneAndUpdate(
+      { jid: thiefId, lastRobAt: { $lte: cooldownExpired } },
+      { $set: { lastRobAt: new Date() } },
+      { new: true }
+    );
+
+    if (!updatedThief) {
+      const progression = await this.getProgression(thief);
+      const remainingMs = this.getRemainingCooldown(thief.lastRobAt, adjustedCooldown);
       return {
         ok: false,
         reason: "cooldown",
@@ -1088,16 +1175,17 @@ class EconomyService {
       };
     }
 
+    const progression = await this.getProgression(updatedThief);
+
     if (clampMoney(target.wallet) < constants.economy.robMinTargetWallet) {
       return {
         ok: false,
         reason: "poor-target",
-        thief: this.toBalanceSummary(thief, progression),
+        thief: this.toBalanceSummary(updatedThief, progression),
         target: this.toBalanceSummary(target),
       };
     }
 
-    thief.lastRobAt = new Date();
     const success = Math.random() <
       Math.min(0.95, constants.economy.robSuccessRate + this.getSuccessBonus(progression, "rob"));
 
@@ -1110,16 +1198,16 @@ class EconomyService {
           "rob",
         ),
       );
-      thief.wallet = clampMoney(thief.wallet + amount);
+      updatedThief.wallet = clampMoney(updatedThief.wallet + amount);
       target.wallet = clampMoney(target.wallet - amount);
-      await this.incrementStats(thief, { robsWon: 1 });
-      await Promise.all([thief.save(), target.save()]);
+      await this.incrementStats(updatedThief, { robsWon: 1 });
+      await Promise.all([updatedThief.save(), target.save()]);
       return {
         ok: true,
         success: true,
         amount,
         message: "You slipped away with someone else's cash.",
-        thief: this.toBalanceSummary(thief, progression),
+        thief: this.toBalanceSummary(updatedThief, progression),
         target: this.toBalanceSummary(target),
       };
     }
@@ -1129,16 +1217,16 @@ class EconomyService {
       progression,
       "rob",
     );
-    thief.wallet = clampMoney(thief.wallet - penalty);
+    updatedThief.wallet = clampMoney(updatedThief.wallet - penalty);
     target.wallet = clampMoney(target.wallet + penalty);
-    await this.incrementStats(thief, { robsLost: 1 });
-    await Promise.all([thief.save(), target.save()]);
+    await this.incrementStats(updatedThief, { robsLost: 1 });
+    await Promise.all([updatedThief.save(), target.save()]);
     return {
       ok: true,
       success: false,
       amount: penalty,
       message: "The robbery failed and you paid compensation.",
-      thief: this.toBalanceSummary(thief, progression),
+      thief: this.toBalanceSummary(updatedThief, progression),
       target: this.toBalanceSummary(target),
     };
   }
@@ -1148,18 +1236,28 @@ class EconomyService {
       throw new Error("You cannot heist yourself.");
     }
 
+    const thiefId = extract(fromJid);
     const [thief, target] = await Promise.all([
       this.getAccount(fromJid),
       this.getAccount(targetJid),
     ]);
-    const progression = await this.getProgression(thief);
+    const progressionData = await this.getProgression(thief);
     const adjustedCooldown = this.adjustCooldown(
       constants.economy.heistCooldownMs,
-      progression,
+      progressionData,
       "heist",
     );
-    const remainingMs = this.getRemainingCooldown(thief.lastHeistAt, adjustedCooldown);
-    if (remainingMs > 0) {
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
+
+    const updatedThief = await UserSetting.findOneAndUpdate(
+      { jid: thiefId, lastHeistAt: { $lte: cooldownExpired } },
+      { $set: { lastHeistAt: new Date() } },
+      { new: true }
+    );
+
+    if (!updatedThief) {
+      const progression = await this.getProgression(thief);
+      const remainingMs = this.getRemainingCooldown(thief.lastHeistAt, adjustedCooldown);
       return {
         ok: false,
         success: false,
@@ -1170,16 +1268,17 @@ class EconomyService {
       };
     }
 
+    const progression = await this.getProgression(updatedThief);
+
     if (clampMoney(target.bank) < constants.economy.heistMinTargetBank) {
       return {
         ok: false,
         reason: "poor-target",
-        thief: this.toBalanceSummary(thief, progression),
+        thief: this.toBalanceSummary(updatedThief, progression),
         target: this.toBalanceSummary(target),
       };
     }
 
-    thief.lastHeistAt = new Date();
     const success = Math.random() <
       Math.min(
         0.92,
@@ -1195,16 +1294,16 @@ class EconomyService {
           "heist",
         ),
       );
-      thief.wallet = clampMoney(thief.wallet + amount);
+      updatedThief.wallet = clampMoney(updatedThief.wallet + amount);
       target.bank = clampMoney(target.bank - amount);
-      await this.incrementStats(thief, { heistsWon: 1 });
-      await Promise.all([thief.save(), target.save()]);
+      await this.incrementStats(updatedThief, { heistsWon: 1 });
+      await Promise.all([updatedThief.save(), target.save()]);
       return {
         ok: true,
         success: true,
         amount,
         message: "You cracked the vault and escaped with the payout.",
-        thief: this.toBalanceSummary(thief, progression),
+        thief: this.toBalanceSummary(updatedThief, progression),
         target: this.toBalanceSummary(target),
       };
     }
@@ -1214,16 +1313,16 @@ class EconomyService {
       progression,
       "heist",
     );
-    thief.wallet = clampMoney(thief.wallet - penalty);
+    updatedThief.wallet = clampMoney(updatedThief.wallet - penalty);
     target.bank = clampMoney(target.bank + penalty);
-    await this.incrementStats(thief, { heistsLost: 1 });
-    await Promise.all([thief.save(), target.save()]);
+    await this.incrementStats(updatedThief, { heistsLost: 1 });
+    await Promise.all([updatedThief.save(), target.save()]);
     return {
       ok: true,
       success: false,
       amount: penalty,
       message: "Security locked you out and you paid a brutal penalty.",
-      thief: this.toBalanceSummary(thief, progression),
+      thief: this.toBalanceSummary(updatedThief, progression),
       target: this.toBalanceSummary(target),
     };
   }
@@ -1233,18 +1332,28 @@ class EconomyService {
       throw new Error("You cannot duel yourself.");
     }
 
+    const challengerId = extract(fromJid);
     const [challenger, target] = await Promise.all([
       this.getAccount(fromJid),
       this.getAccount(targetJid),
     ]);
-    const progression = await this.getProgression(challenger);
+    const progressionData = await this.getProgression(challenger);
     const adjustedCooldown = this.adjustCooldown(
       constants.economy.duelCooldownMs,
-      progression,
+      progressionData,
       "duel",
     );
-    const remainingMs = this.getRemainingCooldown(challenger.lastDuelAt, adjustedCooldown);
-    if (remainingMs > 0) {
+    const cooldownExpired = new Date(Date.now() - adjustedCooldown);
+
+    const updatedChallenger = await UserSetting.findOneAndUpdate(
+      { jid: challengerId, lastDuelAt: { $lte: cooldownExpired } },
+      { $set: { lastDuelAt: new Date() } },
+      { new: true }
+    );
+
+    if (!updatedChallenger) {
+      const progression = await this.getProgression(challenger);
+      const remainingMs = this.getRemainingCooldown(challenger.lastDuelAt, adjustedCooldown);
       return {
         ok: false,
         success: false,
@@ -1253,7 +1362,8 @@ class EconomyService {
       };
     }
 
-    const available = Math.min(challenger.wallet, target.wallet);
+    const progression = await this.getProgression(updatedChallenger);
+    const available = Math.min(updatedChallenger.wallet, target.wallet);
     const bet = parseBetInput(betInput, {
       minBet: constants.economy.duelMinBet,
       maxBet: constants.economy.duelMaxBet,
@@ -1263,30 +1373,29 @@ class EconomyService {
     const challengerPower =
       randomBetween(35, 100) + Math.round(this.getSuccessBonus(progression, "duel") * 100);
     const targetPower = randomBetween(35, 100);
-    challenger.lastDuelAt = new Date();
 
     if (challengerPower === targetPower) {
-      await challenger.save();
+      await updatedChallenger.save();
       return {
         ok: true,
         draw: true,
         bet,
-        challenger: this.toBalanceSummary(challenger, progression),
+        challenger: this.toBalanceSummary(updatedChallenger, progression),
         target: this.toBalanceSummary(target),
       };
     }
 
     const challengerWins = challengerPower > targetPower;
-    const winner = challengerWins ? challenger : target;
-    const loser = challengerWins ? target : challenger;
+    const winner = challengerWins ? updatedChallenger : target;
+    const loser = challengerWins ? target : updatedChallenger;
     winner.wallet = clampMoney(winner.wallet + bet);
     loser.wallet = clampMoney(loser.wallet - bet);
     if (challengerWins) {
-      await this.incrementStats(challenger, { duelsWon: 1 });
+      await this.incrementStats(updatedChallenger, { duelsWon: 1 });
     } else {
-      await this.incrementStats(challenger, { duelsLost: 1 });
+      await this.incrementStats(updatedChallenger, { duelsLost: 1 });
     }
-    await Promise.all([challenger.save(), target.save()]);
+    await Promise.all([updatedChallenger.save(), target.save()]);
 
     return {
       ok: true,
@@ -1295,7 +1404,7 @@ class EconomyService {
       bet,
       challengerPower,
       targetPower,
-      challenger: this.toBalanceSummary(challenger, progression),
+      challenger: this.toBalanceSummary(updatedChallenger, progression),
       target: this.toBalanceSummary(target),
     };
   }

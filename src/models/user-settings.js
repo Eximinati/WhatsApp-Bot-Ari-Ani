@@ -160,6 +160,10 @@ const userSettingsSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    streakDomain: {
+      type: String,
+      default: "",
+    },
     lastStreakAt: {
       type: Date,
       default: null,
@@ -169,6 +173,10 @@ const userSettingsSchema = new mongoose.Schema(
       default: 0,
       min: 0,
       max: 100,
+    },
+    lastRareMeterAt: {
+      type: Date,
+      default: null,
     },
     lastActionAt: {
       type: Date,
