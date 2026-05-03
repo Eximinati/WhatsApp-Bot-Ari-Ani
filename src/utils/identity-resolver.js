@@ -77,7 +77,7 @@ async function resolveIdentity(jid, sock = null) {
         const pn = await getPNForLID(rawId);
         if (pn) {
           const resolved = extract(pn);
-          userMap.set(rawId, resolved);
+          await linkIdentities(rawId, resolved, { source: "signalRepository" });
           return resolved;
         }
       } catch {
@@ -88,6 +88,10 @@ async function resolveIdentity(jid, sock = null) {
 
   // Fallback: use in-memory map or return LID
   return userMap.get(rawId) || rawId;
+}
+
+function getUserId({ senderId, phoneId }) {
+  return extract(phoneId || senderId);
 }
 
 /**
@@ -195,6 +199,7 @@ module.exports = {
   mentionTag,
   normalizeJid,
   resolveIdentity,
+  getUserId,
   sameUser,
   setLogger,
   // For debugging

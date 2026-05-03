@@ -3,7 +3,12 @@ const {
   getContentType,
   jidDecode,
 } = require("@whiskeysockets/baileys");
-const { extract, learnIdentity, resolveIdentity } = require("../../utils/identity-resolver");
+const {
+  extract,
+  getUserId,
+  learnIdentity,
+  resolveIdentity,
+} = require("../../utils/identity-resolver");
 
 function decodeJid(jid) {
   if (!jid) {
@@ -162,12 +167,17 @@ async function normalizeMessage(sock, rawMessage) {
 
   message.raw = raw;
   // Primary identity: LID (WhatsApp's canonical form)
+  message.rawSender = message.sender;
   message.senderId = extract(message.sender);
 
   // Optional: try to get phone number (best-effort, not required)
   learnIdentity(message.sender, { sender: message.sender });
   const resolvedPhone = await resolveIdentity(message.sender, sock);
   message.phoneId = resolvedPhone !== message.senderId ? resolvedPhone : null;
+  message.userId = getUserId({
+    senderId: message.senderId,
+    phoneId: message.phoneId,
+  });
 
   message.reply = (text, options = {}) =>
     sock.sendMessage(

@@ -72,7 +72,7 @@ class UserService {
   }
 
   async touchFromMessage(message) {
-    return this.upsertContact(message.senderId, message.pushName);
+    return this.upsertContact(message.userId || message.phoneId || message.senderId, message.pushName);
   }
 
   async getDisplayName(jid) {

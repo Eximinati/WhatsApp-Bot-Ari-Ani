@@ -53,6 +53,9 @@ function createMessagesUpsertHandler({ dispatcher, logger, services }) {
         if (!message || !message.message || !message.type) {
           continue;
         }
+        if (message.fromMe || rawMessage?.key?.fromMe) {
+          continue;
+        }
 
         if (message.from === "status@broadcast") {
           await services.status.capture(rawMessage);
@@ -66,13 +69,23 @@ function createMessagesUpsertHandler({ dispatcher, logger, services }) {
         await services.messages.saveMessage(rawMessage, {
           source: event.type || "upsert",
         });
+        const processingClaim = await services.messages.claimMessageProcessing(rawMessage.key);
+        if (!processingClaim.claimed) {
+          continue;
+        }
         await services.user.touchFromMessage(message);
         
         // Auto-learn identity (LID-first)
         await services.user.upsertIdentity({
-          id: message.senderId,
+          id: message.userId || message.senderId,
           phone: message.phoneId || null,
         });
+        if (message.phoneId && message.senderId && message.phoneId !== message.senderId) {
+          await services.user.upsertIdentity({
+            id: message.senderId,
+            phone: message.phoneId,
+          });
+        }
         
         await dispatcher.dispatch({ sock, message });
       } catch (error) {

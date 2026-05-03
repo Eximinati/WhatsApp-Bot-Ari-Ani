@@ -38,6 +38,7 @@ function createCommandDispatcher({
 
   function buildCommandLog(message, metadata, commandName, botMentioned) {
     const log = {
+      msgId: message.id || message.key?.id || undefined,
       command: commandName,
       sender: shortJid(message.senderId),
       senderName: message.pushName || undefined,
@@ -58,10 +59,12 @@ function createCommandDispatcher({
       const botJid = sock.user?.id?.split(":")[0]
         ? `${sock.user.id.split(":")[0]}@s.whatsapp.net`
         : null;
+      const userId = message.userId || message.phoneId || message.senderId;
+      message.senderId = userId;
 
       const metadata = await getMetadata(sock, message);
 
-      const userSettings = await services.settings.getUserSettings(message.senderId);
+      const userSettings = await services.settings.getUserSettings(userId);
       const botSettings = await services.settings.getBotSettings();
       const permission = await services.permission.getPermissionContext(
         message,
@@ -113,7 +116,7 @@ function createCommandDispatcher({
       const ctx = {
         sock,
         msg: message,
-        senderId: message.senderId,
+        senderId: userId,
         from: message.key.remoteJid,
         args: [],
         text: "",
@@ -153,7 +156,12 @@ function createCommandDispatcher({
         return;
       }
 
-      const commandLog = buildCommandLog(message, metadata, commandName, botMentioned);
+      const commandLog = buildCommandLog(
+        { ...message, senderId: userId },
+        metadata,
+        commandName,
+        botMentioned,
+      );
       if (!services.permission.canUseBot(permission)) {
         logger.warn(
           { area: "ACCESS", ...commandLog, status: "private-bot-blocked" },
@@ -207,8 +215,8 @@ function createCommandDispatcher({
         return;
       }
 
-      const cooldown = services.cooldowns.check(
-        message.senderId,
+      const cooldown = await services.cooldowns.acquire(
+        userId,
         command.meta.name,
         command.meta.cooldownSeconds ?? constants.commands.defaultCooldownSeconds,
       );
@@ -242,14 +250,9 @@ function createCommandDispatcher({
       const startedAt = Date.now();
       try {
         await command.execute(ctx);
-        services.cooldowns.consume(
-          message.senderId,
-          command.meta.name,
-          command.meta.cooldownSeconds ?? constants.commands.defaultCooldownSeconds,
-        );
 
         if (command.meta.trackXp !== false) {
-          await services.xp.awardCommandXp(message.senderId);
+          await services.xp.awardCommandXp(userId);
         }
 
         logger.info(
@@ -263,6 +266,7 @@ function createCommandDispatcher({
           "Command handled",
         );
       } catch (error) {
+        await services.cooldowns.rollback(cooldown.token).catch(() => {});
         logger.error(
           {
             area: "CMD",
