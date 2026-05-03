@@ -38,6 +38,7 @@ function createCommandDispatcher({
 
   function buildCommandLog(message, metadata, commandName, botMentioned) {
     const log = {
+      msgId: message.id || message.key?.id || undefined,
       command: commandName,
       sender: shortJid(message.senderId),
       senderName: message.pushName || undefined,
@@ -207,7 +208,7 @@ function createCommandDispatcher({
         return;
       }
 
-      const cooldown = services.cooldowns.check(
+      const cooldown = await services.cooldowns.acquire(
         message.senderId,
         command.meta.name,
         command.meta.cooldownSeconds ?? constants.commands.defaultCooldownSeconds,
@@ -242,11 +243,6 @@ function createCommandDispatcher({
       const startedAt = Date.now();
       try {
         await command.execute(ctx);
-        services.cooldowns.consume(
-          message.senderId,
-          command.meta.name,
-          command.meta.cooldownSeconds ?? constants.commands.defaultCooldownSeconds,
-        );
 
         if (command.meta.trackXp !== false) {
           await services.xp.awardCommandXp(message.senderId);
@@ -263,6 +259,7 @@ function createCommandDispatcher({
           "Command handled",
         );
       } catch (error) {
+        await services.cooldowns.rollback(cooldown.token).catch(() => {});
         logger.error(
           {
             area: "CMD",

@@ -69,6 +69,11 @@ const messageRecordSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    commandProcessedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,
