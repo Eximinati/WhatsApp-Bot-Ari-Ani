@@ -575,7 +575,6 @@ class EconomyService {
       };
     }
 
-    await updateStreak(jid, domain, false);
     const progression = await this.getProgression(account);
     const sessionCount = updateSession(account);
     const failStreak = account.failStreak || 0;
@@ -586,7 +585,6 @@ class EconomyService {
     const reward = this.applyRewardMultiplier(randomBetween(min, max), progression, domain);
     const cap = REWARD_CAPS[domain] || Infinity;
 
-    const streak = await getStreakCount(jid, domain);
     const decayed = applyRareMeterDecay(account);
     account.rareMeter = decayed;
     account.lastRareMeterAt = new Date();
@@ -755,7 +753,6 @@ class EconomyService {
       };
     }
 
-    const streak = getStreakCount(jid, options.domain);
     const decayed = applyRareMeterDecay(account);
     account.rareMeter = decayed;
     account.lastRareMeterAt = new Date();

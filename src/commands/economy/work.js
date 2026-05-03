@@ -1,5 +1,5 @@
 const { formatMoney } = require("../../services/economy-service");
-const { getProgressBar, getXpLevelText, getContextTip, getLoopHook } = require("../../utils/xp-utils");
+const { getProgressBar, getLoopHook } = require("../../utils/xp-utils");
 const { getStatBonuses, getSafeStats } = require("../../utils/stat-utils");
 const {
   getAnticipationLine,
@@ -10,7 +10,6 @@ const {
   getSessionHook,
   getCurrentTier,
   getProgressToNextTier,
-  getStreakText,
   getStreakTierText,
   getFakeRareReveal,
   getRareMeterDisplay,
@@ -88,8 +87,6 @@ module.exports = {
       const { profile, leveledUp } = await ctx.services.xp.addXp(senderId, displayXp);
       const newBalance = await ctx.services.economy.getBalance(senderId);
       const progress = getProgressBar(profile.xp, profile.level);
-      const levelText = getXpLevelText(profile.level);
-      const tip = getContextTip({ success }, newBalance, "work");
       const loopHook = getLoopHook(0, success, "work");
       const sessionHook = success ? getSuccessHook() : getFailHook();
       const currentTier = getCurrentTier(profile.level);
@@ -166,7 +163,7 @@ module.exports = {
       await ctx.reply(text, { parse_mode: "Markdown" });
 
     } catch (err) {
-      console.error(err);
+      throw err;
     }
   },
 };

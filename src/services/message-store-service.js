@@ -131,6 +131,23 @@ class MessageStoreService {
     }
   }
 
+  async claimMessageProcessing(key) {
+    const storeKey = this.createStoreKey(key);
+    const now = new Date();
+    const claimed = await MessageRecord.findOneAndUpdate(
+      {
+        storeKey,
+        $or: [{ commandProcessedAt: null }, { commandProcessedAt: { $exists: false } }],
+      },
+      {
+        $set: { commandProcessedAt: now },
+      },
+      { new: true },
+    );
+
+    return { claimed: Boolean(claimed), at: now };
+  }
+
   createStoreKey(key) {
     return [
       key?.remoteJid || "",
