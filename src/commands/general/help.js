@@ -1,6 +1,19 @@
 const { capitalize } = require("../../utils/text");
 const { formatNow, getGreeting } = require("../../utils/time");
 
+const customFontMap = {
+  a: '𝐚', b: '𝐛', c: '𝐜', d: '𝐝', e: '𝐞', f: '𝐟', g: '𝐠', h: '𝐡', i: '𝐢', j: '𝐣',
+  k: '𝐤', l: '𝐥', m: '𝐦', n: '𝐧', o: '𝐨', p: '𝐩', q: '𝐪', r: '𝐫', s: '𝐬', t: '𝐭',
+  u: '𝐮', v: '𝐯', w: '𝐰', x: '𝐱', y: '𝐲', z: '𝐳',
+
+  A: '𝐀', B: '𝐁', C: '𝐂', D: '𝐃', E: '𝐄', F: '𝐅', G: '𝐆', H: '𝐇', I: '𝐈', J: '𝐉',
+  K: '𝐊', L: '𝐋', M: '𝐌', N: '𝐍', O: '𝐎', P: '𝐏', Q: '𝐐', R: '𝐑', S: '𝐒', T: '𝐓',
+  U: '𝐔', V: '𝐕', W: '𝐖', X: '𝐗', Y: '𝐘', Z: '𝐙'
+};
+
+const toFont = (text = "") =>
+  text.replace(/[a-zA-Z]/g, (char) => customFontMap[char] || char);
+
 
 const categoryImages = {
 general: "https://i.ibb.co/WvCnB8WM/Deryl.jpg",
@@ -17,9 +30,7 @@ ismlamic: "https://i.ibb.co/XfRfySZZ/Deryl.jpg",
 search: "https://i.ibb.co/v6QJYnmr/Deryl.jpg",
 study: "https://i.ibb.co/Y7XbKcbC/Deryl.jpg",
 utils: "https://i.ibb.co/G3T425vQ/Deryl.jpg"
-
 };
-
 
 const thumbnailUrls = [
 "https://i.ibb.co/6RxTGwCZ/Deryl.jpg",
@@ -74,26 +85,24 @@ module.exports = {
       return ctx.reply("❌ WhatsApp client unavailable.");
     }
 
-
     if (query) {
       const grouped = ctx.services.commands.grouped();
       const category = grouped[query];
 
       if (category) {
 
-        
         let cmdLine = category
           .map(cmd => `❄︎ ${cmd.meta.name}`)
           .join("  ")
-          .slice(0, 900); // prevent overflow
+          .slice(0, 900);
 
-        const text = `
+        const text = toFont(`
 ▬▬▬๑۩ ${capitalize(query)} ۩๑▬▬▬▬
 
 ☞   ${cmdLine}
 
 ⌜${capitalize(query)} Commands ⌝
-`;
+        `);
 
         const imageUrl = categoryImages[query] || getRandomThumbnailUrl();
 
@@ -107,7 +116,6 @@ module.exports = {
         );
       }
 
-      
       const command = ctx.services.commands.get(query);
 
       if (!command) {
@@ -120,16 +128,17 @@ Use ${ctx.config.prefix}menu to see all categories.`
 
       const meta = command.meta;
 
-      return ctx.reply(
-`📖 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐈𝐍𝐅𝐎
+      return ctx.reply(toFont(
+`📖 COMMAND INFO
 
-🧩 𝐍𝐚𝐦𝐞: ${meta.name}
-📝 𝐃𝐞𝐬𝐜𝐫𝐢𝐩𝐭𝐢𝐨𝐧: ${meta.description}
-🔖 𝐀𝐥𝐢𝐚𝐬𝐞𝐬: ${meta.aliases?.join(", ") || "none"}
-📌 𝐔𝐬𝐚𝐠𝐞: ${meta.usage}
-👤 𝐀𝐜𝐜𝐞𝐬𝐬: ${meta.access}`
-      );
+🧩 Name: ${meta.name}
+📝 Description: ${meta.description}
+🔖 Aliases: ${meta.aliases?.join(", ") || "none"}
+📌 Usage: ${meta.usage}
+👤 Access: ${meta.access}`
+      ));
     }
+
 
     
     const grouped = ctx.services.commands.grouped();
@@ -138,26 +147,26 @@ Use ${ctx.config.prefix}menu to see all categories.`
       .map(cat => `┃ ${icons[cat] || "✨"} ${capitalize(cat)}`)
       .join("\n");
 
-    let message = `
+    let message = toFont(`
 👋 ${getGreeting(ctx.config.timezone)} ${ctx.pushName || "User"}, I'm Ari-Ani your WhatsApp assistant bot.
 
-🏮→ 𝐓𝐡𝐢𝐬 𝐢𝐬 𝐚 𝐩𝐮𝐛𝐥𝐢𝐜 𝐬𝐜𝐫𝐢𝐩𝐭, 𝐧𝐨𝐭 𝐟𝐨𝐫 𝐬𝐚𝐥𝐞.
-🏮→ 𝐃𝐨𝐧'𝐭 𝐜𝐚𝐥𝐥 𝐭𝐡𝐞 𝐛𝐨𝐭 𝐨𝐫 𝐲𝐨𝐮 𝐦𝐚𝐲 𝐛𝐞 𝐛𝐚𝐧𝐧𝐞𝐝.
-🏮→ 𝐃𝐨𝐧'𝐭 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐛𝐨𝐭 𝐢𝐧 𝐏𝐌
+🏮→ This is a public script, not for sale.
+🏮→ Don't call the bot or you may be banned.
+🏮→ Don't use the bot in PM
 
-🧧 𝐏𝐫𝐞𝐟𝐢𝐱: [ ${ctx.config.prefix} ]
+🧧 Prefix: [ ${ctx.config.prefix} ]
 
-⛩️ 𝐇𝐞𝐫𝐞 𝐚𝐫𝐞 𝐭𝐡𝐞 𝐜𝐚𝐭𝐞𝐠𝐨𝐫𝐲 𝐜𝐨𝐦𝐦𝐚𝐧𝐝𝐬:
+⛩️ Here are the category commands:
 
-╭─ 📦  𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒  ─╮
+╭─ 📦 CATEGORIES ─╮
 
 ${categories}
 
 ╰────────╯
 
-🌟 𝐔𝐬𝐚𝐠𝐞: 𝐮𝐬𝐞 ${ctx.config.prefix}menu <category>
-🌟 𝐔𝐬𝐚𝐠𝐞: 𝐮𝐬𝐞 ${ctx.config.prefix}help <command>
-`;
+🌟 Usage: use ${ctx.config.prefix}menu <category>
+🌟 Usage: use ${ctx.config.prefix}help <command>
+`);
 
     const imageUrl = getRandomThumbnailUrl();
 
