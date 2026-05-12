@@ -3,23 +3,17 @@ import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ICommand, IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 
-interface CategoryInfo {
-    emoji: string
-    description: string
-    color?: string
-}
-
 export default class Command extends CommandModule {
     private categoryEmojis: Record<string, string> = {
-        anime: '📺',
+        anime: '🧧',
         bots: '🤖',
         config: '⚙️',
         dev: '👨‍💻',
         educative: '📚',
         fun: '🎮',
         games: '🎲',
-        general: '📋',
-        media: '📼',
+        general: '♨️',
+        media: '🎵',
         moderation: '🛡️',
         social: '🌐',
         utility: '🔧',
@@ -48,14 +42,13 @@ export default class Command extends CommandModule {
             description: 'Display help menu',
             category: 'general',
             usage: `${client.config.prefix}help [category|command]`,
-            aliases: ['h', 'cmd'],
+            aliases: ['menu', 'h', 'cmd'],
             baseXp: 30
         })
     }
 
     run = async (M: ISimplifiedMessage, parsedArgs: IParsedArgs): Promise<void> => {
         const input = parsedArgs.joined.toLowerCase().trim()
-        const prefix = this.client.config.prefix
 
         if (!input) {
             return this.sendMainMenu(M)
@@ -76,63 +69,41 @@ export default class Command extends CommandModule {
         const prefix = this.client.config.prefix
         const categories = this.getCategories()
 
-        let text = `╔══════════════════════════════╗\n`
-        text += `║   *ARI-ANI BOT HELP MENU*   ║\n`
-        text += `╚══════════════════════════════╝\n\n`
-        text += `🔍 *Use:* \`${prefix}help <category>\`\n`
-        text += `📖 *Use:* \`${prefix}help <command>\`\n\n`
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `📁 *AVAILABLE CATEGORIES*\n`
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+        const username =
+            M.pushName ||
+            M.sender?.split('@')[0] ||
+            'User'
 
-        for (const [cat, emoji] of Object.entries(this.categoryEmojis)) {
-            if (categories.includes(cat)) {
-                const desc = this.categoryDescriptions[cat] || ''
-                text += `${emoji} *${this.capitalize(cat)}*\n`
-                text += `   └ ${desc}\n\n`
-            }
+        const hour = new Date().getHours()
+
+        let greeting = 'Good Evening'
+
+        if (hour >= 5 && hour < 12) {
+            greeting = 'Good Morning'
+        } else if (hour >= 12 && hour < 17) {
+            greeting = 'Good Afternoon'
         }
 
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `📋 *Quick Commands*\n`
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `\`${prefix}help all\` - All commands\n`
-        text += `\`${prefix}ping\` - Check bot status\n`
-        text += `\`${prefix}hi\` - Greet the bot\n\n`
-        text += `💡 *Tip:* Type \`${prefix}help <category>\` to see commands in that category`
+        let text = `👋 ${greeting} ${username}, I'm Ari-Ani your WhatsApp assistant bot.\n\n`
 
-        M.reply(text)
-    }
+        text += `🏮→ 𝐓𝐡𝐢𝐬 𝐢𝐬 𝐚 𝐩𝐮𝐛𝐥𝐢𝐜 𝐬𝐜𝐫𝐢𝐩𝐭, 𝐧𝐨𝐭 𝐟𝐨𝐫 𝐬𝐚𝐥𝐞.\n`
+        text += `🏮→ 𝐃𝐨𝐧'𝐭 𝐜𝐚𝐥𝐥 𝐭𝐡𝐞 𝐛𝐨𝐭 𝐨𝐫 𝐲𝐨𝐮 𝐦𝐚𝐲 𝐛𝐞 𝐛𝐚𝐧𝐧𝐞𝐝.\n`
+        text += `🏮→ 𝐃𝐨𝐧'𝐭 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐛𝐨𝐭 𝐢𝐧 𝐏𝐌.\n\n`
 
-    private sendAllCommands(M: ISimplifiedMessage): void {
-        const commands = this.handler.commands
-        const categories: Record<string, ICommand[]> = {}
+        text += `🧧 𝐏𝐫𝐞𝐟𝐢𝐱: [ ${prefix} ]\n\n`
 
-        for (const [name, cmd] of commands) {
-            if (!cmd?.config?.category) continue
-            if (!categories[cmd.config.category]) {
-                categories[cmd.config.category] = []
-            }
-            categories[cmd.config.category].push(cmd)
+        text += `⛩️ 𝐇𝐞𝐫𝐞 𝐚𝐫𝐞 𝐭𝐡𝐞 𝐜𝐚𝐭𝐞𝐠𝐨𝐫𝐲 𝐜𝐨𝐦𝐦𝐚𝐧𝐝𝐬:\n\n`
+
+        for (const category of categories) {
+            const emoji = this.categoryEmojis[category] || '📁'
+            const desc = this.categoryDescriptions[category] || 'No description'
+
+            text += `${emoji} *${this.capitalize(category)}*\n`
+            text += `└ ${desc}\n\n`
         }
 
-        let text = `╔══════════════════════════════╗\n`
-        text += `║    *ALL BOT COMMANDS*        ║\n`
-        text += `╚══════════════════════════════╝\n\n`
-
-        const sortedCategories = Object.keys(categories).sort()
-        for (const cat of sortedCategories) {
-            const emoji = this.categoryEmojis[cat] || '📁'
-            const cmds = categories[cat]
-            text += `${emoji} *${this.capitalize(cat)}*\n`
-
-            const cmdNames = cmds.map(c => `▸ ${c.config?.command}`).join('\n')
-            text += `${cmdNames}\n\n`
-        }
-
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `📊 Total: *${commands.size}* commands\n`
-        text += `💡 Use \`${this.client.config.prefix}help <command>\` for details`
+        text += `🌟 𝐔𝐬𝐚𝐠𝐞: use ${prefix}help <category>\n`
+        text += `🌟 𝐔𝐬𝐚𝐠𝐞: use ${prefix}help <command>`
 
         M.reply(text)
     }
@@ -142,89 +113,125 @@ export default class Command extends CommandModule {
         const prefix = this.client.config.prefix
 
         const categoryCommands: ICommand[] = []
+
         for (const [, cmd] of commands) {
-            if (cmd?.config?.category?.toLowerCase() === category) {
+            if (
+                cmd?.config?.category?.toLowerCase() ===
+                category.toLowerCase()
+            ) {
                 categoryCommands.push(cmd)
             }
         }
 
-        if (categoryCommands.length === 0) {
-            return void M.reply(`❌ No commands found in *${this.capitalize(category)}* category\n\nUse \`${prefix}help\` to see available categories`)
+        if (!categoryCommands.length) {
+            return void M.reply(
+                `❌ No commands found in *${category}* category`
+            )
         }
 
         const emoji = this.categoryEmojis[category] || '📁'
-        const desc = this.categoryDescriptions[category] || ''
+        const description =
+            this.categoryDescriptions[category] || 'No description'
 
-        let text = `╔══════════════════════════════╗\n`
-        text += `║  ${emoji} *${this.capitalize(category)}* HELP     ║\n`
-        text += `╚══════════════════════════════╝\n`
-        text += `${desc}\n\n`
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `📦 *Commands (${categoryCommands.length})*\n`
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+        let text = `${emoji} 𝐀𝐑𝐈-𝐀𝐍𝐈 ${this.capitalize(category)} 𝐌𝐄𝐍𝐔\n\n`
+
+        text += `📖 ${description}\n`
+        text += `📦 Total Commands: ${categoryCommands.length}\n\n`
 
         for (const cmd of categoryCommands.sort((a, b) =>
-            (a.config?.command || '').localeCompare(b.config?.command || '')
+            (a.config?.command || '').localeCompare(
+                b.config?.command || ''
+            )
         )) {
-            const name = cmd.config?.command || ''
-            const description = cmd.config?.description || 'No description'
-            const aliases = cmd.config.aliases?.length ? ` (${cmd.config.aliases.join(', ')})` : ''
-
-            text += `▸ *${name}*${aliases}\n`
-            text += `  └ ${description}\n\n`
+            text += `🪄 ${prefix}${cmd.config.command}\n`
         }
 
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `💡 Use \`${prefix}help <command>\` for details`
+        text += `\n🌟 Use ${prefix}help <command> for command info`
+
+        M.reply(text)
+    }
+
+    private sendAllCommands(M: ISimplifiedMessage): void {
+        const commands = this.handler.commands
+        const categories: Record<string, ICommand[]> = {}
+
+        for (const [, cmd] of commands) {
+            if (!cmd?.config?.category) continue
+
+            const category = cmd.config.category.toLowerCase()
+
+            if (!categories[category]) {
+                categories[category] = []
+            }
+
+            categories[category].push(cmd)
+        }
+
+        let text = `🌟 𝐀𝐑𝐈-𝐀𝐍𝐈 𝐀𝐋𝐋 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒\n\n`
+
+        for (const category of Object.keys(categories).sort()) {
+            const emoji = this.categoryEmojis[category] || '📁'
+
+            text += `${emoji} *${this.capitalize(category)}*\n`
+
+            for (const cmd of categories[category]) {
+                text += `└ 🪄 ${cmd.config.command}\n`
+            }
+
+            text += `\n`
+        }
+
+        text += `📊 Total Commands: ${commands.size}`
 
         M.reply(text)
     }
 
     private sendCommandHelp(M: ISimplifiedMessage, input: string): void {
-        const command = this.handler.commands.get(input) || this.handler.aliases.get(input)
+        const command =
+            this.handler.commands.get(input) ||
+            this.handler.aliases.get(input)
 
         if (!command) {
-            return void M.reply(`❌ Command *"${input}"* not found\n\nUse \`${this.client.config.prefix}help\` to see all commands`)
+            return void M.reply(
+                `❌ Command "${input}" not found`
+            )
         }
 
         const config = command.config
-        const prefix = this.client.config.prefix
 
-        let text = `╔══════════════════════════════╗\n`
-        text += `║  📖 COMMAND HELP             ║\n`
-        text += `╚══════════════════════════════╝\n\n`
-        text += `▸ *Name:* ${config.command}\n`
-        text += `▸ *Category:* ${this.capitalize(config.category || 'general')}\n`
-        text += `▸ *Description:* ${config.description}\n\n`
+        let text = `📖 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐇𝐄𝐋𝐏\n\n`
+
+        text += `🧩 Command: ${config.command}\n`
+        text += `📂 Category: ${this.capitalize(
+            config.category || 'general'
+        )}\n`
+        text += `📝 Description: ${config.description}\n`
 
         if (config.aliases?.length) {
-            text += `▸ *Aliases:* ${config.aliases.map(a => `\`${a}\``).join(', ')}\n`
+            text += `🏷️ Aliases: ${config.aliases.join(', ')}\n`
         }
 
-        text += `\n━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `📝 *Usage*\n`
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `\`${config.usage || `${prefix}${config.command}`}\`\n\n`
-
-        text += `━━━━━━━━━━━━━━━━━━━━━━━\n`
-        text += `💡 Example: \`${config.usage || `${prefix}${config.command}`}\``
+        text += `\n⚡ Usage:\n${config.usage}`
 
         M.reply(text)
     }
 
     private isCategory(input: string): boolean {
-        const categories = this.getCategories()
-        return categories.includes(input.toLowerCase())
+        return this.getCategories().includes(input.toLowerCase())
     }
 
     private getCategories(): string[] {
         const categories = new Set<string>()
+
         for (const [, cmd] of this.handler.commands) {
             if (cmd?.config?.category) {
-                categories.add(cmd.config.category.toLowerCase())
+                categories.add(
+                    cmd.config.category.toLowerCase()
+                )
             }
         }
-        return Array.from(categories)
+
+        return Array.from(categories).sort()
     }
 
     private capitalize(str: string): string {
