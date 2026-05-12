@@ -20,23 +20,21 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        // Normalize: M.mentioned[] is raw and can carry a :NN device suffix,
-        // which would create a duplicate rizz doc keyed on the suffixed form.
         const target =
             normalizeJid(M.quoted?.sender || M.mentioned[0] || M.sender.jid) ||
             M.sender.jid
+
         const b = await computeRizz(this.client, target)
-        const lines = [
-            `✨ *${tagFor(target)}'s Rizz Sheet* ✨`,
-            `─────────────────────`,
-            `*Score:* ${b.score}%`,
-            `─────────────────────`,
-            `Base rizz: ${b.base}`,
-            `Outsiders: ${b.outsiderCount}  → +${b.outsiderTerm}`,
-            `Bonds in: ${b.bondCount}  → +${b.bondTerm}`,
-            ``,
-            `_Outsiders rises every time a new person ships you. Bonds rise from !react actions in your relationships._`
-        ]
-        await M.reply(lines.join('\n'), MessageType.text, undefined, [target])
+
+        const text =
+`✨ Rizz Sheet for ${tagFor(target)}
+
+Score: ${b.score}%
+
+Base rizz: ${b.base}
+Outsiders: ${b.outsiderCount} (+${b.outsiderTerm})
+Bonds: ${b.bondCount} (+${b.bondTerm})`
+
+        return void M.reply(text, MessageType.text, undefined, [target])
     }
 }
