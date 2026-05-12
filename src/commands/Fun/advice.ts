@@ -3,6 +3,12 @@ import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
 
+interface AdviceResponse {
+    slip?: {
+        advice?: string
+    }
+}
+
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
@@ -16,12 +22,20 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         try {
-            const response = await fetch('https://api.adviceslip.com/advice')
-            const data = await response.json() as { slip: { advice: string } }
-            let text = `╭──────────────────────────────╮\n│      💡  ADVICE                 │\n├──────────────────────────────┤\n│ ${(data.slip.advice || '').substring(0,28).padEnd(28)}│\n╰──────────────────────────────╯`
+            const res = await fetch('https://api.adviceslip.com/advice')
+            const data = (await res.json()) as AdviceResponse
+
+            const advice = data.slip?.advice ?? 'No advice found.'
+
+            const text = [
+                '💡 Advice',
+                '',
+                advice
+            ].join('\n')
+
             return void M.reply(text)
         } catch {
-            return void M.reply(`❌ Failed to fetch advice. Try again later.`)
+            return void M.reply('❌ Failed to fetch advice. Try again later.')
         }
     }
 }
