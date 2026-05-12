@@ -8,7 +8,7 @@ export default class Command extends CommandModule {
         super(client, handler, {
             command: 'identity',
             description:
-                "Mod-only: show or reset what this chat has accumulated about the bot's identity (lore/topics/style).",
+                "Mod-only: show or reset stored bot identity data for this chat",
             category: 'system',
             dm: true,
             usage: `${client.config.prefix}identity show | ${client.config.prefix}identity reset`,
@@ -17,39 +17,57 @@ export default class Command extends CommandModule {
         })
     }
 
-    run = async (M: ISimplifiedMessage, { args }: IParsedArgs): Promise<void> => {
+    run = async (
+        M: ISimplifiedMessage,
+        { args }: IParsedArgs
+    ): Promise<void> => {
         const sub = (args[0] || 'show').toLowerCase()
-        const kind = M.chat === 'group' ? 'group' : 'user'
-        const jid = M.chat === 'group' ? M.from : M.sender.jid
+
+        const kind =
+            M.chat === 'group' ? 'group' : 'user'
+
+        const jid =
+            M.chat === 'group'
+                ? M.from
+                : M.sender.jid
 
         if (sub === 'reset') {
             await this.client.identity.reset(jid, kind)
-            return void M.reply('Persona reset to defaults.')
+
+            return void M.reply(
+                '✅ Identity data has been reset.'
+            )
         }
 
         if (sub === 'show') {
-            const delta = await this.client.identity.getDelta(jid, kind)
-            const lines: string[] = []
-            lines.push(`*Accumulated identity for this ${kind}*`)
-            lines.push('')
-            lines.push(`Lore (${delta.lore.length}):`)
-            if (delta.lore.length) for (const l of delta.lore) lines.push(`• ${l}`)
-            else lines.push('  (none)')
-            lines.push('')
-            lines.push(
-                `Topics (${delta.topics.length}): ${delta.topics.length ? delta.topics.join(', ') : '(none)'}`
-            )
-            lines.push('')
-            lines.push(`Style notes (${delta.styleChat.length}):`)
-            if (delta.styleChat.length) for (const s of delta.styleChat) lines.push(`• ${s}`)
-            else lines.push('  (none)')
-            lines.push('')
-            lines.push(`Reset with ${this.client.config.prefix}identity reset.`)
-            return void M.reply(lines.join('\n'))
+            const delta =
+                await this.client.identity.getDelta(
+                    jid,
+                    kind
+                )
+
+            const text =
+`🧠 Identity Data (${kind})
+
+📖 Lore:
+${delta.lore.length ? delta.lore.map(l => `• ${l}`).join('\n') : '• none'}
+
+🏷 Topics:
+${delta.topics.length ? delta.topics.join(', ') : 'none'}
+
+🎨 Style Notes:
+${delta.styleChat.length ? delta.styleChat.map(s => `• ${s}`).join('\n') : '• none'}
+
+🔄 Reset:
+Use ${this.client.config.prefix}identity reset`
+
+            return void M.reply(text)
         }
 
         return void M.reply(
-            `Usage:\n${this.client.config.prefix}identity show — view what this chat has accumulated\n${this.client.config.prefix}identity reset — wipe accumulated lore/topics/style`
+            `Usage:\n` +
+            `${this.client.config.prefix}identity show\n` +
+            `${this.client.config.prefix}identity reset`
         )
     }
 }
