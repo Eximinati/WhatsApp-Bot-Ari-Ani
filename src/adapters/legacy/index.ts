@@ -1,0 +1,1 @@
+export { LegacyRuntimeAdapter } from './LegacyRuntimeAdapter.js'
