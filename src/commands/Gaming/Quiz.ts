@@ -3,7 +3,13 @@ import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 
-interface Q { question: string; options: string[]; answer: number; category?: string }
+interface Q {
+    question: string
+    options: string[]
+    answer: number
+    category?: string
+}
+
 export default class Command extends CommandModule {
     private questions: Q[] = [
         { question: 'Capital of Japan?', options: ['Seoul', 'Beijing', 'Tokyo', 'Bangkok'], answer: 2, category: 'Geo' },
@@ -15,14 +21,18 @@ export default class Command extends CommandModule {
         { question: 'Largest ocean?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], answer: 3, category: 'Geo' },
         { question: 'Smallest country?', options: ['Monaco', 'Vatican', 'San Marino', 'Liechtenstein'], answer: 1, category: 'Geo' }
     ]
+
     private scores = new Map<string, { correct: number; total: number }>()
     private lasts = new Map<string, Q>()
 
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
-            command: 'quiz', description: 'Answer trivia questions',
-            category: 'gaming', usage: `${client.config.prefix}quiz [1-4]`,
-            aliases: ['trivia'], baseXp: 15
+            command: 'quiz',
+            description: 'Answer trivia questions',
+            category: 'gaming',
+            usage: `${client.config.prefix}quiz [1-4]`,
+            aliases: ['trivia'],
+            baseXp: 15
         })
     }
 
@@ -30,22 +40,46 @@ export default class Command extends CommandModule {
         const input = joined.trim().toLowerCase()
         const s = this.scores.get(M.sender.jid) || { correct: 0, total: 0 }
 
+        // Answer handling
         if (input.match(/^[1-4]$/)) {
             const ans = parseInt(input) - 1
             const last = this.lasts.get(M.sender.jid)
-            if (!last) return void M.reply(`╭──────────────────────────────╮\n│      🧠  QUIZ                  │\n├──────────────────────────────┤\n│ ❌ No active question          │\n│ 💡 *${this.client.config.prefix}quiz* to start│\n╰──────────────────────────────╯`)
-            s.total++; if (ans === last.answer) s.correct++
+
+            if (!last) {
+                return void M.reply(
+                    `🧠 No active question.\nUse ${this.client.config.prefix}quiz to start.`
+                )
+            }
+
+            s.total++
+            if (ans === last.answer) s.correct++
             this.scores.set(M.sender.jid, s)
+
             const acc = Math.round((s.correct / s.total) * 100)
-            let text = `╭──────────────────────────────╮\n│      📝  QUIZ ANSWER           │\n├──────────────────────────────┤\n│ ${ans === last.answer ? '✅ Correct!' : '❌ Wrong! ' + last.options[last.answer]}│\n│ 📊 ${s.correct}/${s.total} (${acc}%)            │\n╰──────────────────────────────╯`
-            return void M.reply(text)
+
+            const result =
+                ans === last.answer
+                    ? `✅ Correct!`
+                    : `❌ Wrong! Correct answer: ${last.options[last.answer]}`
+
+            return void M.reply(
+                `🧠 Quiz Result\n\n${result}\nScore: ${s.correct}/${s.total} (${acc}%)`
+            )
         }
 
+        // New question
         const q = this.questions[Math.floor(Math.random() * this.questions.length)]
         this.lasts.set(M.sender.jid, q)
-        let text = `╭──────────────────────────────╮\n│      🧠  TRIVIA                 │\n├──────────────────────────────┤\n│ 📁 ${(q.category || 'General').padEnd(26).slice(0,26)}│\n│ ❓ ${q.question.substring(0,26).padEnd(26)}│\n├──────────────────────────────┤\n`
-        q.options.forEach((o, i) => { text += `│ ${i + 1}. ${o.padEnd(24).slice(0,24)}│\n` })
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
+
+        const options = q.options
+            .map((o, i) => `${i + 1}. ${o}`)
+            .join('\n')
+
+        return void M.reply(
+            `🧠 Trivia\n\n` +
+            `Category: ${q.category || 'General'}\n` +
+            `Question: ${q.question}\n\n` +
+            `${options}`
+        )
     }
 }
