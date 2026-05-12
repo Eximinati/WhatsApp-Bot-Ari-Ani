@@ -7,7 +7,7 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'guide',
-            description: 'Shows the guide for new users',
+            description: 'Shows guide for new users',
             category: 'bots',
             usage: `${client.config.prefix}guide`,
             baseXp: 5
@@ -16,23 +16,31 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const p = this.client.config.prefix
-        let text = `╭──────────────────────────────╮\n`
-        text += `│      📖  USER GUIDE            │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ ✨ *Quick Start*               │\n`
-        text += `│  Use *${p}help* to begin        │\n`
-        text += `│                              │\n`
-        text += `│ 📁 *Categories (13 total)*    │\n`
-        text += `│ 🌐 Social   🔧 Utility        │\n`
-        text += `│ 🎲 Gaming   📱 WhatsApp       │\n`
-        text += `│ 📺 Anime    🤖 Bots           │\n`
-        text += `│ ⚙️ Config   👨‍💻 Dev           │\n`
-        text += `│ 📚 Educative 🎮 Fun           │\n`
-        text += `│ 📋 General  📼 Media          │\n`
-        text += `│ 🛡️ Moderation                 │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 💡 *${p}whatsnew* for updates   │\n`
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
+
+        const text =
+`📖 USER GUIDE
+
+✨ Quick Start
+• Use ${p}help to begin
+
+📁 Categories (13 total)
+
+🌐 Social
+🔧 Utility
+🎲 Gaming
+📱 WhatsApp
+📺 Anime
+🤖 Bots
+⚙️ Config
+👨‍💻 Dev
+📚 Educative
+🎮 Fun
+📋 General
+📼 Media
+🛡️ Moderation
+
+💡 Use ${p}whatsnew for latest updates`
+
+        await M.reply(text)
     }
 }
