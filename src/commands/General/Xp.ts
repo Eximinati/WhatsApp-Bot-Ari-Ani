@@ -7,7 +7,7 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'xp',
-            description: "Displays User's XP",
+            description: "Display user's XP",
             category: 'general',
             usage: `${client.config.prefix}xp (@tag)`,
             aliases: ['exp'],
@@ -16,11 +16,30 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        if (M.quoted?.sender) M.mentioned.push(M.quoted.sender)
-        const user = M.mentioned[0] || M.sender.jid
-        let name = user === M.sender.jid ? M.sender.username : user.split('@')[0]
-        const xp = (await this.client.getUser(user)).Xp || 0
-        let text = `╭──────────────────────────────╮\n│      🌟  XP STATUS             │\n├──────────────────────────────┤\n│ 👤 *${name.padEnd(27).slice(0,27)}│\n│ 🌟 *XP:* ${String(xp).padEnd(23)}│\n╰──────────────────────────────╯`
-        return void M.reply(text)
+        if (M.quoted?.sender) {
+            M.mentioned.push(M.quoted.sender)
+        }
+
+        const user =
+            M.mentioned[0] || M.sender.jid
+
+        const name =
+            user === M.sender.jid
+                ? M.sender.username
+                : user.split('@')[0]
+
+        const xp =
+            (await this.client.getUser(user)).Xp || 0
+
+        const text =
+`🌟 XP STATUS
+
+👤 User:
+➜ ${name}
+
+⭐ XP:
+➜ ${xp}`
+
+        await M.reply(text)
     }
 }
