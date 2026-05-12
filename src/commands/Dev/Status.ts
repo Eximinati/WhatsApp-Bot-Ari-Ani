@@ -8,90 +8,73 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'status',
-            description: 'Puts the text as status ',
+            description: 'Post WhatsApp status (text, image, or video)',
             category: 'dev',
             dm: true,
-            usage: `${client.config.prefix}status [text] [tag Image/Video]`,
+            usage: `${client.config.prefix}status <text>`,
             modsOnly: true,
             baseXp: 30
         })
     }
 
-    run = async (M: ISimplifiedMessage, parsedArgs: IParsedArgs): Promise<void> => {
-        parsedArgs.flags.forEach((flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, '')))
-        const args = parsedArgs.joined.split(',')
-        let buffer
-        if (M.quoted?.message?.message?.imageMessage) {
-            M.reply('⭐ Posting Image Status')
-            let i = 0
-            while (i < 5) {
-                try {
-                    buffer = await this.client.downloadMediaMessage(M.quoted.message)
-                    const caption = args[0] || ''
-                    // M.reply(`caption : ${caption}`)
-                    return void this.client.sendMessage('status@broadcast', buffer, MessageType.image, {
-                        caption
-                    })
-                } catch {
-                    i += 1
-                    M.reply('Marker Not Found Error : https://github.com/oliver-moran/jimp/issues/102 ')
-                }
-            }
-            // this.client.sendMessage('status@broadcast', buffer, MessageType.image)
-        } else if (M.WAMessage.message?.imageMessage) {
-            M.reply('Posting Image Status ⭐')
-            buffer = await this.client.downloadMediaMessage(M.WAMessage)
-            const caption = args[0] || ''
-            // M.reply(`caption : ${caption}`)
-            this.client.sendMessage('status@broadcast', buffer, MessageType.image, {
-                caption
-            })
-            // this.client.sendMessage('status@broadcast', buffer, MessageType.image)
-        } else if (M.quoted?.message?.message?.videoMessage) {
-            M.reply('Posting Video Status ✨')
-            buffer = await this.client.downloadMediaMessage(M.quoted.message)
-            const caption = args[0] || ''
-            // M.reply(`caption : ${caption}`)
-            this.client.sendMessage('status@broadcast', buffer, MessageType.video, {
-                caption
-            })
-            // this.client.sendMessage('status@broadcast', buffer, MessageType.video)
-        } else if (M.WAMessage.message?.videoMessage) {
-            M.reply('✨ Posting Video Status')
-            buffer = await this.client.downloadMediaMessage(M.WAMessage)
-            const caption = args[0] || ''
-            // M.reply(`caption : ${caption}`)
-            this.client.sendMessage('status@broadcast', buffer, MessageType.video, {
-                caption
-            })
-            // this.client.sendMessage('status@broadcast', buffer, MessageType.video)
-        } else if (M.quoted?.message?.message?.conversation) {
-            M.reply('✨ Posting Text Status')
-            const text = M.quoted?.message?.message?.conversation || ''
-            const backgroundArgb =
-                args.slice(3).map((arg) => `${parseInt(arg) / 16}${parseInt(arg) % 16}`) || 0x00000000
-            const textArgb =
-                args.slice(3).map((arg) => `${256 - parseInt(arg) / 16}${256 - (parseInt(arg) % 16)}`) || 0xf0f0f0f0
-            M.reply(`backgroundArgb : ${backgroundArgb}\ntextArgb: ${textArgb}`)
-            this.client.sendMessage(
-                'status@broadcast',
-                {
-                    text,
-                    backgroundArgb,
-                    textArgb
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
-                MessageType.extendedText
-            )
-        } else if (!M.quoted?.message) {
-            M.reply('Posting Text Status ✨')
-            const text = args[0] || ''
-            M.reply(`text : ${text}`)
-            // const backgroundArgb = args.slice(3).map((arg) => `${parseInt(arg) / 16}${parseInt(arg) % 16}`) || 0x00000000
-            // const textArgb = args.slice(3).map((arg) => `${256 - parseInt(arg) / 16}${256 - (parseInt(arg) % 16)}`) || 0xf0f0f0f0
-            this.client.sendMessage('status@broadcast', text, MessageType.extendedText)
+    run = async (
+        M: ISimplifiedMessage,
+        parsedArgs: IParsedArgs
+    ): Promise<void> => {
+        const text = parsedArgs.joined?.trim()
 
-            // this.client.sendMessage('status@broadcast', text, MessageType.text)
-        } else M.reply('Use Image/Video via Tagging it or/and use text')
+        const quoted = M.quoted?.message
+        const media = M.WAMessage?.message
+
+        try {
+            
+            if (quoted?.message?.imageMessage || media?.imageMessage) {
+                const msg = quoted || M.WAMessage
+                const buffer = await this.client.downloadMediaMessage(msg)
+
+                await this.client.sendMessage(
+                    'status@broadcast',
+                    {
+                        image: buffer,
+                        caption: text || ''
+                    }
+                )
+
+                return void M.reply('📸 Image status posted')
+            }
+
+        
+            if (quoted?.message?.videoMessage || media?.videoMessage) {
+                const msg = quoted || M.WAMessage
+                const buffer = await this.client.downloadMediaMessage(msg)
+
+                await this.client.sendMessage(
+                    'status@broadcast',
+                    {
+                        video: buffer,
+                        caption: text || ''
+                    }
+                )
+
+                return void M.reply('🎥 Video status posted')
+            }
+
+            
+            if (text) {
+                await this.client.sendMessage('status@broadcast', {
+                    text
+                })
+
+                return void M.reply('📝 Text status posted')
+            }
+
+            return void M.reply(
+                '❌ Reply to an image/video or provide text.'
+            )
+        } catch (err) {
+            return void M.reply(
+                `❌ Failed to post status: ${String(err)}`
+            )
+        }
     }
 }
