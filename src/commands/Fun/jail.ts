@@ -11,26 +11,26 @@ export default class Command extends CommandModule {
             command: 'jail',
             description: 'Send a user (or yourself) to jail — overlays bars on the avatar',
             category: 'fun',
-            usage: `${client.config.prefix}jail [(as caption | quote)[image] | @mention]`,
+            usage: `${client.config.prefix}jail [@mention | reply]`,
             baseXp: 30
         })
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        // Resolve a target avatar URL. If the user attached or quoted an image,
-        // we'd need to host it somewhere for the canvas API to fetch — popcat's
-        // jail endpoint takes a public URL only. So we limit to profile pics
-        // (which we can fetch a URL for) and skip user-uploaded buffers.
-        const targetJid = M.mentioned[0] || M.quoted?.sender || M.sender.jid
+        const targetJid =
+            M.mentioned[0] || M.quoted?.sender || M.sender.jid
+
         let avatarUrl: string | undefined
+
         try {
             avatarUrl = await this.client.sock.profilePictureUrl(targetJid, 'image')
         } catch {
             avatarUrl = undefined
         }
+
         if (!avatarUrl) {
             return void M.reply(
-                `Couldn't fetch a profile picture to jail. Either the target has no public PFP or privacy settings block it.`
+                `Can't fetch profile picture for this user.`
             )
         }
 
@@ -38,9 +38,16 @@ export default class Command extends CommandModule {
             const buffer = await request.buffer(
                 `https://api.popcat.xyz/jail?image=${encodeURIComponent(avatarUrl)}`
             )
-            await M.reply(buffer, MessageType.image, undefined, [targetJid], `🚓 To jail with you!`)
+
+            return void M.reply(
+                buffer,
+                MessageType.image,
+                undefined,
+                [targetJid],
+                '🚓 Jail time'
+            )
         } catch {
-            await M.reply(`Sorry, couldn't generate the jail image right now.`)
+            return void M.reply('❌ Failed to generate jail image.')
         }
     }
 }
