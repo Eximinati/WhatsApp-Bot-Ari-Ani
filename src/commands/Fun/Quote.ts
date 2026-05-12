@@ -3,6 +3,11 @@ import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
 
+interface QuoteResponse {
+    content?: string
+    author?: string
+}
+
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
@@ -17,11 +22,16 @@ export default class Command extends CommandModule {
     run = async (M: ISimplifiedMessage): Promise<void> => {
         try {
             const response = await fetch('https://api.quotable.io/random')
-            const data = await response.json() as { content?: string; author?: string }
-            let text = `╭──────────────────────────────╮\n│      💬  QUOTE                  │\n├──────────────────────────────┤\n│ 📝 *"${(data.content || '').substring(0,22).padEnd(22)}*│\n│                              │\n│ ✍️ — *${(data.author || 'Unknown').padEnd(22).slice(0,22)}│\n╰──────────────────────────────╯`
-            return void M.reply(text)
+            const data = (await response.json()) as QuoteResponse
+
+            const quote = data.content || 'No quote found.'
+            const author = data.author || 'Unknown'
+
+            return void M.reply(
+                `💬 Quote:\n\n"${quote}"\n\n— ${author}`
+            )
         } catch {
-            return void M.reply(`❌ Failed to fetch quote. Try again later.`)
+            return void M.reply('❌ Failed to fetch quote. Try again later.')
         }
     }
 }
