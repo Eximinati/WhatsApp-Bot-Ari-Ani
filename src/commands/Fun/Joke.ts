@@ -3,6 +3,14 @@ import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
 
+interface JokeApiResponse {
+    category?: string
+    type: 'single' | 'twopart'
+    joke?: string
+    setup?: string
+    delivery?: string
+}
+
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
@@ -17,15 +25,24 @@ export default class Command extends CommandModule {
     run = async (M: ISimplifiedMessage): Promise<void> => {
         try {
             const response = await fetch('https://v2.jokeapi.dev/joke/Any')
-            const data = await response.json() as { category?: string; setup?: string; delivery?: string; joke?: string }
-            let text = `╭──────────────────────────────╮\n│      🎃  JOKE                  │\n├──────────────────────────────┤\n│ 📁 ${(data.category || 'Random').padEnd(27).slice(0,27)}│\n│                              │\n│ ${(data.setup || data.joke || '').substring(0,28).padEnd(28)}│\n`
-            if (data.delivery) {
-                text += `│ ${data.delivery.substring(0,28).padEnd(28)}│\n`
+            const data = (await response.json()) as JokeApiResponse
+
+            let jokeText = ''
+
+            if (data.type === 'single') {
+                jokeText = data.joke || 'No joke found.'
+            } else {
+                jokeText = `${data.setup || ''}\n\n${data.delivery || ''}`
             }
-            text += `╰──────────────────────────────╯`
+
+            const text =
+`🎃 Joke (${data.category || 'Random'})
+
+${jokeText}`
+
             return void M.reply(text)
         } catch {
-            return void M.reply(`❌ Failed to fetch joke. Try again later.`)
+            return void M.reply('❌ Failed to fetch joke. Try again later.')
         }
     }
 }
