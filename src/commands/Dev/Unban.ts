@@ -16,13 +16,34 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        if (M.quoted?.sender) M.mentioned.push(M.quoted.sender)
+        if (M.quoted?.sender) {
+            M.mentioned.push(M.quoted.sender)
+        }
+
         const user = M.mentioned[0]
-        if (!user) return void M.reply(`╭──────────────────────────────╮\n│      🔓  UNBAN                 │\n├──────────────────────────────┤\n│ ❌ Tag the user to unban       │\n╰──────────────────────────────╯`)
+
+        if (!user) {
+            return void M.reply(
+                `❌ Usage:\n${this.client.config.prefix}unban @user`
+            )
+        }
+
         const data = await this.client.getUser(user)
-        if (!data.ban) return void M.reply(`╭──────────────────────────────╮\n│      🔓  UNBAN                 │\n├──────────────────────────────┤\n│ ⚠️ User is not banned         │\n╰──────────────────────────────╯`)
-        await this.client.DB.user.updateOne({ jid: user }, { $set: { ban: false }, $unset: { banReason: '' } })
-        let text = `╭──────────────────────────────╮\n│      🔓  USER UNBANNED         │\n├──────────────────────────────┤\n│ 👤 @${user.split('@')[0].padEnd(25).slice(0,25)}│\n│ ✅ Status: Unbanned            │\n╰──────────────────────────────╯`
-        return void M.reply(text, undefined, undefined, [user])
+
+        if (!data.ban) {
+            return void M.reply('⚠️ This user is not banned.')
+        }
+
+        await this.client.DB.user.updateOne(
+            { jid: user },
+            {
+                $set: { ban: false },
+                $unset: { banReason: 1 }
+            }
+        )
+
+        await M.reply(
+            `🔓 User unbanned: ${user.split('@')[0]}`
+        )
     }
 }
