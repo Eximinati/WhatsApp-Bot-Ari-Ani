@@ -18,7 +18,11 @@ export default class Command extends CommandModule {
         try {
             const response = await fetch('https://nekos.life/api/v2/why')
             const data = await response.json() as { why?: string }
-            let text = `╭──────────────────────────────╮\n│      ❓  WHY?                   │\n├──────────────────────────────┤\n│ ${(data.why || 'Why not?').substring(0,28).padEnd(28)}│\n╰──────────────────────────────╯`
+
+            const text =
+                `❓ WHY?\n\n` +
+                `${data.why || 'Why not?'}`
+
             return void M.reply(text)
         } catch {
             return void M.reply(`❓ Why? Because... I don't know. Try again later!`)
