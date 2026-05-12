@@ -7,24 +7,39 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'hi',
-            description: 'Check if bot is up and running',
+            description: 'Check if the bot is online',
             category: 'general',
             usage: `${client.config.prefix}hi`,
-            baseXp: 0
+            aliases: ['hello', 'ping'],
+            baseXp: 5
         })
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        const tag = M.chat === 'dm' ? 'Hello' : 'Hey'
-        let text = `╭──────────────────────────────╮\n`
-        text += `│      👋  ${tag}!               │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 📋 *Status:* ✅ Online         │\n`
-        text += `│ 👤 *User:* ${M.sender.username.padEnd(22).slice(0,22)}│\n`
-        text += `│ 💬 *Chat:* ${(M.chat === 'dm' ? 'Private' : 'Group').padEnd(22)}│\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 💡 Use *${this.client.config.prefix}help*         │\n`
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
+        const greeting =
+            M.chat === 'dm'
+                ? 'Hello'
+                : 'Hey'
+
+        const username =
+            M.pushName ||
+            M.sender?.username ||
+            M.sender?.split('@')[0] ||
+            'User'
+
+        const chatType =
+            M.chat === 'dm'
+                ? 'Private Chat'
+                : 'Group Chat'
+
+        const text =
+`👋 ${greeting} ${username}
+
+📋 Status: ✅ Online
+💬 Chat Type: ${chatType}
+
+💡 Use ${this.client.config.prefix}help to view commands.`
+
+        await M.reply(text)
     }
 }
