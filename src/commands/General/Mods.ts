@@ -7,28 +7,65 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'mods',
-            description: "Displays the Moderators' contact info",
+            description: "Display moderators' contact info",
             category: 'core',
-            usage: '!mods',
+            usage: `${client.config.prefix}mods`,
             aliases: ['moderators', 'mod', 'owner'],
             baseXp: 40
         })
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        if (!this.client.config.mods?.length) {
-            return void M.reply(`╭──────────────────────────────╮\n│      🛡️  MODERATORS            │\n├──────────────────────────────┤\n│ ❌ No Mods Set               │\n╰──────────────────────────────╯`)
+        try {
+            const mods =
+                this.client.config.mods || []
+
+            if (!mods.length) {
+                return void M.reply(
+                    '❌ No moderators have been configured.'
+                )
+            }
+
+            let text =
+`🛡️ BOT MODERATORS
+
+`
+
+            mods.forEach((jid, index) => {
+                const info =
+                    this.client.getContact(jid)
+
+                const name =
+                    info?.notify ||
+                    info?.vname ||
+                    info?.name ||
+                    jid.split('@')[0]
+
+                const number =
+                    jid.split('@')[0]
+
+                text +=
+`👤 Moderator ${index + 1}
+➜ ${name}
+📞 https://wa.me/${number}
+
+`
+            })
+
+            text +=
+`⚡ Contact moderators only when necessary.`
+
+            await M.reply(text)
+        } catch (error) {
+            console.error(error)
+
+            await M.reply(
+                `❌ Error: ${
+                    error instanceof Error
+                        ? error.message
+                        : String(error)
+                }`
+            )
         }
-        let text = `╭──────────────────────────────╮\n`
-        text += `│      🛡️  MODERATORS            │\n`
-        text += `├──────────────────────────────┤\n`
-        this.client.config.mods.forEach((jid, i) => {
-            const info = this.client.getContact(jid)
-            const name = info.notify || info.vname || info.name || jid.split('@')[0]
-            text += `│ #${i + 1} *${name.padEnd(25).slice(0,25)}│\n`
-            text += `│ 📞 wa.me/${jid.split('@')[0].padEnd(20).slice(0,20)}│\n`
-        })
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
     }
 }
