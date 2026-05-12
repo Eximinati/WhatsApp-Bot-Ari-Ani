@@ -1,42 +1,116 @@
-import MessagePipeline from '../../pipeline/MessagePipeline.js'
+import axios from 'axios'
+import { createCanvas, loadImage } from 'canvas'
+import MessageModule from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
-import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
-import { MessageType } from '../../core/types.js'
+import { ISimplifiedMessage } from '../../typings/index.js'
+
+interface WeatherAPIResponse {
+    location: {
+        name: string
+        country: string
+        region: string
+        tz_id: string
+    }
+    current: {
+        temp_c: number
+        feelslike_c: number
+        humidity: number
+        wind_kph: number
+        pressure_in: number
+        cloud: number
+        condition: {
+            text: string
+            icon: string
+        }
+    }
+}
 
 export default class Command extends CommandModule {
-    constructor(client: RuntimeClient, handler: MessagePipeline) {
+    constructor(client: RuntimeClient, handler: MessageModule) {
         super(client, handler, {
             command: 'weather',
             aliases: ['wthr'],
-            description: 'Gives you the weather of the given state or city',
+            description: 'Gets weather information and generates a weather card image',
             category: 'educative',
             usage: `${client.config.prefix}weather [place_name]`,
             baseXp: 50
         })
     }
 
-    run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
-        if (!joined) return void M.reply(`🌤️ *Weather*\n\nUsage: \`${this.client.config.prefix}weather [place_name]\``)
-        const place = joined.trim()
-        try {
-            const response = await fetch(
-                `http://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(place)}&units=metric&appid=060a6bcfa19809c2cd4d97a212b19273`
+    run = async (M: ISimplifiedMessage, { joined }: any): Promise<void> => {
+        if (!joined?.trim()) {
+            return void M.reply(
+                `🌤️ Weather\n\nUsage: ${this.client.config.prefix}weather [place_name]`
             )
-            if (!response.ok) throw new Error('API request failed')
-            const data = await response.json() as { name?: string; main?: { temp: number; humidity: number; feels_like: number }; weather?: Array<{ description: string; main: string }>; wind?: { speed: number } }
-            const temp = data.main?.temp ?? 'N/A'
-            const feels = data.main?.feels_like ?? 'N/A'
-            const humidity = data.main?.humidity ?? 'N/A'
-            const desc = data.weather?.[0]?.description ?? 'N/A'
-            const wind = data.wind?.speed ?? 'N/A'
-            const city = data.name ?? place
+        }
 
-            let text = `╭──────────────────────────────╮\n│      🌤️  WEATHER               │\n├──────────────────────────────┤\n│ 📍 ${city.substring(0,27).padEnd(27)}│\n│ 🌡️ Temp: ${temp}°C │ 🤗 Feels: ${feels}°C│\n│ 💧 Humidity: ${humidity}% │ Wind: ${wind}m/s│\n│ ☁️ ${desc.substring(0,27).padEnd(27)}│\n╰──────────────────────────────╯`
+        try {
+            const url = `https://api.weatherapi.com/v1/current.json?key=${process.env.WEATHER_KEY}&q=${encodeURIComponent(joined)}&aqi=no`
 
-            return void M.reply(text)
-        } catch {
-            return void M.reply(`❌ Could not fetch weather for *${place}*. Check the spelling and try again.`)
+            const { data } = await axios.get<WeatherAPIResponse>(url)
+
+            const canvas = createCanvas(1000, 600)
+            const ctx = canvas.getContext('2d')
+
+            const bg = await loadImage('https://i.ibb.co/LXrLhX5s/well.jpg').catch(() => null)
+
+            if (bg) {
+                ctx.drawImage(bg, 0, 0, 1000, 600)
+            } else {
+                const grad = ctx.createLinearGradient(0, 0, 1000, 600)
+                grad.addColorStop(0, '#2b5876')
+                grad.addColorStop(1, '#4e4376')
+                ctx.fillStyle = grad
+                ctx.fillRect(0, 0, 1000, 600)
+            }
+
+            ctx.fillStyle = 'rgba(0,0,0,0.45)'
+            ctx.fillRect(50, 50, 900, 500)
+
+            const icon = await loadImage(`https:${data.current.condition.icon}`).catch(() => null)
+            if (icon) ctx.drawImage(icon, 720, 80, 200, 200)
+
+            ctx.fillStyle = '#fff'
+
+            ctx.font = 'bold 50px Arial'
+            ctx.fillText('🌤 Weather Report', 70, 120)
+
+            ctx.font = 'bold 35px Arial'
+            ctx.fillText(
+                `${data.location.name}, ${data.location.country}`,
+                70,
+                180
+            )
+
+            ctx.font = '28px Arial'
+            ctx.fillText(`Region: ${data.location.region}`, 70, 230)
+            ctx.fillText(`Timezone: ${data.location.tz_id}`, 70, 270)
+
+            ctx.font = 'bold 45px Arial'
+            ctx.fillText(`${data.current.temp_c}°C`, 70, 350)
+
+            ctx.font = '28px Arial'
+            ctx.fillText(`Condition: ${data.current.condition.text}`, 70, 400)
+            ctx.fillText(`Feels Like: ${data.current.feelslike_c}°C`, 70, 440)
+            ctx.fillText(`Humidity: ${data.current.humidity}%`, 70, 480)
+            ctx.fillText(`Wind: ${data.current.wind_kph} km/h`, 70, 520)
+
+            ctx.fillText(`Pressure: ${data.current.pressure_in} in`, 400, 480)
+            ctx.fillText(`Cloud: ${data.current.cloud}%`, 400, 520)
+
+            const buffer = canvas.toBuffer('image/png')
+
+            return void this.client.sendMessage(
+                M.from,
+                {
+                    image: buffer,
+                    caption: `🌤 Weather Report for ${data.location.name}`
+                },
+                { quoted: M as any }
+            )
+        } catch (err) {
+            return void M.reply('❌ Failed to fetch weather data. Try again later.')
         }
     }
 }
