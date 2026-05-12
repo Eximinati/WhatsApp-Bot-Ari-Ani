@@ -16,18 +16,31 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const start = Date.now()
-        await M.reply('🏓 *Pinging...*')
-        const ms = Date.now() - start
-        const icon = ms < 100 ? '⚡' : ms < 300 ? '✅' : ms < 500 ? '🟡' : '🔴'
-        const label = ms < 100 ? 'Excellent' : ms < 300 ? 'Good' : ms < 500 ? 'Fair' : 'Slow'
 
-        let text = `╭──────────────────────────────╮\n`
-        text += `│      🏓  PONG!               │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ ⏱ *Response:* ${ms}ms ${icon} ${label.padEnd(16)}\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 💡 Use *${this.client.config.prefix}uptime*      │\n`
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
+        const msg = await M.reply('🏓 Pinging...')
+
+        const ms = Date.now() - start
+
+        const status =
+            ms < 100
+                ? '⚡ Excellent'
+                : ms < 300
+                ? '✅ Good'
+                : ms < 500
+                ? '🟡 Fair'
+                : '🔴 Slow'
+
+        const text =
+`🏓 PONG
+
+⏱ Response:
+${ms}ms
+
+📊 Status:
+${status}
+
+💡 Use ${this.client.config.prefix}uptime`
+
+        await M.reply(text)
     }
 }
