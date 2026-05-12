@@ -4,45 +4,29 @@ import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 
-// https://docs.github.com/en/rest/reference/users
 interface UserInfo {
     login: string
     avatar_url: string
     html_url: string
     name: string
-    repos_url: string
-    location: string | null
-    email: string | null
-    bio: string | null
-    twitter_username: string | null
     public_repos: number
-    public_gists: number
     followers: number
     following: number
     created_at: string
     updated_at: string
-    hireable: boolean
-    blog: string | null
-    company: string | null
-    gravatar_id: string | null
 }
 
-// https://docs.github.com/en/rest/reference/repos
 interface RepoInfo {
     name: string
     full_name: string
-    owner: UserInfo
     description: string | null
     language: string
     stargazers_count: number
-    watchers_count: number
     forks_count: number
     open_issues_count: number
-    license: {
-        name: string
-    }
     created_at: string
     updated_at: string
+    license: { name: string } | null
 }
 
 export default class Command extends CommandModule {
@@ -56,63 +40,81 @@ export default class Command extends CommandModule {
         })
     }
 
+    private getLastPage = (linkHeader?: string): number => {
+        if (!linkHeader) return 1
+        const match = linkHeader.match(/&page=(\d+)>;\s*rel="last"/)
+        return match ? parseInt(match[1]) : 1
+    }
+
     run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
         const terms = joined.trim().split('/')
-        if (terms[0] === '')
-            return void M.reply(`Arguments not found : Use ${this.client.config.prefix}gh (username/repo | username)`)
+
+        if (!terms[0]) {
+            return void M.reply(`Use: ${this.client.config.prefix}gh username or username/repo`)
+        }
+
         const username = terms[0]
-        const repo = terms.length > 1 ? terms[1] : null
-        let text = ''
+        const repo = terms[1] || null
+
+        
         if (!repo) {
             const userInfo = await axios
-                .get<UserInfo>(`https://api.github.com/users/${username}`, { timeout: 15_000 })
-                .then((res) => res.data)
-                .catch((err) => {
-                    console.log(err)
-                    return void M.reply('🟥 ERROR 🟥\n Failed to fetch the User')
-                })
+                .get<UserInfo>(`https://api.github.com/users/${username}`)
+                .then(res => res.data)
+                .catch(() => null)
 
-            if (userInfo === undefined) {
-                return void M.reply('🟥 ERROR 🟥\n Failed to fetch the User')
-            }
+            if (!userInfo) return void M.reply('❌ Failed to fetch user')
 
-            // prepare text information
-            text += `*🐙 Link :* http://github.com/${username}\n`
-            text += `*📝 Name:* ${userInfo.name}\n`
-            if (userInfo.email !== null) text += `*📧 Email:* ${userInfo.email}\n`
-            if (userInfo.location !== null) text += `*📍 Location:* ${userInfo.location}\n`
-            if (userInfo.bio !== null) text += `*ℹ️ Bio:* ${userInfo.bio}\n`
-            text += `*👥 Followers:* ${userInfo.followers}\n*👥 Following:* ${userInfo.following}\n`
-            text += `*🎒 Repositories:* ${userInfo.public_repos}\n`
-            return void M.reply(text)
-        } else {
-            const repoInfo = await axios
-                .get<RepoInfo>(`https://api.github.com/repos/${username}/${repo}`, {
-                    timeout: 15_000
-                })
-                .then((res) => res.data)
-                .catch((err) => {
-                    console.log(err)
-                    return void M.reply('🟥 ERROR 🟥\n Failed to fetch the Repo')
-                })
+            const text =
+`🐙 GitHub User
 
-            if (repoInfo === undefined) {
-                return void M.reply('🟥 ERROR 🟥\n Failed to fetch the Repo')
-            }
+👤 Name: ${userInfo.name || '-'}
+🔗 https://github.com/${username}
 
-            // prepare text information
-            text += `*🐙 Link :* http://github.com/${username}/${repo}\n`
-            text += `*🎒 Repository Name :* ${repoInfo.name}\n`
-            text += `*ℹ️ Description:* ${repoInfo.description ?? '-'}\n`
-            text += `*📜 Licence:* ${repoInfo.license.name}\n`
-            text += `*🌟 Stars:* ${repoInfo.stargazers_count}\n`
-            text += `*💻 Language:* ${repoInfo.language}\n`
-            text += `*🍴 Forks:* ${repoInfo.forks_count}\n`
-            text += `*⚠️ Issues:* ${repoInfo.open_issues_count}\n`
-            text += `*📅 Created:* ${repoInfo.created_at}\n`
-            text += `*📅 Updated:* ${repoInfo.updated_at.slice(0, 11)}\n`
+👥 Followers: ${userInfo.followers}
+👤 Following: ${userInfo.following}
+📦 Repos: ${userInfo.public_repos}
+📅 Joined: ${userInfo.created_at.slice(0, 10)}
+📅 Updated: ${userInfo.updated_at.slice(0, 10)}`
 
             return void M.reply(text)
         }
+
+        
+        const repoInfo = await axios
+            .get<RepoInfo>(`https://api.github.com/repos/${username}/${repo}`)
+            .then(res => res.data)
+            .catch(() => null)
+
+        if (!repoInfo) return void M.reply('❌ Failed to fetch repo')
+
+        
+        const contributorsRes = await axios.get(
+            `https://api.github.com/repos/${username}/${repo}/contributors?per_page=1&anon=1`
+        ).catch(() => null)
+
+        const contributorsCount =
+            this.getLastPage(contributorsRes?.headers?.link)
+
+        const text =
+`🐙 GitHub Repo
+
+🔗 https://github.com/${username}/${repo}
+
+📦 Name: ${repoInfo.name}
+📝 Description: ${repoInfo.description || '-'}
+💻 Language: ${repoInfo.language || '-'}
+
+⭐ Stars: ${repoInfo.stargazers_count}
+🍴 Forks: ${repoInfo.forks_count}
+👥 Contributors: ${contributorsCount}
+
+🐛 Issues: ${repoInfo.open_issues_count}
+📅 Created: ${repoInfo.created_at.slice(0, 10)}
+🔄 Updated: ${repoInfo.updated_at.slice(0, 10)}
+
+📜 License: ${repoInfo.license?.name || '-'}`
+
+        return void M.reply(text)
     }
 }
