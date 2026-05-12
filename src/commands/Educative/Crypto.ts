@@ -9,68 +9,68 @@ export default class Command extends CommandModule {
         super(client, handler, {
             command: 'crypto',
             aliases: ['cr', 'coins'],
-            description: 'Get Crypto Prices\n',
+            description: 'Get crypto prices',
             category: 'educative',
-            usage: `${client.config.prefix}crypto (Coin/Currency) (Currency/Coin) (count of 1st param)`,
+            usage: `${client.config.prefix}crypto <COIN> <CURRENCY> [amount]`,
             baseXp: 100
         })
     }
-    run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
-        let term = joined.trim().split(' ')
-        // upper case
-        term = term.map((t) => t.toUpperCase())
 
-        let text = ''
-        await axios
-            .get(`https://public.coindcx.com/market_data/current_prices`, { timeout: 15_000 })
-            .then(async (res) => {
-                if (!res) return void M.reply('🟥 ERROR 🟥\nThis might be due to API service being down')
+    run = async (
+        M: ISimplifiedMessage,
+        { joined }: IParsedArgs
+    ): Promise<void> => {
+        const args = joined.trim().toUpperCase().split(/\s+/).filter(Boolean)
 
-                const data = res.data
-                const count = term.length > 2 ? (isNaN(parseInt(term[2])) ? 1 : parseInt(term[2])) : 1
-                if (term[0] === '') {
-                    text = `*Crypto Prices*\n\n`
-                    // loop over the array of key and value, and add them to the text
-                    for (const [key, value] of Object.entries(data)) {
-                        text += `*${key}*: ${value}\n`
-                    }
-                } else if (term.length == 1) {
-                    // concat 'INR' to the term
-                    term[0] = term[0] + 'INR'
-                    // check if the value of the term is present in the data, if it's present then return the value
-                    if (data[term[0]]) {
-                        text = `*${term[0]}*: ${data[term[0]]}`
-                    } else {
-                        text = `*${term[0]}*: Not Found\nUsage example\n${this.client.config.prefix}cr BTC INR\n${this.client.config.prefix}cr USDT BTC\n${this.client.config.prefix}cr INR BTC\n${this.client.config.prefix}cr without parameters returns data on all coins`
-                    }
-                } else if (term.length == 2 || isNaN(count)) {
-                    // concat term[1] to the term[0]
-                    term[0] = term[0] + term[1]
-                    // check if the value of the term is present in the data, if it's present then return the value
-                    if (data[term[0]]) {
-                        text = `*${term[0]}*: ${data[term[0]]}`
-                    } else {
-                        text = `*${term[0]}*: Not Found\nUsage example\n${this.client.config.prefix}cr BTC INR\n${this.client.config.prefix}cr USDT BTC\n${this.client.config.prefix}cr INR BTC\n${this.client.config.prefix}cr without parameters returns data on all coins`
-                    }
-                }
-                // Get the value of the term[0] and multiply it by the term[2]
-                // if (term.length == 3)
-                else {
-                    // concat term[1] to the term[0]
-                    term[0] = term[0] + term[1]
-                    // check if the value of the term is present in the data, if it's present then return the value
-                    if (data[term[0]]) {
-                        text = `*${term[0]}*: ${data[term[0]] * count}`
-                    } else {
-                        text = `*${term[0]}*: Not Found\nUsage example\n${this.client.config.prefix}cr BTC INR\n${this.client.config.prefix}cr USDT BTC\n${this.client.config.prefix}cr INR BTC\n${this.client.config.prefix}cr without parameters returns data on all coins`
-                    }
-                }
-            })
-            .catch((err) => {
-                console.log(err)
-                return void M.reply('🟥 ERROR 🟥\nThis might be due to API service being down')
-            })
+        try {
+            const { data } = await axios.get(
+                'https://public.coindcx.com/market_data/current_prices',
+                { timeout: 15000 }
+            )
 
-        return void M.reply(text)
+            // 🔹 No input → show all
+            if (!args.length) {
+                const all = Object.entries(data)
+                    .slice(0, 20)
+                    .map(([k, v]) => `• ${k}: ${v}`)
+                    .join('\n')
+
+                return void M.reply(`💰 Crypto Prices (Top 20)\n\n${all}`)
+            }
+
+            const base = args[0]
+            const quote = args[1] || 'INR'
+            const key = `${base}${quote}`
+
+            const amount = Number(args[2] || 1)
+            const multiplier = Number.isFinite(amount) ? amount : 1
+
+            if (!data[key]) {
+                return void M.reply(
+`❌ Not found: ${key}
+
+Example:
+${this.client.config.prefix}crypto BTC INR
+${this.client.config.prefix}crypto ETH BTC
+${this.client.config.prefix}crypto BTC INR 2`
+                )
+            }
+
+            const price = data[key]
+            const result = price * multiplier
+
+            return void M.reply(
+`💰 ${key}
+📊 Price: ${price}
+🔢 Amount: ${multiplier}
+💵 Total: ${result}`
+            )
+
+        } catch (err) {
+            console.log(err)
+            return void M.reply(
+                '❌ Crypto API error. Try again later.'
+            )
+        }
     }
 }
