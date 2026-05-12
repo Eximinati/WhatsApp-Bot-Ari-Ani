@@ -7,23 +7,59 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'delete',
-            description: 'Deletes the quoted Message',
+            description: 'Delete a quoted bot message',
             aliases: ['del'],
             category: 'general',
             usage: `${client.config.prefix}delete`,
             adminOnly: true,
-            baseXp: 0
+            baseXp: 5
         })
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        if (!M?.quoted?.message) return void M.reply(`╭──────────────────────────────╮\n│      🗑️  DELETE                │\n├──────────────────────────────┤\n│ ❌ Quote a message to delete  │\n╰──────────────────────────────╯`)
-        if (!this.client.isMe(M.quoted.sender))
-            return void M.reply(`╭──────────────────────────────╮\n│      🗑️  DELETE                │\n├──────────────────────────────┤\n│ 🔒 Can only delete my msgs    │\n╰──────────────────────────────╯`)
-        await this.client.deleteMessage(M.from, {
-            id: (M.quoted.message as any).stanzaId,
-            remoteJid: M.from,
-            fromMe: true
-        })
+        try {
+            if (!M.quoted?.message) {
+                return void M.reply(
+                    '❌ Reply to a message you want to delete.'
+                )
+            }
+
+            if (!this.client.isMe(M.quoted.sender)) {
+                return void M.reply(
+                    '🔒 I can only delete my own messages.'
+                )
+            }
+
+            const stanzaId = (M.quoted.message as {
+                stanzaId?: string
+            }).stanzaId
+
+            if (!stanzaId) {
+                return void M.reply(
+                    '❌ Failed to find message ID.'
+                )
+            }
+
+            await this.client.deleteMessage(
+                M.from,
+                {
+                    id: stanzaId,
+                    remoteJid: M.from,
+                    fromMe: true
+                }
+            )
+
+            await M.reply('✅ Message deleted successfully.')
+        } catch (error) {
+            console.error(error)
+
+            await M.reply(
+                `❌ Error: ${
+                    error instanceof Error
+                        ? error.message
+                        : String(error)
+                }`
+            )
+        }
     }
 }
