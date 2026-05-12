@@ -17,28 +17,40 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const p = this.client.config.prefix
-        let text = `╭──────────────────────────────╮\n`
-        text += `│      🆕  WHAT'S NEW           │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 📅 *May 12, 2026*             │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 🌐 *Social*                   │\n`
-        text += `│  meme | news | wiki           │\n`
-        text += `│  translate | shorten          │\n`
-        text += `│                              │\n`
-        text += `│ 🔧 *Utility*                  │\n`
-        text += `│  uptime | afk | back          │\n`
-        text += `│  calc | define                │\n`
-        text += `│                              │\n`
-        text += `│ 🎲 *Gaming*                   │\n`
-        text += `│  rps | dice | slot | quiz     │\n`
-        text += `│                              │\n`
-        text += `│ 📱 *WhatsApp*                 │\n`
-        text += `│  report | feedback            │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 📊 *94 commands* | *13 cat.s*  │\n`
-        text += `│ 💡 *${p}help* for full list     │\n`
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
+
+        const text =
+`🆕 WHAT'S NEW
+
+📅 May 12, 2026
+
+🌐 Social
+• meme
+• news
+• wiki
+• translate
+• shorten
+
+🔧 Utility
+• uptime
+• afk
+• back
+• calc
+• define
+
+🎲 Gaming
+• rps
+• dice
+• slot
+• quiz
+
+📱 WhatsApp
+• report
+• feedback
+
+📊 94 commands | 13 categories
+
+💡 Use ${p}help for full command list`
+
+        await M.reply(text)
     }
 }
