@@ -31,7 +31,7 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'genshincharacter',
-            description: `Gives you the data of the given genshin character.`,
+            description: 'Get details of a Genshin Impact character',
             aliases: ['gchar', 'genshin'],
             category: 'anime',
             usage: `${client.config.prefix}gchar [name]`,
@@ -39,32 +39,97 @@ export default class Command extends CommandModule {
         })
     }
 
-    run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
-        if (!joined) {
-            const list = await firstOk<string[]>(
-                sources.list.map((u) => () => request.json<string[]>(u))
+    run = async (
+        M: ISimplifiedMessage,
+        { joined }: IParsedArgs
+    ): Promise<void> => {
+        try {
+            if (!joined) {
+                const list =
+                    await firstOk<string[]>(
+                        sources.list.map(
+                            (u) => () =>
+                                request.json<string[]>(u)
+                        )
+                    )
+
+                if (!list.ok) {
+                    return void M.reply(
+                        "❌ Couldn't fetch character list."
+                    )
+                }
+
+                return void M.reply(
+                    `📒 Genshin Characters:\n\n${list.value.join(
+                        ', '
+                    )}`
+                )
+            }
+
+            const slug = joined
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, '-')
+
+            const detail =
+                await firstOk<GenshinCharacter>(
+                    sources.detail(slug).map(
+                        (u) => () =>
+                            request.json<GenshinCharacter>(
+                                u
+                            )
+                    )
+                )
+
+            if (!detail.ok) {
+                return void M.reply(
+                    `❌ Character "${joined}" not found.\n\n💡 Tip: Use ${this.client.config.prefix}gchar to view valid names.`
+                )
+            }
+
+            const r = detail.value
+
+            const text =
+`💎 Genshin Character
+
+👤 Name:
+➜ ${r.name}
+
+💠 Vision:
+➜ ${r.vision || '—'}
+
+⚔ Weapon:
+➜ ${r.weapon || '—'}
+
+⛩ Nation:
+➜ ${r.nation || '—'}
+
+🏛 Affiliation:
+➜ ${r.affiliation || '—'}
+
+✨ Constellation:
+➜ ${r.constellation || '—'}
+
+⭐ Rarity:
+➜ ${r.rarity ?? '—'} stars
+
+🎂 Birthday:
+➜ ${r.birthday || '—'}
+
+📖 Description:
+➜ ${r.description || '—'}`
+
+            await M.reply(text)
+        } catch (error) {
+            console.error(error)
+
+            await M.reply(
+                `❌ Error: ${
+                    error instanceof Error
+                        ? error.message
+                        : String(error)
+                }`
             )
-            if (!list.ok) return void M.reply(`Couldn't reach the Genshin API right now.`)
-            return void M.reply(`📒 *The searchable characters are:* ${list.value.join(', ')}`)
         }
-        const slug = joined.trim().toLowerCase().replace(/\s+/g, '-')
-        const detail = await firstOk<GenshinCharacter>(
-            sources.detail(slug).map((u) => () => request.json<GenshinCharacter>(u))
-        )
-        if (!detail.ok) {
-            return void M.reply(
-                `Sorry, couldn't find character *${joined}*\n🧧 *Use:* ${this.client.config.prefix}gchar to see the full list of searchable characters.\n\n📝 *Note:* Nicknames don't work here.`
-            )
-        }
-        const r = detail.value
-        await M.reply(
-            `💎 *Name:* ${r.name}\n💠 *Vision:* ${r.vision || '—'}\n📛 *Weapon:* ${
-                r.weapon || '—'
-            }\n⛩ *Nation:* ${r.nation || '—'}\n📛 *Affiliation:* ${r.affiliation || '—'}\n❄ *Constellation:* ${
-                r.constellation || '—'
-            }\n🎗 *Rarity:* ${r.rarity ?? '—'} stars\n🎁 *Birthday:* ${r.birthday || '—'}\n💚 *Description:* ${
-                r.description || '—'
-            }\n`
-        )
     }
 }
