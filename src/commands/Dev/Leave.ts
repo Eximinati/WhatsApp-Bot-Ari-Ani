@@ -16,8 +16,14 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        if (!M.groupMetadata) return void M.reply(`╭──────────────────────────────╮\n│      📤  LEAVE                 │\n├──────────────────────────────┤\n│ ❌ Groups only                 │\n╰──────────────────────────────╯`)
-        await M.reply(`╭──────────────────────────────╮\n│      👋  GOODBYE!              │\n├──────────────────────────────┤\n│ Leaving *${(M.groupMetadata.subject || '').substring(0,22).padEnd(22)}│\n╰──────────────────────────────╯`)
+        if (!M.groupMetadata) {
+            return void M.reply('❌ This command only works in groups.')
+        }
+
+        const groupName = M.groupMetadata.subject || 'this group'
+
+        await M.reply(`👋 Leaving group: ${groupName}`)
+
         await this.client.groupLeave(M.from)
     }
 }
