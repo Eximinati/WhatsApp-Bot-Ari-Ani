@@ -18,11 +18,13 @@ export default class Command extends CommandModule {
     run = async (M: ISimplifiedMessage): Promise<void> => {
         try {
             const response = await fetch('https://nekos.life/api/v2/fact')
-            const data = await response.json() as { fact: string }
-            let text = `╭──────────────────────────────╮\n│      📝  RANDOM FACT            │\n├──────────────────────────────┤\n│ 💡 ${(data.fact || '').substring(0,28).padEnd(28)}│\n╰──────────────────────────────╯`
-            return void M.reply(text)
+            const data = await response.json() as { fact?: string }
+
+            const fact = data.fact || 'No fact found.'
+
+            return void M.reply(`📝 Random Fact:\n\n💡 ${fact}`)
         } catch {
-            return void M.reply(`❌ Failed to fetch fact. Try again later.`)
+            return void M.reply('❌ Failed to fetch fact. Try again later.')
         }
     }
 }
