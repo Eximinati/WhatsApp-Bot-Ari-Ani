@@ -15,28 +15,44 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        const up = this.getUptime()
-        const cmds = this.handler.commands.size
-        let text = `╭──────────────────────────────╮\n`
-        text += `│      🤖  BOT INFO             │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 📛 *Name:* ${this.client.config.name.padEnd(22).slice(0,22)}│\n`
-        text += `│ 🔧 *Prefix:* ${this.client.config.prefix.padEnd(21)}│\n`
-        text += `│ 📦 *Commands:* ${String(cmds).padEnd(18)}│\n`
-        text += `│ ⏰ *Uptime:* ${up.padEnd(21).slice(0,21)}│\n`
-        text += `│ ✅ *Status:* Online           │\n`
-        text += `├──────────────────────────────┤\n`
-        text += `│ 💡 *${this.client.config.prefix}help* for commands   │\n`
-        text += `╰──────────────────────────────╯`
-        return void M.reply(text)
+        const uptime = this.getUptime()
+        const commands = this.handler.commands.size
+
+        const text =
+`🤖 *Ari-Ani's Bot Info*
+
+📛 Name: ${this.client.config.name}
+
+🔧 Prefix: ${this.client.config.prefix}
+
+📦 Commands: ${commands}
+
+⏰ Uptime: ${uptime}
+
+✅ Status: Online
+
+💡 Use ${this.client.config.prefix}help for commands`
+
+        await M.reply(text)
     }
 
     private getUptime(): string {
         const now = Date.now()
-        const start = (this.client as any).startTime || now
-        const d = Math.floor((now - start) / 86400000)
-        const h = Math.floor(((now - start) % 86400000) / 3600000)
-        const m = Math.floor(((now - start) % 3600000) / 60000)
-        return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`
+        const start =
+            (this.client as any).startTime || now
+
+        const diff = now - start
+
+        const days = Math.floor(diff / 86400000)
+        const hours = Math.floor(
+            (diff % 86400000) / 3600000
+        )
+        const minutes = Math.floor(
+            (diff % 3600000) / 60000
+        )
+
+        return days > 0
+            ? `${days}d ${hours}h ${minutes}m`
+            : `${hours}h ${minutes}m`
     }
 }
