@@ -1,7 +1,11 @@
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
-import { ICommand, IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
+import {
+    ICommand,
+    IParsedArgs,
+    ISimplifiedMessage
+} from '../../typings/index.js'
 
 export default class Command extends CommandModule {
     private categoryEmojis: Record<string, string> = {
@@ -24,16 +28,57 @@ export default class Command extends CommandModule {
         anime: 'Anime quotes, characters & more',
         bots: 'Bot information & status',
         config: 'Configure bot settings',
-        dev: 'Developer tools (owner only)',
+        dev: 'Developer tools',
         educative: 'Learn something new',
         fun: 'Fun commands & games',
         games: 'Interactive games',
         general: 'Basic bot commands',
         media: 'Download & search media',
         moderation: 'Group management',
-        social: 'Social & utility features',
+        social: 'Social features',
         utility: 'Helpful utilities',
         whatsapp: 'WhatsApp related'
+    }
+
+    private categoryImages: Record<string, string> = {
+        general: 'https://i.ibb.co/WvCnB8WM/Deryl.jpg',
+        games: 'https://i.ibb.co/4gC4Rj9b/Deryl.jpg',
+        media: 'https://i.ibb.co/ynV86TBY/Deryl.jpg',
+        anime: 'https://i.ibb.co/dsWj285f/Deryl.jpg',
+        moderation: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
+        utility: 'https://i.ibb.co/G3T425vQ/Deryl.jpg',
+        social: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
+        bots: 'https://i.ibb.co/XQtrY26/Deryl.jpg',
+        config: 'https://i.ibb.co/rGrx1swS/Deryl.jpg',
+        dev: 'https://i.ibb.co/CKvNPBLr/Deryl.jpg',
+        educative: 'https://i.ibb.co/Y7XbKcbC/Deryl.jpg',
+        fun: 'https://i.ibb.co/v6QJYnmr/Deryl.jpg',
+        whatsapp: 'https://i.ibb.co/XfRfySZZ/Deryl.jpg'
+    }
+
+    private thumbnailUrls: string[] = [
+        'https://i.ibb.co/6RxTGwCZ/Deryl.jpg',
+        'https://i.ibb.co/pvnNm0TX/Deryl.jpg',
+        'https://i.ibb.co/jkyVdTh4/Deryl.jpg',
+        'https://i.ibb.co/VYg9c7DJ/Deryl.jpg',
+        'https://i.ibb.co/4ZtT2wpH/Deryl.jpg',
+        'https://i.ibb.co/cStLwZy4/Deryl.jpg'
+    ]
+
+    private customFontMap: Record<string, string> = {
+        a: '𝐚', b: '𝐛', c: '𝐜', d: '𝐝', e: '𝐞',
+        f: '𝐟', g: '𝐠', h: '𝐡', i: '𝐢', j: '𝐣',
+        k: '𝐤', l: '𝐥', m: '𝐦', n: '𝐧', o: '𝐨',
+        p: '𝐩', q: '𝐪', r: '𝐫', s: '𝐬', t: '𝐭',
+        u: '𝐮', v: '𝐯', w: '𝐰', x: '𝐱', y: '𝐲',
+        z: '𝐳',
+
+        A: '𝐀', B: '𝐁', C: '𝐂', D: '𝐃', E: '𝐄',
+        F: '𝐅', G: '𝐆', H: '𝐇', I: '𝐈', J: '𝐉',
+        K: '𝐊', L: '𝐋', M: '𝐌', N: '𝐍', O: '𝐎',
+        P: '𝐏', Q: '𝐐', R: '𝐑', S: '𝐒', T: '𝐓',
+        U: '𝐔', V: '𝐕', W: '𝐖', X: '𝐗', Y: '𝐘',
+        Z: '𝐙'
     }
 
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -47,7 +92,10 @@ export default class Command extends CommandModule {
         })
     }
 
-    run = async (M: ISimplifiedMessage, parsedArgs: IParsedArgs): Promise<void> => {
+    run = async (
+        M: ISimplifiedMessage,
+        parsedArgs: IParsedArgs
+    ): Promise<void> => {
         const input = parsedArgs.joined.toLowerCase().trim()
 
         if (!input) {
@@ -65,7 +113,9 @@ export default class Command extends CommandModule {
         return this.sendCommandHelp(M, input)
     }
 
-    private sendMainMenu(M: ISimplifiedMessage): void {
+    private async sendMainMenu(
+        M: ISimplifiedMessage
+    ): Promise<void> {
         const prefix = this.client.config.prefix
         const categories = this.getCategories()
 
@@ -74,41 +124,53 @@ export default class Command extends CommandModule {
             M.sender?.split('@')[0] ||
             'User'
 
-        const hour = new Date().getHours()
+        let text =
+`👋 Hello ${username}, I'm Ari-Ani your WhatsApp assistant bot.
 
-        let greeting = 'Good Evening'
+🏮→ This is a public script, not for sale.
+🏮→ Don't call the bot or you may be banned.
+🏮→ Don't use the bot in PM.
 
-        if (hour >= 5 && hour < 12) {
-            greeting = 'Good Morning'
-        } else if (hour >= 12 && hour < 17) {
-            greeting = 'Good Afternoon'
-        }
+🧧 Prefix: [ ${prefix} ]
 
-        let text = `👋 ${greeting} ${username}, I'm Ari-Ani your WhatsApp assistant bot.\n\n`
+⛩️ Here are the category commands:
 
-        text += `🏮→ 𝐓𝐡𝐢𝐬 𝐢𝐬 𝐚 𝐩𝐮𝐛𝐥𝐢𝐜 𝐬𝐜𝐫𝐢𝐩𝐭, 𝐧𝐨𝐭 𝐟𝐨𝐫 𝐬𝐚𝐥𝐞.\n`
-        text += `🏮→ 𝐃𝐨𝐧'𝐭 𝐜𝐚𝐥𝐥 𝐭𝐡𝐞 𝐛𝐨𝐭 𝐨𝐫 𝐲𝐨𝐮 𝐦𝐚𝐲 𝐛𝐞 𝐛𝐚𝐧𝐧𝐞𝐝.\n`
-        text += `🏮→ 𝐃𝐨𝐧'𝐭 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐛𝐨𝐭 𝐢𝐧 𝐏𝐌.\n\n`
+╭─ 📦 CATEGORIES ─╮
 
-        text += `🧧 𝐏𝐫𝐞𝐟𝐢𝐱: [ ${prefix} ]\n\n`
-
-        text += `⛩️ 𝐇𝐞𝐫𝐞 𝐚𝐫𝐞 𝐭𝐡𝐞 𝐜𝐚𝐭𝐞𝐠𝐨𝐫𝐲 𝐜𝐨𝐦𝐦𝐚𝐧𝐝𝐬:\n\n`
+`
 
         for (const category of categories) {
-            const emoji = this.categoryEmojis[category] || '📁'
-            const desc = this.categoryDescriptions[category] || 'No description'
+            const emoji =
+                this.categoryEmojis[category] || '✨'
 
-            text += `${emoji} *${this.capitalize(category)}*\n`
-            text += `└ ${desc}\n\n`
+            text += `┃ ${emoji} ${this.capitalize(category)}\n`
         }
 
-        text += `🌟 𝐔𝐬𝐚𝐠𝐞: use ${prefix}help <category>\n`
-        text += `🌟 𝐔𝐬𝐚𝐠𝐞: use ${prefix}help <command>`
+        text += `
+╰────────╯
 
-        M.reply(text)
+🌟 Usage: ${prefix}help <category>
+🌟 Usage: ${prefix}help <command>
+`
+
+        const imageUrl = this.getRandomThumbnail()
+
+        await this.client.sendMessage(
+            M.from,
+            {
+                image: { url: imageUrl },
+                caption: this.toFont(text)
+            },
+            {
+                quoted: M.message
+            }
+        )
     }
 
-    private sendCategoryHelp(M: ISimplifiedMessage, category: string): void {
+    private async sendCategoryHelp(
+        M: ISimplifiedMessage,
+        category: string
+    ): Promise<void> {
         const commands = this.handler.commands
         const prefix = this.client.config.prefix
 
@@ -125,40 +187,57 @@ export default class Command extends CommandModule {
 
         if (!categoryCommands.length) {
             return void M.reply(
-                `❌ No commands found in *${category}* category`
+                `❌ No commands found in ${category}`
             )
         }
 
-        const emoji = this.categoryEmojis[category] || '📁'
-        const description =
-            this.categoryDescriptions[category] || 'No description'
-
-        let text = `${emoji} 𝐀𝐑𝐈-𝐀𝐍𝐈 ${this.capitalize(category)} 𝐌𝐄𝐍𝐔\n\n`
-
-        text += `📖 ${description}\n`
-        text += `📦 Total Commands: ${categoryCommands.length}\n\n`
-
-        for (const cmd of categoryCommands.sort((a, b) =>
-            (a.config?.command || '').localeCompare(
-                b.config?.command || ''
+        let commandList = categoryCommands
+            .sort((a, b) =>
+                a.config.command.localeCompare(
+                    b.config.command
+                )
             )
-        )) {
-            text += `🪄 ${prefix}${cmd.config.command}\n`
-        }
+            .map(
+                (cmd) =>
+                    `❄︎ ${prefix}${cmd.config.command}`
+            )
+            .join('  ')
 
-        text += `\n🌟 Use ${prefix}help <command> for command info`
+        const text = this.toFont(
+`▬▬▬๑۩ ${this.capitalize(category)} ۩๑▬▬▬▬
 
-        M.reply(text)
+☞ ${commandList}
+
+⌜${this.capitalize(category)} Commands⌝`
+        )
+
+        const imageUrl =
+            this.categoryImages[category] ||
+            this.getRandomThumbnail()
+
+        await this.client.sendMessage(
+            M.from,
+            {
+                image: { url: imageUrl },
+                caption: text
+            },
+            {
+                quoted: M.message
+            }
+        )
     }
 
-    private sendAllCommands(M: ISimplifiedMessage): void {
+    private async sendAllCommands(
+        M: ISimplifiedMessage
+    ): Promise<void> {
         const commands = this.handler.commands
         const categories: Record<string, ICommand[]> = {}
 
         for (const [, cmd] of commands) {
             if (!cmd?.config?.category) continue
 
-            const category = cmd.config.category.toLowerCase()
+            const category =
+                cmd.config.category.toLowerCase()
 
             if (!categories[category]) {
                 categories[category] = []
@@ -170,9 +249,10 @@ export default class Command extends CommandModule {
         let text = `🌟 𝐀𝐑𝐈-𝐀𝐍𝐈 𝐀𝐋𝐋 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒\n\n`
 
         for (const category of Object.keys(categories).sort()) {
-            const emoji = this.categoryEmojis[category] || '📁'
+            const emoji =
+                this.categoryEmojis[category] || '📁'
 
-            text += `${emoji} *${this.capitalize(category)}*\n`
+            text += `${emoji} ${this.capitalize(category)}\n`
 
             for (const cmd of categories[category]) {
                 text += `└ 🪄 ${cmd.config.command}\n`
@@ -183,10 +263,13 @@ export default class Command extends CommandModule {
 
         text += `📊 Total Commands: ${commands.size}`
 
-        M.reply(text)
+        await M.reply(this.toFont(text))
     }
 
-    private sendCommandHelp(M: ISimplifiedMessage, input: string): void {
+    private async sendCommandHelp(
+        M: ISimplifiedMessage,
+        input: string
+    ): Promise<void> {
         const command =
             this.handler.commands.get(input) ||
             this.handler.aliases.get(input)
@@ -199,25 +282,46 @@ export default class Command extends CommandModule {
 
         const config = command.config
 
-        let text = `📖 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐇𝐄𝐋𝐏\n\n`
+        const text = this.toFont(
+`📖 COMMAND INFO
 
-        text += `🧩 Command: ${config.command}\n`
-        text += `📂 Category: ${this.capitalize(
-            config.category || 'general'
-        )}\n`
-        text += `📝 Description: ${config.description}\n`
+🧩 Name: ${config.command}
+📂 Category: ${this.capitalize(
+    config.category || 'general'
+)}
+📝 Description: ${config.description}
 
-        if (config.aliases?.length) {
-            text += `🏷️ Aliases: ${config.aliases.join(', ')}\n`
-        }
+🏷️ Aliases:
+${config.aliases?.join(', ') || 'None'}
 
-        text += `\n⚡ Usage:\n${config.usage}`
+⚡ Usage:
+${config.usage}`
+        )
 
-        M.reply(text)
+        await M.reply(text)
+    }
+
+    private getRandomThumbnail(): string {
+        return this.thumbnailUrls[
+            Math.floor(
+                Math.random() *
+                this.thumbnailUrls.length
+            )
+        ]
+    }
+
+    private toFont(text: string = ''): string {
+        return text.replace(
+            /[a-zA-Z]/g,
+            (char) =>
+                this.customFontMap[char] || char
+        )
     }
 
     private isCategory(input: string): boolean {
-        return this.getCategories().includes(input.toLowerCase())
+        return this.getCategories().includes(
+            input.toLowerCase()
+        )
     }
 
     private getCategories(): string[] {
@@ -235,6 +339,9 @@ export default class Command extends CommandModule {
     }
 
     private capitalize(str: string): string {
-        return str.charAt(0).toUpperCase() + str.slice(1)
+        return (
+            str.charAt(0).toUpperCase() +
+            str.slice(1)
+        )
     }
 }
