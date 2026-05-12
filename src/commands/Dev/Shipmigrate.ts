@@ -9,7 +9,7 @@ export default class Command extends CommandModule {
         super(client, handler, {
             command: 'shipmigrate',
             description:
-                'One-off migration: normalizes JIDs across all bonds/rizz docs and recomputes base scores under the current formula. Idempotent.',
+                'One-off migration: normalizes JIDs and recomputes ship scores',
             category: 'dev',
             dm: true,
             modsOnly: true,
@@ -19,25 +19,27 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        await M.reply('🔧 Running ship data migration…')
+        await M.reply('🔧 Running ship data migration...')
+
         try {
             const report = await migrateShipData(this.client)
-            const lines = [
-                '✅ *Ship migration complete*',
-                '',
-                '*Bonds*',
-                `  Scanned:        ${report.bondsScanned}`,
-                `  Rekeyed:        ${report.bondsRekeyed}`,
-                `  Merged:         ${report.bondsMerged}`,
-                `  Base recomputed:${report.bondsBaseUpdated}`,
-                '',
-                '*Rizz*',
-                `  Scanned:        ${report.rizzScanned}`,
-                `  Rekeyed:        ${report.rizzRekeyed}`,
-                `  Merged:         ${report.rizzMerged}`,
-                `  Base recomputed:${report.rizzBaseUpdated}`
-            ]
-            await M.reply(lines.join('\n'))
+
+            const text =
+`✅ Ship migration complete
+
+BONDS
+• Scanned: ${report.bondsScanned}
+• Rekeyed: ${report.bondsRekeyed}
+• Merged: ${report.bondsMerged}
+• Base updated: ${report.bondsBaseUpdated}
+
+RIZZ
+• Scanned: ${report.rizzScanned}
+• Rekeyed: ${report.rizzRekeyed}
+• Merged: ${report.rizzMerged}
+• Base updated: ${report.rizzBaseUpdated}`
+
+            await M.reply(text)
         } catch (err) {
             await M.reply(`❌ Migration failed: ${String(err)}`)
         }
