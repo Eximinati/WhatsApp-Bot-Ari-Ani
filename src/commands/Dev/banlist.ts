@@ -16,32 +16,36 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        
         const users = await this.client.DB.user
             .find({ ban: true })
-            .sort({ _id: -1 }) 
+            .sort({ _id: -1 })
             .limit(50)
 
         if (!users.length) {
-            return void M.reply('📭 No banned users found.')
+            return void M.reply(
+                '📭 No banned users found.'
+            )
         }
 
         const total = users.length
 
-        const list = users.map((u, i) => {
+        const list = users.map((u: any, i: number) => {
             const jid = u.jid || 'unknown'
-            const reason = u.banReason || 'No reason'
+
+            const reason =
+                u.banReason || 'No reason'
 
             const num = total - i
 
-            return `${num}. ${jid.split('@')[0]} — ${reason}`
+            return `${num}. ${
+                jid.split('@')[0]
+            } — ${reason}`
         })
 
-        const text =
-`🚫 Banned User List
- 📊 Total: ${total}
+        const text = `🚫 Banned User List
+📊 Total: ${total}
 
- ${list.join('\n')}
+${list.join('\n')}
 
 💡 Tip: use ${this.client.config.prefix}unban @user`
 
