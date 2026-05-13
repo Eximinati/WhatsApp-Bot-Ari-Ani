@@ -11,8 +11,8 @@ export default class Command extends CommandModule {
             category: 'general',
             usage: `${client.config.prefix}admins [message]`,
             aliases: ['tagadmins', 'adminstag'],
-            baseXp: 10,
-            groupOnly: true
+            baseXp: 10
+            
         })
     }
 
@@ -34,12 +34,12 @@ export default class Command extends CommandModule {
             }
 
             const senderName =
-                M.pushName ||
-                M.sender?.split('@')[0] ||
+                (M as any).pushName ||
+                (M.sender as any)?.username ||
                 'User'
 
             const customMessage =
-                M.args?.join(' ') ||
+                (M as any).args?.join(' ') ||
                 'Please check the group.'
 
             let text =
@@ -66,13 +66,11 @@ export default class Command extends CommandModule {
             await this.client.sendMessage(
                 M.from,
                 {
-                    text,
+                    text: text as any,
                     mentions: admins
-                },
-                {
-                    quoted: M.message
-                }
+                } as any
             )
+
         } catch (error) {
             console.error(error)
 
