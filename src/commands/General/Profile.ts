@@ -2,6 +2,7 @@ import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
+import { MessageType } from '../../core/types.js'
 import axios from 'axios'
 
 export default class Command extends CommandModule {
@@ -56,18 +57,15 @@ export default class Command extends CommandModule {
             ] = await Promise.all([
                 this.client.getProfilePicture(user),
                 this.client.getUser(user),
-                this.client
-                    .getStatus(user)
-                    .catch(() => ({
-                        status: 'None'
-                    }))
+                this.client.getStatus(user).catch(() => ({
+                    status: 'None'
+                }))
             ])
 
             const isAdmin =
-                M.groupMetadata?.admins?.includes(user) ||
-                false
+                M.groupMetadata?.admins?.includes(user) || false
 
-            const profileText = `👤 USER PROFILE
+            const text = `👤 USER PROFILE
 
 🎋 Username:
 ➜ ${username}
@@ -85,25 +83,22 @@ export default class Command extends CommandModule {
 ➜ ${userData.ban ? 'Yes' : 'No'}
 `
 
-        
+            
             if (profilePicture) {
-                const buffer = await this.getBuffer(profilePicture)
+                const imageBuffer = await this.getBuffer(profilePicture)
 
-                await this.client.sendMessage(
-                    M.from,
-                    {
-                        image: buffer,
-                        caption: profileText
-                    },
-                    {
-                        quoted: M.WAMessage
-                    }
+                await M.reply(
+                    imageBuffer,
+                    MessageType.image,
+                    undefined,
+                    undefined,
+                    text
                 )
 
                 return
             }
 
-            await M.reply(profileText)
+            await M.reply(text)
         } catch (error) {
             console.error(error)
 
