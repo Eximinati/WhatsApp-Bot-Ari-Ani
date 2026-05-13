@@ -2,7 +2,6 @@ import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
-import { MessageType } from '../../core/types.js'
 import axios from 'axios'
 
 export default class Command extends CommandModule {
@@ -86,16 +85,19 @@ export default class Command extends CommandModule {
 ➜ ${userData.ban ? 'Yes' : 'No'}
 `
 
+        
             if (profilePicture) {
-                const buffer =
-                    await this.getBuffer(profilePicture)
+                const buffer = await this.getBuffer(profilePicture)
 
-                await M.reply(
-                    buffer,
-                    MessageType.image,
-                    undefined,
-                    undefined,
-                    profileText
+                await this.client.sendMessage(
+                    M.from,
+                    {
+                        image: buffer,
+                        caption: profileText
+                    },
+                    {
+                        quoted: M.WAMessage
+                    }
                 )
 
                 return
