@@ -34,7 +34,7 @@ export default class Command extends CommandModule {
         dev: 'Developer/Owner tools',
         educative: 'Educational searching commands,
         fun: 'Fun commands to use',
-        economy: 'Gambling and earn money' 
+        economy: 'Gambling and earn money',
         games: 'Interactive games',
         general: 'Basic bot commands',
         media: 'Downloading & searching media',
