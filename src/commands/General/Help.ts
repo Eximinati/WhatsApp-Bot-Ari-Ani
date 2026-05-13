@@ -15,6 +15,7 @@ export default class Command extends CommandModule {
         bots: '🤖',
         config: '⚙️',
         dev: '👨‍💻',
+        economy: '🎰',
         educative: '📚',
         fun: '🎮',
         games: '🎲',
@@ -33,6 +34,7 @@ export default class Command extends CommandModule {
         dev: 'Developer/Owner tools',
         educative: 'Educational searching commands,
         fun: 'Fun commands to use',
+        economy: 'Gambling and earn money' 
         games: 'Interactive games',
         general: 'Basic bot commands',
         media: 'Downloading & searching media',
@@ -50,6 +52,7 @@ export default class Command extends CommandModule {
         moderation: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
         utility: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
         social: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
+        economy: 'https://i.ibb.co/nM7SHwLY/Deryl.jpg',
         bots: 'https://i.imgur.com/t9vtLLh.jpeg',
         config: 'https://i.ibb.co/G3T425vQ/Deryl.jpg',
         dev: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
