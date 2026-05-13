@@ -18,7 +18,7 @@ export default class Command extends CommandModule {
         economy: '🎰',
         educative: '📚',
         fun: '🎮',
-        games: '🎲',
+        gaming: '🎲',
         general: '♨️',
         media: '🎵',
         moderation: '🛡️',
@@ -35,7 +35,7 @@ export default class Command extends CommandModule {
         educative: 'Educational searching commands',
         fun: 'Fun commands to use',
         economy: 'Gambling and earn money',
-        games: 'Interactive games',
+        gaming: 'Interactive games',
         general: 'Basic bot commands',
         media: 'Downloading & searching media',
         moderation: 'Group management settings',
@@ -46,7 +46,7 @@ export default class Command extends CommandModule {
 
     private categoryImages: Record<string, string> = {
         general: 'https://i.ibb.co/WvCnB8WM/Deryl.jpg',
-        games: 'https://i.ibb.co/4gC4Rj9b/Deryl.jpg',
+        gaming: 'https://i.ibb.co/4gC4Rj9b/Deryl.jpg',
         media: 'https://i.ibb.co/ynV86TBY/Deryl.jpg',
         anime: 'https://i.ibb.co/CKvNPBLr/Deryl.jpg',
         moderation: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
