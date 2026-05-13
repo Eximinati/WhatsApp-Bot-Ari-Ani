@@ -1,7 +1,10 @@
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
-import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
+import {
+    IParsedArgs,
+    ISimplifiedMessage
+} from '../../typings/index.js'
 
 const sleep = (ms: number) =>
     new Promise<void>((r) => setTimeout(r, ms))
@@ -31,9 +34,9 @@ export default class Command extends CommandModule {
             )
         }
 
-        const groups = Array.from(this.client.chats).filter(
-            (jid) => jid.endsWith('@g.us')
-        )
+        const groups = Array.from(
+            this.client.chats
+        ).filter((jid) => jid.endsWith('@g.us'))
 
         if (!groups.length) {
             return void M.reply(
@@ -41,22 +44,24 @@ export default class Command extends CommandModule {
             )
         }
 
-        const text =
-`📢 BROADCAST MESSAGE
+        const senderName =
+            M.pushName ||
+            M.sender?.username ||
+            M.sender?.jid?.split('@')[0] ||
+            'Developer'
+
+        const text = `📢 BROADCAST MESSAGE
 
 ${message}
 
-— ${M.pushName || M.sender.username}`
+— ${senderName}`
 
         let sent = 0
         let failed = 0
 
         for (const jid of groups) {
             try {
-                await this.client.sendMessage(
-                    jid,
-                    { text }
-                )
+                await M.reply(text, jid)
 
                 sent++
             } catch {
