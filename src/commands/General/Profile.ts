@@ -2,6 +2,8 @@ import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
+import { MessageType } from '../../core/types.js'
+import axios from 'axios'
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -13,6 +15,14 @@ export default class Command extends CommandModule {
             aliases: ['p'],
             baseXp: 30
         })
+    }
+
+    private async getBuffer(url: string): Promise<Buffer> {
+        return (
+            await axios.get(url, {
+                responseType: 'arraybuffer'
+            })
+        ).data
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
@@ -58,8 +68,7 @@ export default class Command extends CommandModule {
                 M.groupMetadata?.admins?.includes(user) ||
                 false
 
-            const profileText =
-`👤 USER PROFILE
+            const profileText = `👤 USER PROFILE
 
 🎋 Username:
 ➜ ${username}
@@ -78,15 +87,15 @@ export default class Command extends CommandModule {
 `
 
             if (profilePicture) {
-                await this.client.sendMessage(
-                    M.from,
-                    {
-                        image: { url: profilePicture },
-                        caption: profileText
-                    },
-                    {
-                        quoted: M.message
-                    }
+                const buffer =
+                    await this.getBuffer(profilePicture)
+
+                await M.reply(
+                    buffer,
+                    MessageType.image,
+                    undefined,
+                    undefined,
+                    profileText
                 )
 
                 return
