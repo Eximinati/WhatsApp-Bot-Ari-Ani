@@ -32,7 +32,7 @@ export default class Command extends CommandModule {
         bots: 'Bot information & status',
         config: 'Configure bot settings',
         dev: 'Developer/Owner tools',
-        educative: 'Educational searching commands,
+        educative: 'Educational searching commands',
         fun: 'Fun commands to use',
         economy: 'Gambling and earn money',
         games: 'Interactive games',
