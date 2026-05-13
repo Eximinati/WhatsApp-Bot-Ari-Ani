@@ -2,7 +2,9 @@ import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
+import { MessageType } from '../../core/types.js'
 import request from '../../core/request.js'
+import axios from 'axios'
 
 interface RepoInfo {
     forks_count: number
@@ -10,10 +12,6 @@ interface RepoInfo {
     open_issues_count: number
     watchers_count: number
     stargazers_count: number
-}
-
-interface Contributors {
-    length: number
 }
 
 export default class Command extends CommandModule {
@@ -42,6 +40,14 @@ export default class Command extends CommandModule {
         ]
     }
 
+    private async getBuffer(url: string): Promise<Buffer> {
+        return (
+            await axios.get(url, {
+                responseType: 'arraybuffer'
+            })
+        ).data
+    }
+
     run = async (M: ISimplifiedMessage): Promise<void> => {
         try {
             const repoUrl =
@@ -59,8 +65,7 @@ export default class Command extends CommandModule {
                 repo.updated_at
             ).toLocaleDateString()
 
-            const text =
-`👾 Ari-Ani Bot Info
+            const text = `👾 Ari-Ani Bot Info
 
 🍀 Multi-Device WhatsApp Bot
 
@@ -73,17 +78,16 @@ export default class Command extends CommandModule {
 
 🔗 https://github.com/Eximinati/Whatsapp-bot-Ari-Ani`
 
-            const image = this.getRandomImage()
+            const imageUrl = this.getRandomImage()
+            const buffer =
+                await this.getBuffer(imageUrl)
 
-            await this.client.sendMessage(
-                M.from,
-                {
-                    image: { url: image },
-                    caption: text
-                },
-                {
-                    quoted: M.message
-                }
+            await M.reply(
+                buffer,
+                MessageType.image,
+                undefined,
+                undefined,
+                text
             )
         } catch (error) {
             console.error(error)
