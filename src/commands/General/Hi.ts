@@ -24,7 +24,7 @@ export default class Command extends CommandModule {
         const username =
             M.pushName ||
             M.sender?.username ||
-            M.sender?.split('@')[0] ||
+            M.sender?.jid?.split('@')[0] ||
             'User'
 
         const chatType =
@@ -32,8 +32,7 @@ export default class Command extends CommandModule {
                 ? 'Private Chat'
                 : 'Group Chat'
 
-        const text =
-`👋 ${greeting} ${username}
+        const text = `👋 ${greeting} ${username}
 
 📋 Status: ✅ Online
 💬 Chat Type: ${chatType}
