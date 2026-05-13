@@ -30,32 +30,32 @@ export default class Command extends CommandModule {
         anime: 'Anime quotes, characters & more',
         bots: 'Bot information & status',
         config: 'Configure bot settings',
-        dev: 'Developer tools',
-        educative: 'Learn something new',
-        fun: 'Fun commands & games',
+        dev: 'Developer/Owner tools',
+        educative: 'Educational searching commands,
+        fun: 'Fun commands to use',
         games: 'Interactive games',
         general: 'Basic bot commands',
-        media: 'Download & search media',
-        moderation: 'Group management',
+        media: 'Downloading & searching media',
+        moderation: 'Group management settings',
         social: 'Social features',
         utility: 'Helpful utilities',
-        whatsapp: 'WhatsApp related'
+        whatsapp: 'WhatsApp related commands'
     }
 
     private categoryImages: Record<string, string> = {
         general: 'https://i.ibb.co/WvCnB8WM/Deryl.jpg',
         games: 'https://i.ibb.co/4gC4Rj9b/Deryl.jpg',
         media: 'https://i.ibb.co/ynV86TBY/Deryl.jpg',
-        anime: 'https://i.ibb.co/dsWj285f/Deryl.jpg',
+        anime: 'https://i.ibb.co/CKvNPBLr/Deryl.jpg',
         moderation: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
-        utility: 'https://i.ibb.co/G3T425vQ/Deryl.jpg',
+        utility: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
         social: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
-        bots: 'https://i.ibb.co/XQtrY26/Deryl.jpg',
-        config: 'https://i.ibb.co/rGrx1swS/Deryl.jpg',
-        dev: 'https://i.ibb.co/CKvNPBLr/Deryl.jpg',
-        educative: 'https://i.ibb.co/Y7XbKcbC/Deryl.jpg',
+        bots: 'https://i.imgur.com/t9vtLLh.jpeg',
+        config: 'https://i.ibb.co/G3T425vQ/Deryl.jpg',
+        dev: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
+        educative: 'https://i.ibb.co/yB6WdSD8/jawadmd.jpg',
         fun: 'https://i.ibb.co/v6QJYnmr/Deryl.jpg',
-        whatsapp: 'https://i.ibb.co/XfRfySZZ/Deryl.jpg'
+        whatsapp: 'https://i.imgur.com/vsfFP8g.jpeg'
     }
 
     private thumbnailUrls: string[] = [
@@ -199,7 +199,7 @@ export default class Command extends CommandModule {
                 'No description'
 
             text += `┃ ${emoji} ${this.capitalize(category)}
-┃    └ ${desc}\n`
+┃    └ ${desc}\n┃\n`
         }
 
         text += `
