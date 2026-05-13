@@ -11,7 +11,6 @@ export default class Command extends CommandModule {
             description: 'Get the group invite link',
             category: 'general',
             usage: `${client.config.prefix}invitelink`,
-            groupOnly: true,
             baseXp: 10
         })
     }
@@ -39,10 +38,9 @@ export default class Command extends CommandModule {
                 )
             }
 
-            const code =
-                await this.client
-                    .groupInviteCode(M.from)
-                    .catch(() => '')
+            const code = await this.client
+                .groupInviteCode(M.from)
+                .catch(() => '')
 
             if (!code) {
                 return void M.reply(
@@ -50,23 +48,14 @@ export default class Command extends CommandModule {
                 )
             }
 
-            const inviteLink =
-                `https://chat.whatsapp.com/${code}`
+            const inviteLink = `https://chat.whatsapp.com/${code}`
 
-            await this.client.sendMessage(
-                M.sender.jid,
-                {
-                    text:
+            await M.reply(
 `🔗 GROUP INVITE LINK
 
 ${inviteLink}
 
 ⚠️ Do not share with unknown users.`
-                }
-            )
-
-            await M.reply(
-                '✅ Check your DM for the group invite link.'
             )
         } catch (error) {
             console.error(error)
