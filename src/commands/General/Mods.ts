@@ -8,7 +8,7 @@ export default class Command extends CommandModule {
         super(client, handler, {
             command: 'mods',
             description: "Display moderators' contact info",
-            category: 'core',
+            category: 'general',
             usage: `${client.config.prefix}mods`,
             aliases: ['moderators', 'mod', 'owner'],
             baseXp: 40
