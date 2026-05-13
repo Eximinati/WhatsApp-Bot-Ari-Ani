@@ -17,8 +17,8 @@ export default class Command extends CommandModule {
         dev: '👨‍💻',
         economy: '🎰',
         educative: '📚',
-        fun: '🎮',
-        gaming: '🎲',
+        fun: '🎊',
+        gaming: '🎮',
         general: '♨️',
         media: '🎵',
         moderation: '🛡️',
@@ -53,12 +53,12 @@ export default class Command extends CommandModule {
         utility: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
         social: 'https://i.ibb.co/1YXJcD5m/Deryl.jpg',
         economy: 'https://i.ibb.co/nM7SHwLY/Deryl.jpg',
-        bots: 'https://i.imgur.com/t9vtLLh.jpeg',
+        bots: 'https://i.ibb.co/7J6HqnRy/well.jpg',
         config: 'https://i.ibb.co/G3T425vQ/Deryl.jpg',
         dev: 'https://i.ibb.co/nqZXYv56/Deryl.jpg',
-        educative: 'https://i.ibb.co/yB6WdSD8/jawadmd.jpg',
+        educative: 'https://i.ibb.co/J63N8fs/Deryl.jpg',
         fun: 'https://i.ibb.co/v6QJYnmr/Deryl.jpg',
-        whatsapp: 'https://i.imgur.com/vsfFP8g.jpeg'
+        whatsapp: 'https://i.ibb.co/zhT53TKs/Deryl.jpg'
     }
 
     private thumbnailUrls: string[] = [
@@ -206,7 +206,7 @@ export default class Command extends CommandModule {
         }
 
         text += `
-╰────────────╯
+ ╰──────────────╯
 
 🌟 Usage: ${prefix}help <category>
 🌟 Usage: ${prefix}help <command>
