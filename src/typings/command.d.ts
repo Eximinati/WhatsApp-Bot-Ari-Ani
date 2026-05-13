@@ -51,6 +51,7 @@ export type TCategory =
     | 'whatsapp'
     | 'category'
     | 'system'
+    | 'economy'
     | 'core'
     | 'information'
     | 'entertainment'
