@@ -6,6 +6,7 @@ import {
     IParsedArgs,
     ISimplifiedMessage
 } from '../../typings/index.js'
+import axios from 'axios'
 
 export default class Command extends CommandModule {
     private categoryEmojis: Record<string, string> = {
@@ -92,6 +93,12 @@ export default class Command extends CommandModule {
         })
     }
 
+    private async getBuffer(url: string): Promise<Buffer> {
+        return (await axios.get(url, {
+            responseType: 'arraybuffer'
+        })).data
+    }
+
     run = async (
         M: ISimplifiedMessage,
         parsedArgs: IParsedArgs
@@ -113,9 +120,7 @@ export default class Command extends CommandModule {
         return this.sendCommandHelp(M, input)
     }
 
-    private async sendMainMenu(
-        M: ISimplifiedMessage
-    ): Promise<void> {
+    private async sendMainMenu(M: ISimplifiedMessage): Promise<void> {
         const prefix = this.client.config.prefix
         const categories = this.getCategories()
 
@@ -154,15 +159,16 @@ export default class Command extends CommandModule {
 `
 
         const imageUrl = this.getRandomThumbnail()
+        const imageBuffer = await this.getBuffer(imageUrl)
 
         await this.client.sendMessage(
             M.from,
             {
-                image: { url: imageUrl },
+                image: imageBuffer,
                 caption: this.toFont(text)
             },
             {
-                quoted: M.message
+                quoted: (M as any).message || M
             }
         )
     }
@@ -215,14 +221,16 @@ export default class Command extends CommandModule {
             this.categoryImages[category] ||
             this.getRandomThumbnail()
 
+        const imageBuffer = await this.getBuffer(imageUrl)
+
         await this.client.sendMessage(
             M.from,
             {
-                image: { url: imageUrl },
+                image: imageBuffer,
                 caption: text
             },
             {
-                quoted: M.message
+                quoted: (M as any).message || M
             }
         )
     }
