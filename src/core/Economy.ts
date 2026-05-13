@@ -1,85 +1,147 @@
-import { Schema, model, Document, Model } from "mongoose";
-
+import { Schema, model, Document } from 'mongoose'
 
 interface IItem {
-    itemName?: string;
-    name?: string;
-    description: string;
-    price: number;
-    number: number;
+    name?: string
+    itemName?: string
+    description: string
+    price: number
+    number: number
 }
-
 
 export interface IEconomy extends Document {
-    userId: string;
+    userId: string
 
-    wallet: number;
-    bank: number;
+    wallet: number
+    bank: number
 
-    items: IItem[];
+    items: IItem[]
+    inventory: IItem[]
 
-    protected: string;
+    protected: string
 
-    inventory: IItem[];
+    lastDaily: Date | null
+    lastBegTime: Date | null
+    lastWork: Date | null
 
-    lastDaily: Date | null;
-    lastBegTime: Date | null;
-    lastWork: Date | null;
-
-    createdAt: Date;
-    updatedAt: Date;
-
-    addMoney(amount: number, type?: "wallet" | "bank"): Promise<IEconomy>;
-    removeMoney(amount: number, type?: "wallet" | "bank"): Promise<IEconomy>;
+    addMoney(amount: number, type?: 'wallet' | 'bank'): Promise<IEconomy>
+    removeMoney(amount: number, type?: 'wallet' | 'bank'): Promise<IEconomy>
 }
 
+const economySchema = new Schema<IEconomy>({
+    userId: {
+        type: String,
+        required: true,
+        unique: true
+    },
 
-interface IEconomyModel extends Model<IEconomy> {}
+    wallet: {
+        type: Number,
+        default: 100,
+        min: 0
+    },
 
+    bank: {
+        type: Number,
+        default: 100,
+        min: 0
+    },
 
-const economySchema = new Schema<IEconomy>(
-    {
-        userId: {
-            type: String,
-            required: true,
-            unique: true
-        },
-
-        wallet: {
-            type: Number,
-            default: 3557,
-            max: Number.MAX_SAFE_INTEGER
-        },
-
-        bank: {
-            type: Number,
-            default: 548,
-            max: Number.MAX_SAFE_INTEGER
-        },
-
-        items: [
-            {
-                itemName: {
-                    type: String,
-                    required: true
-                },
-
-                description: {
-                    type: String,
-                    default: ""
-                },
-
-                price: {
-                    type: Number,
-                    default: 0
-                },
-
-                number: {
-                    type: Number,
-                    default: 1
-                }
+    items: [
+        {
+            itemName: String,
+            description: {
+                type: String,
+                default: ''
+            },
+            price: {
+                type: Number,
+                default: 0
+            },
+            number: {
+                type: Number,
+                default: 1
             }
-        ],
+        }
+    ],
+
+    protected: {
+        type: String,
+        default: 'none'
+    },
+
+    inventory: [
+        {
+            name: String,
+            description: {
+                type: String,
+                default: ''
+            },
+            price: {
+                type: Number,
+                default: 0
+            },
+            number: {
+                type: Number,
+                default: 1
+            }
+        }
+    ],
+
+    lastDaily: {
+        type: Date,
+        default: null
+    },
+
+    lastBegTime: {
+        type: Date,
+        default: null
+    },
+
+    lastWork: {
+        type: Date,
+        default: null
+    }
+}, {
+    timestamps: true,
+    strict: true
+})
+
+economySchema.index({ userId: 1 })
+
+economySchema.pre('save', function(next) {
+    if (this.wallet < 0) this.wallet = 0
+    if (this.bank < 0) this.bank = 0
+
+    next()
+})
+
+economySchema.methods.addMoney = async function(
+    amount: number,
+    type: 'wallet' | 'bank' = 'wallet'
+) {
+    if (type === 'wallet') {
+        this.wallet += amount
+    } else {
+        this.bank += amount
+    }
+
+    return await this.save()
+}
+
+economySchema.methods.removeMoney = async function(
+    amount: number,
+    type: 'wallet' | 'bank' = 'wallet'
+) {
+    if (type === 'wallet') {
+        this.wallet = Math.max(0, this.wallet - amount)
+    } else {
+        this.bank = Math.max(0, this.bank - amount)
+    }
+
+    return await this.save()
+}
+
+export default model<IEconomy>('Economy', economySchema)
 
         protected: {
             type: String,
