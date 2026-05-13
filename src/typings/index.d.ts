@@ -49,6 +49,7 @@ export interface IGroup {
 export interface IUser {
     jid: string
     ban: boolean
+    banReason?: string
     warnings: number
     Xp: number
     chatEnabled: boolean
@@ -57,6 +58,7 @@ export interface IUser {
     chatQuotaResetAt: Date
     chatIdentity?: ICharacterDelta
 }
+
 
 /** Character file shape — matches the eliza/character.json convention. The
  * baseline lives on disk (assets/json/default-config.json) and is immutable from
