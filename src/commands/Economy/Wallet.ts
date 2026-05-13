@@ -1,7 +1,10 @@
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
-import { ISimplifiedMessage } from '../../typings/index.js'
+
+import {
+    ISimplifiedMessage
+} from '../../typings/index.js'
 
 import {
     createCanvas,
@@ -10,13 +13,19 @@ import {
 
 import path from 'path'
 
+import { MessageType } from '../../core/types.js'
+
 import getEconomy from '../../pipeline/getEconomy.js'
 
 export default class Command extends CommandModule {
-    constructor(client: RuntimeClient, handler: MessagePipeline) {
+    constructor(
+        client: RuntimeClient,
+        handler: MessagePipeline
+    ) {
         super(client, handler, {
             command: 'wallet',
-            description: 'Shows your wallet balance in USD',
+            description:
+                'Shows your wallet balance in USD',
             category: 'economy',
             usage: `${client.config.prefix}wallet`,
             aliases: ['wal'],
@@ -24,7 +33,9 @@ export default class Command extends CommandModule {
         })
     }
 
-    run = async (M: ISimplifiedMessage): Promise<void> => {
+    run = async (
+        M: ISimplifiedMessage
+    ): Promise<void> => {
         try {
             await M.reply(
                 '♻️ *Fetching your wallet data...*'
@@ -36,7 +47,8 @@ export default class Command extends CommandModule {
 
             const username =
                 M.pushName ||
-                M.sender.username ||
+                M.sender?.jid
+                    ?.split('@')[0] ||
                 'User'
 
             const wallet = economy.wallet
@@ -45,23 +57,41 @@ export default class Command extends CommandModule {
             const width = 900
             const height = 500
 
-            const canvas = createCanvas(width, height)
+            const canvas = createCanvas(
+                width,
+                height
+            )
 
-            const ctx = canvas.getContext('2d')
+            const ctx =
+                canvas.getContext('2d')
 
             
-            const gradient = ctx.createLinearGradient(
+            const gradient =
+                ctx.createLinearGradient(
+                    0,
+                    0,
+                    width,
+                    height
+                )
+
+            gradient.addColorStop(
+                0,
+                '#0a0f24'
+            )
+
+            gradient.addColorStop(
+                1,
+                '#1c294d'
+            )
+
+            ctx.fillStyle = gradient
+
+            ctx.fillRect(
                 0,
                 0,
                 width,
                 height
             )
-
-            gradient.addColorStop(0, '#0a0f24')
-            gradient.addColorStop(1, '#1c294d')
-
-            ctx.fillStyle = gradient
-            ctx.fillRect(0, 0, width, height)
 
             
             ctx.fillStyle = '#FFD700'
@@ -70,7 +100,9 @@ export default class Command extends CommandModule {
 
             ctx.textAlign = 'center'
 
-            ctx.shadowColor = 'rgba(255, 215, 0, 0.6)'
+            ctx.shadowColor =
+                'rgba(255, 215, 0, 0.6)'
+
             ctx.shadowBlur = 20
 
             ctx.fillText(
@@ -97,9 +129,12 @@ export default class Command extends CommandModule {
                 30
             )
 
-            ctx.fillStyle = 'rgba(255,255,255,0.12)'
+            ctx.fillStyle =
+                'rgba(255,255,255,0.12)'
 
-            ctx.shadowColor = 'rgba(0,0,0,0.5)'
+            ctx.shadowColor =
+                'rgba(0,0,0,0.5)'
+
             ctx.shadowBlur = 15
 
             ctx.fill()
@@ -139,26 +174,35 @@ export default class Command extends CommandModule {
             )
 
             
-            const thumbPath = path.resolve(
-                './src/core/images/wallet.png'
-            )
+            const thumbPath =
+                path.resolve(
+                    './src/core/images/wallet.png'
+                )
 
             try {
-                const img = await loadImage(thumbPath)
+                const img =
+                    await loadImage(
+                        thumbPath
+                    )
 
                 ctx.drawImage(
                     img,
-                    panelX + panelW - 180,
+                    panelX +
+                        panelW -
+                        180,
                     panelY + 70,
                     130,
                     130
                 )
             } catch {
-                ctx.font = '100px Sans'
+                ctx.font =
+                    '100px Sans'
 
                 ctx.fillText(
                     '💎',
-                    panelX + panelW - 150,
+                    panelX +
+                        panelW -
+                        150,
                     panelY + 160
                 )
             }
@@ -177,19 +221,27 @@ export default class Command extends CommandModule {
             )
 
             
-            const image = await canvas.encode('png')
+            const image =
+                await canvas.encode(
+                    'png'
+                )
 
             
-            await this.client.sendMessage(M.from, {
+            await M.reply(
                 image,
-                caption:
+                MessageType.image,
+                undefined,
+                undefined,
 `💰 Wallet Balance
 
 💵 USD: ${wallet.toLocaleString()}`
-            })
+            )
 
         } catch (err) {
-            this.client.log(String(err), true)
+            this.client.log(
+                String(err),
+                true
+            )
 
             return void M.reply(
                 '❌ An error occurred while fetching your wallet.'
