@@ -7,9 +7,8 @@ export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {
             command: 'identity',
-            description:
-                "Mod-only: show or reset stored bot identity data for this chat",
-            category: 'system',
+            description: "Mod-only: show or reset stored bot identity data for this chat",
+            category: 'bots',
             dm: true,
             usage: `${client.config.prefix}identity show | ${client.config.prefix}identity reset`,
             modsOnly: true,
