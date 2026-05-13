@@ -4,9 +4,11 @@
   "description": "A professional WhatsApp bot framework built with TypeScript - Ari-Ani",
   "type": "module",
   "main": "dist/index.js",
+
   "engines": {
     "node": ">=20"
   },
+
   "scripts": {
     "build": "tsc -p .",
     "start": "node dist/index.js",
@@ -14,10 +16,12 @@
     "lint": "eslint \"src/**/*.ts\"",
     "prettier-format": "prettier --config .prettierrc \"src/**/*.ts\" --write"
   },
+
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Eximinati/Whatsapp-bot-Ari-Ani.git"
   },
+
   "keywords": [
     "whatsapp",
     "bot",
@@ -25,11 +29,14 @@
     "typescript",
     "ari-ani"
   ],
+
   "author": "Eximinati",
   "license": "AGPL-3.0",
+
   "bugs": {
     "url": "https://github.com/Eximinati/Whatsapp-bot-Ari-Ani/issues"
   },
+
   "homepage": "https://github.com/Eximinati/Whatsapp-bot-Ari-Ani#readme",
 
   "devDependencies": {
@@ -47,98 +54,116 @@
   },
 
   "dependencies": {
-    "@hapi/boom": "^10.0.1",
-    "@napi-rs/canvas": "^0.1.100",
-    "audio-decode": "^2.2.2",
-    "axios": "^1.13.5",
-    "baileys": "^7.0.0-rc.9",
-    "chalk": "^4.1.2",
-    "chess-image-generator-ts": "^1.0.0",
-    "chess-node": "^1.1.0",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.2",
-    "fs-extra": "^11.2.0",
-    "get-urls": "^12.1.0",
-    "gifencoder": "^2.0.1",
-    "jimp": "^1.6.0",
-    "jpeg-js": "^0.4.4",
-    "link-preview-js": "^3.0.5",
-    "lyrics-monarch-api": "^2.1.0",
-    "moment": "^2.30.1",
-    "mongoose": "^8.4.0",
-    "node-cache": "^5.1.2",
-    "node-cron": "^4.2.1",
-    "pino": "^9.6.0",
-    "qrcode": "^1.5.4",
-    "sharp": "^0.34.0",
-    "spotifydl-core": "^0.2.0",
-    "ultra-lyrics": "^1.0.3",
-    "wa-sticker-formatter": "^4.4.4",
-    "youtube-dl-exec": "^3.1.5",
-    "yt-search": "^2.13.1",
-
     "@adiwajshing/keyed-db": "^0.2.4",
     "@consumet/extensions": "^1.8.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@hapi/boom": "^10.0.1",
+    "@napi-rs/canvas": "^0.1.100",
     "@quranjs/api": "^2.2.0",
     "@shineiichijo/marika": "^3.0.1",
     "@vreden/youtube_scraper": "^1.2.8",
-    "@whiskeysockets/baileys": "6.7.19",
+
     "acrcloud": "^1.4.0",
     "adhan": "^4.4.3",
     "an-array-of-english-words": "^2.0.0",
     "api": "^6.1.3",
     "archiver": "^7.0.1",
+    "audio-decode": "^2.2.2",
+    "axios": "^1.13.5",
     "axios-cache-interceptor": "^1.6.2",
     "axios-cookiejar-support": "^6.0.4",
+
+    "baileys": "^7.0.0-rc.9",
+
     "better-sqlite3": "^11.7.0",
     "better-tord": "^1.3.7",
     "bing-translate-api": "^2.9.0",
     "bluebird": "^3.7.2",
     "canvacord": "^5.4.10",
-    "canvas": "^3.1.0",
+    "chalk": "^4.1.2",
     "cheerio": "^1.0.0-rc.12",
+    "chess-image-generator-ts": "^1.0.0",
+    "chess-node": "^1.1.0",
     "discord.js": "^14.22.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+
     "ffmpeg": "^0.0.4",
     "ffmpeg-static": "^5.2.0",
     "fluent-ffmpeg": "^2.1.2",
     "form-data": "^4.0.4",
+    "fs-extra": "^11.2.0",
+
+    "get-urls": "^12.1.0",
     "gif-encoder-2": "^1.0.5",
     "gif-frames": "^1.0.1",
     "google-tts-api": "^2.0.2",
     "googlethis": "^1.8.0",
+
     "hadith": "^1.3.0",
     "hercai": "^12.4.0",
     "human-readable": "^0.2.1",
+
     "imgbb-uploader": "^1.5.1",
     "instagram-url-direct": "^2.0.7",
     "islam.js": "^1.3.0",
     "isomorphic-unfetch": "^4.0.2",
+
+    "jimp": "^1.6.0",
+    "jpeg-js": "^0.4.4",
+
+    "link-preview-js": "^3.0.5",
+    "lyrics-monarch-api": "^2.1.0",
+
     "mathjs": "^11.8.0",
+    "moment": "^2.30.1",
     "moment-timezone": "^0.5.48",
+    "mongoose": "^8.4.0",
+
+    "node-cache": "^5.1.2",
+    "node-cron": "^4.2.1",
     "node-id3": "^0.2.6",
+
     "openai": "^4.82.0",
+
     "parse-ms": "^4.0.0",
+    "pino": "^9.6.0",
     "pokenode-ts": "^1.20.0",
+
     "qr-image": "^3.2.0",
+    "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
     "qs": "^6.14.0",
     "quick.db": "^9.1.7",
     "quickmongo": "^5.2.0",
+
     "quran-image-creator": "^1.0.0",
     "quran-meta": "^6.0.17",
     "quran-search-engine": "^0.3.2",
+
     "random-js": "^2.1.0",
     "reddit-image-fetcher": "^2.0.11",
     "remove.bg": "^1.3.0",
+
+    "sharp": "^0.34.0",
     "simple-git": "^3.17.0",
     "slot-machine": "^2.1.0",
     "sort-array": "^4.1.5",
+
     "spotify-url-info": "^3.3.0",
+    "spotifydl-core": "^0.2.0",
+
     "tmp": "^0.2.5",
+    "ultra-lyrics": "^1.0.3",
+
+    "wa-sticker-formatter": "^4.4.4",
     "webm-writer": "^1.0.0",
+
     "wyr": "^1.1.1",
-    "youtube-yts": "^2.0.0"
+
+    "youtube-dl-exec": "^3.1.5",
+    "youtube-yts": "^2.0.0",
+    "yt-search": "^2.13.1"
   },
 
   "overrides": {
@@ -148,10 +173,13 @@
     "minimatch": "^9.0.5",
     "file-type": "^21.3.1",
     "uuid": "^14.0.0",
+
     "wa-sticker-formatter": {
       "sharp": "^0.34.0"
     },
+
     "canvas": "@napi-rs/canvas",
+
     "gifencoder": {
       "canvas": "@napi-rs/canvas"
     }
