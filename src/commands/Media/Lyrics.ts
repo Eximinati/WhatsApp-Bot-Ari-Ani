@@ -109,7 +109,7 @@ async function searchTrack(query: Query): Promise<Track | null> {
                 thumbnail: upgradeArtworkUrl(item.artworkUrl100 || item.artworkUrl60),
                 score: scoreTrackMatch(item.trackName, item.artistName, query)
             }))
-            .sort((a, b) => b.score - a.score)[0] || null
+            .sort((a: Track, b: Track) => b.score - a.score)[0] || null
     } catch {
         return null
     }
