@@ -27,7 +27,7 @@ export default class Command extends CommandModule {
         const media = M.WAMessage?.message
 
         try {
-            
+
             if (quoted?.message?.imageMessage || media?.imageMessage) {
                 const msg = quoted || M.WAMessage
                 const buffer = await this.client.downloadMediaMessage(msg)
@@ -35,15 +35,14 @@ export default class Command extends CommandModule {
                 await this.client.sendMessage(
                     'status@broadcast',
                     {
-                        image: buffer,
+                        image: buffer as any,
                         caption: text || ''
-                    }
+                    } as any
                 )
 
                 return void M.reply('📸 Image status posted')
             }
 
-        
             if (quoted?.message?.videoMessage || media?.videoMessage) {
                 const msg = quoted || M.WAMessage
                 const buffer = await this.client.downloadMediaMessage(msg)
@@ -51,19 +50,21 @@ export default class Command extends CommandModule {
                 await this.client.sendMessage(
                     'status@broadcast',
                     {
-                        video: buffer,
+                        video: buffer as any,
                         caption: text || ''
-                    }
+                    } as any
                 )
 
                 return void M.reply('🎥 Video status posted')
             }
 
-            
             if (text) {
-                await this.client.sendMessage('status@broadcast', {
-                    text
-                })
+                await this.client.sendMessage(
+                    'status@broadcast',
+                    {
+                        text: text as any
+                    } as any
+                )
 
                 return void M.reply('📝 Text status posted')
             }
