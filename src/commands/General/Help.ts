@@ -6,6 +6,7 @@ import {
     IParsedArgs,
     ISimplifiedMessage
 } from '../../typings/index.js'
+import { MessageType } from '../../core/types.js'
 import axios from 'axios'
 
 export default class Command extends CommandModule {
@@ -67,18 +68,58 @@ export default class Command extends CommandModule {
     ]
 
     private customFontMap: Record<string, string> = {
-        a: '𝐚', b: '𝐛', c: '𝐜', d: '𝐝', e: '𝐞',
-        f: '𝐟', g: '𝐠', h: '𝐡', i: '𝐢', j: '𝐣',
-        k: '𝐤', l: '𝐥', m: '𝐦', n: '𝐧', o: '𝐨',
-        p: '𝐩', q: '𝐪', r: '𝐫', s: '𝐬', t: '𝐭',
-        u: '𝐮', v: '𝐯', w: '𝐰', x: '𝐱', y: '𝐲',
+        a: '𝐚',
+        b: '𝐛',
+        c: '𝐜',
+        d: '𝐝',
+        e: '𝐞',
+        f: '𝐟',
+        g: '𝐠',
+        h: '𝐡',
+        i: '𝐢',
+        j: '𝐣',
+        k: '𝐤',
+        l: '𝐥',
+        m: '𝐦',
+        n: '𝐧',
+        o: '𝐨',
+        p: '𝐩',
+        q: '𝐪',
+        r: '𝐫',
+        s: '𝐬',
+        t: '𝐭',
+        u: '𝐮',
+        v: '𝐯',
+        w: '𝐰',
+        x: '𝐱',
+        y: '𝐲',
         z: '𝐳',
 
-        A: '𝐀', B: '𝐁', C: '𝐂', D: '𝐃', E: '𝐄',
-        F: '𝐅', G: '𝐆', H: '𝐇', I: '𝐈', J: '𝐉',
-        K: '𝐊', L: '𝐋', M: '𝐌', N: '𝐍', O: '𝐎',
-        P: '𝐏', Q: '𝐐', R: '𝐑', S: '𝐒', T: '𝐓',
-        U: '𝐔', V: '𝐕', W: '𝐖', X: '𝐗', Y: '𝐘',
+        A: '𝐀',
+        B: '𝐁',
+        C: '𝐂',
+        D: '𝐃',
+        E: '𝐄',
+        F: '𝐅',
+        G: '𝐆',
+        H: '𝐇',
+        I: '𝐈',
+        J: '𝐉',
+        K: '𝐊',
+        L: '𝐋',
+        M: '𝐌',
+        N: '𝐍',
+        O: '𝐎',
+        P: '𝐏',
+        Q: '𝐐',
+        R: '𝐑',
+        S: '𝐒',
+        T: '𝐓',
+        U: '𝐔',
+        V: '𝐕',
+        W: '𝐖',
+        X: '𝐗',
+        Y: '𝐘',
         Z: '𝐙'
     }
 
@@ -94,9 +135,11 @@ export default class Command extends CommandModule {
     }
 
     private async getBuffer(url: string): Promise<Buffer> {
-        return (await axios.get(url, {
-            responseType: 'arraybuffer'
-        })).data
+        return (
+            await axios.get(url, {
+                responseType: 'arraybuffer'
+            })
+        ).data
     }
 
     run = async (
@@ -120,17 +163,18 @@ export default class Command extends CommandModule {
         return this.sendCommandHelp(M, input)
     }
 
-    private async sendMainMenu(M: ISimplifiedMessage): Promise<void> {
+    private async sendMainMenu(
+        M: ISimplifiedMessage
+    ): Promise<void> {
         const prefix = this.client.config.prefix
         const categories = this.getCategories()
 
         const username =
             M.pushName ||
-            M.sender?.split('@')[0] ||
+            M.sender?.jid?.split('@')[0] ||
             'User'
 
-        let text =
-`👋 Hello ${username}, I'm Ari-Ani your WhatsApp assistant bot.
+        let text = `👋 Hello ${username}, I'm Ari-Ani your WhatsApp assistant bot.
 
 🏮→ This is a public script, not for sale.
 🏮→ Don't call the bot or you may be banned.
@@ -161,15 +205,12 @@ export default class Command extends CommandModule {
         const imageUrl = this.getRandomThumbnail()
         const imageBuffer = await this.getBuffer(imageUrl)
 
-        await this.client.sendMessage(
-            M.from,
-            {
-                image: imageBuffer,
-                caption: this.toFont(text)
-            },
-            {
-                quoted: (M as any).message || M
-            }
+        await M.reply(
+            imageBuffer,
+            MessageType.image,
+            undefined,
+            undefined,
+            this.toFont(text)
         )
     }
 
@@ -197,7 +238,7 @@ export default class Command extends CommandModule {
             )
         }
 
-        let commandList = categoryCommands
+        const commandList = categoryCommands
             .sort((a, b) =>
                 a.config.command.localeCompare(
                     b.config.command
@@ -207,15 +248,15 @@ export default class Command extends CommandModule {
                 (cmd) =>
                     `❄︎ ${prefix}${cmd.config.command}`
             )
-            .join('  ')
+            .join('\n')
 
-        const text = this.toFont(
-`▬▬▬๑۩ ${this.capitalize(category)} ۩๑▬▬▬▬
+        const text = this.toFont(`▬▬▬๑۩ ${this.capitalize(
+            category
+        )} ۩๑▬▬▬▬
 
 ☞ ${commandList}
 
-⌜${this.capitalize(category)} Commands⌝`
-        )
+⌜${this.capitalize(category)} Commands⌝`)
 
         const imageUrl =
             this.categoryImages[category] ||
@@ -223,15 +264,12 @@ export default class Command extends CommandModule {
 
         const imageBuffer = await this.getBuffer(imageUrl)
 
-        await this.client.sendMessage(
-            M.from,
-            {
-                image: imageBuffer,
-                caption: text
-            },
-            {
-                quoted: (M as any).message || M
-            }
+        await M.reply(
+            imageBuffer,
+            MessageType.image,
+            undefined,
+            undefined,
+            text
         )
     }
 
@@ -266,7 +304,7 @@ export default class Command extends CommandModule {
                 text += `└ 🪄 ${cmd.config.command}\n`
             }
 
-            text += `\n`
+            text += '\n'
         }
 
         text += `📊 Total Commands: ${commands.size}`
@@ -290,21 +328,19 @@ export default class Command extends CommandModule {
 
         const config = command.config
 
-        const text = this.toFont(
-`📖 COMMAND INFO
+        const text = this.toFont(`📖 COMMAND INFO
 
 🧩 Name: ${config.command}
 📂 Category: ${this.capitalize(
-    config.category || 'general'
-)}
+            config.category || 'general'
+        )}
 📝 Description: ${config.description}
 
 🏷️ Aliases:
 ${config.aliases?.join(', ') || 'None'}
 
 ⚡ Usage:
-${config.usage}`
-        )
+${config.usage}`)
 
         await M.reply(text)
     }
@@ -313,7 +349,7 @@ ${config.usage}`
         return this.thumbnailUrls[
             Math.floor(
                 Math.random() *
-                this.thumbnailUrls.length
+                    this.thumbnailUrls.length
             )
         ]
     }
