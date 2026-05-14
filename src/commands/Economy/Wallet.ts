@@ -17,6 +17,10 @@ import { MessageType } from '../../core/types.js'
 
 import getEconomy from '../../pipeline/getEconomy.js'
 
+function formatMoney(amount: number): string {
+    return `$${amount.toLocaleString()}`
+}
+
 export default class Command extends CommandModule {
     constructor(
         client: RuntimeClient,
@@ -25,10 +29,10 @@ export default class Command extends CommandModule {
         super(client, handler, {
             command: 'wallet',
             description:
-                'Shows your wallet balance in USD',
+                'Shows your economy balance',
             category: 'economy',
             usage: `${client.config.prefix}wallet`,
-            aliases: ['wal'],
+            aliases: ['wal', 'bal', 'balance'],
             baseXp: 5
         })
     }
@@ -38,34 +42,75 @@ export default class Command extends CommandModule {
     ): Promise<void> => {
         try {
             await M.reply(
-                '♻️ *Fetching your wallet data...*'
+                '♻️ *Fetching your economy data...*'
             )
 
-            const economy = await getEconomy(
+            const mentioned =
+                M.mentioned?.[0] ||
+                M.quoted?.sender ||
                 M.sender.jid
-            )
+
+            const economy =
+                await getEconomy(
+                    mentioned
+                )
 
             const username =
                 M.pushName ||
-                M.sender?.jid
+                mentioned
                     ?.split('@')[0] ||
                 'User'
 
-            const wallet = economy.wallet
+            const wallet =
+                economy.wallet || 0
 
-            
-            const width = 900
-            const height = 500
+            const bank =
+                economy.bank || 0
 
-            const canvas = createCanvas(
-                width,
-                height
-            )
+            const total =
+                wallet + bank
+
+            const rank =
+                economy.economyStats?.wealthRank || 0
+
+            const tool =
+                economy.equippedToolKey ||
+                'None'
+
+            const job =
+                economy.jobKey ||
+                'None'
+
+            const faction =
+                economy.factionKey ||
+                'None'
+
+            const streak =
+                economy.streakCount || 0
+
+            const rareMeter =
+                economy.rareMeter || 0
+
+            const inventoryCount =
+                economy.inventory?.reduce(
+                    (acc, item) =>
+                        acc +
+                        (item.number || 0),
+                    0
+                ) || 0
+
+            const width = 1000
+            const height = 650
+
+            const canvas =
+                createCanvas(
+                    width,
+                    height
+                )
 
             const ctx =
                 canvas.getContext('2d')
 
-            
             const gradient =
                 ctx.createLinearGradient(
                     0,
@@ -81,7 +126,7 @@ export default class Command extends CommandModule {
 
             gradient.addColorStop(
                 1,
-                '#1c294d'
+                '#1f3b73'
             )
 
             ctx.fillStyle = gradient
@@ -96,17 +141,19 @@ export default class Command extends CommandModule {
             
             ctx.fillStyle = '#FFD700'
 
-            ctx.font = 'bold 60px Sans'
+            ctx.font =
+                'bold 58px Sans'
 
-            ctx.textAlign = 'center'
+            ctx.textAlign =
+                'center'
 
             ctx.shadowColor =
-                'rgba(255, 215, 0, 0.6)'
+                'rgba(255,215,0,0.7)'
 
             ctx.shadowBlur = 20
 
             ctx.fillText(
-                '💼 WALLET',
+                '💰 ECONOMY BALANCE',
                 width / 2,
                 80
             )
@@ -114,10 +161,10 @@ export default class Command extends CommandModule {
             ctx.shadowBlur = 0
 
             
-            const panelX = 50
-            const panelY = 130
-            const panelW = width - 100
-            const panelH = 320
+            const panelX = 40
+            const panelY = 120
+            const panelW = 920
+            const panelH = 470
 
             ctx.beginPath()
 
@@ -126,51 +173,130 @@ export default class Command extends CommandModule {
                 panelY,
                 panelW,
                 panelH,
-                30
+                35
             )
 
             ctx.fillStyle =
-                'rgba(255,255,255,0.12)'
-
-            ctx.shadowColor =
-                'rgba(0,0,0,0.5)'
-
-            ctx.shadowBlur = 15
+                'rgba(255,255,255,0.10)'
 
             ctx.fill()
-
-            ctx.shadowBlur = 0
 
             
             ctx.fillStyle = '#ffffff'
 
             ctx.textAlign = 'left'
 
-            ctx.font = 'bold 36px Sans'
+            ctx.font =
+                'bold 34px Sans'
 
             ctx.fillText(
-                `👤 Name: ${username}`,
-                panelX + 40,
-                panelY + 80
+                `👤 User: ${username}`,
+                80,
+                190
             )
 
             ctx.fillText(
-                `🔖 Tag: #${M.sender.jid
-                    .split('@')[0]
-                    .slice(0, 6)}`,
-                panelX + 40,
-                panelY + 150
+                `🏦 Bank: ${formatMoney(bank)}`,
+                80,
+                260
+            )
+
+            ctx.fillText(
+                `👛 Wallet: ${formatMoney(wallet)}`,
+                80,
+                330
+            )
+
+            ctx.fillStyle =
+                '#FFD700'
+
+            ctx.font =
+                'bold 44px Sans'
+
+            ctx.fillText(
+                `💵 Total Wealth: ${formatMoney(total)}`,
+                80,
+                430
             )
 
             
-            ctx.fillStyle = '#FFD700'
+            ctx.fillStyle = '#ffffff'
 
-            ctx.font = 'bold 48px Sans'
+            ctx.font =
+                '28px Sans'
 
             ctx.fillText(
-                `💵 USD: ${wallet.toLocaleString()}`,
-                panelX + 40,
-                panelY + 240
+                `📈 Rank: #${rank}`,
+                80,
+                500
+            )
+
+            ctx.fillText(
+                `🎒 Inventory: ${inventoryCount} items`,
+                80,
+                545
+            )
+
+            
+            ctx.fillStyle =
+                '#00FFB3'
+
+            ctx.font =
+                'bold 26px Sans'
+
+            ctx.fillText(
+                `🔧 Tool: ${tool}`,
+                620,
+                230
+            )
+
+            ctx.fillText(
+                `💼 Job: ${job}`,
+                620,
+                290
+            )
+
+            ctx.fillText(
+                `⚔️ Faction: ${faction}`,
+                620,
+                350
+            )
+
+            ctx.fillText(
+                `🔥 Streak: ${streak}`,
+                620,
+                410
+            )
+
+            ctx.fillText(
+                `✨ Rare Meter: ${rareMeter}%`,
+                620,
+                470
+            )
+
+            
+            ctx.fillStyle =
+                'rgba(255,255,255,0.2)'
+
+            ctx.fillRect(
+                620,
+                500,
+                250,
+                25
+            )
+
+            ctx.fillStyle =
+                '#FFD700'
+
+            ctx.fillRect(
+                620,
+                500,
+                Math.max(
+                    10,
+                    (rareMeter / 100) *
+                        250
+                ),
+                25
             )
 
             
@@ -187,37 +313,36 @@ export default class Command extends CommandModule {
 
                 ctx.drawImage(
                     img,
-                    panelX +
-                        panelW -
-                        180,
-                    panelY + 70,
-                    130,
-                    130
+                    760,
+                    140,
+                    150,
+                    150
                 )
             } catch {
                 ctx.font =
-                    '100px Sans'
+                    '120px Sans'
 
                 ctx.fillText(
                     '💎',
-                    panelX +
-                        panelW -
-                        150,
-                    panelY + 160
+                    800,
+                    260
                 )
             }
 
             
-            ctx.font = '24px Sans'
+            ctx.font =
+                '22px Sans'
 
-            ctx.fillStyle = '#cccccc'
+            ctx.fillStyle =
+                '#cccccc'
 
-            ctx.textAlign = 'center'
+            ctx.textAlign =
+                'center'
 
             ctx.fillText(
-                'Ari-Ani Economy System',
+                'Ari-Ani Advanced Economy System',
                 width / 2,
-                height - 30
+                625
             )
 
             
@@ -232,11 +357,20 @@ export default class Command extends CommandModule {
                 MessageType.image,
                 undefined,
                 undefined,
-`💰 Wallet Balance
+`💰 Economy Balance
 
-💵 USD: ${wallet.toLocaleString()}`
+👛 Wallet: ${formatMoney(wallet)}
+🏦 Bank: ${formatMoney(bank)}
+💵 Total Wealth: ${formatMoney(total)}
+
+📈 Rank: #${rank}
+🔧 Tool: ${tool}
+💼 Job: ${job}
+⚔️ Faction: ${faction}
+
+🔥 Streak: ${streak}
+✨ Rare Meter: ${rareMeter}%`
             )
-
         } catch (err) {
             this.client.log(
                 String(err),
@@ -244,7 +378,7 @@ export default class Command extends CommandModule {
             )
 
             return void M.reply(
-                '❌ An error occurred while fetching your wallet.'
+                '❌ Failed to fetch economy data.'
             )
         }
     }
