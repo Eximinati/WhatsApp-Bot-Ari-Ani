@@ -1,6 +1,8 @@
-import Economy from '../core/Economy.js'
+import Economy, { IEconomy } from '../core/Economy.js'
 
-export default async function getEconomy(userId: string) {
+export default async function getEconomy(
+    userId: string
+): Promise<IEconomy> {
     let data = await Economy.findOne({ userId })
 
     if (!data) {
