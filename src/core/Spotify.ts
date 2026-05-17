@@ -185,8 +185,9 @@ export default class {
     searchYouTubeBatch = async (tracks: SpotifyTrack[]): Promise<{ url: string; title: string; artist: string; trackName: string }[]> => {
         const results: { url: string; title: string; artist: string; trackName: string }[] = []
 
-        for (const track of tracks) {
-            const query = `${track.artists[0]} - ${track.name} official audio`
+        for (let i = 0; i < tracks.length; i++) {
+            const track = tracks[i]
+            const query = `${track.artists[0]} - ${track.name}`
             try {
                 const searchResults = await yts(query)
                 if (searchResults.videos?.length > 0) {
@@ -196,12 +197,20 @@ export default class {
                         artist: track.artists[0],
                         trackName: track.name
                     })
+                } else {
+                    console.log(`[Spotify] No results: ${track.name}`)
                 }
-            } catch {
-                console.log(`[Spotify] Failed to search: ${track.name}`)
+            } catch (e) {
+                console.log(`[Spotify] Search error for: ${track.name} - ${e}`)
+            }
+
+            // Add delay to avoid rate limiting
+            if (i < tracks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500))
             }
         }
 
+        console.log(`[Spotify] Successfully found ${results.length}/${tracks.length} tracks`)
         return results
     }
 }
