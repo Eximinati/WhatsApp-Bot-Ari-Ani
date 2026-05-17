@@ -3,11 +3,17 @@ import { readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
 import request from './request.js'
+import axios from 'axios'
 
 const YT_URL_RE =
     /^(https?:\/\/)?(www\.|m\.|music\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)[\w-]{11}/
 
 const YT_ID_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/))([\w-]{11})/
+
+const YOUTUBE_APIS = [
+    'https://apis.davidcyril.name.ng/play',
+    'https://apis-keith.vercel.app/download/dlmp3'
+]
 
 /** Shared yt-dlp flags. `player_client=tv,android,web` tries the TV and Android
  * API endpoints first — these often skip age-gates and sometimes bot checks
@@ -61,11 +67,53 @@ export default class YT {
                       audioQuality: 0
                   }
                 : { ...common, format: 'best[ext=mp4][height<=720]/best[height<=720]/best' }
-        await youtubeDl(this.url, flags as Parameters<typeof youtubeDl>[1])
+
+        // Try yt-dlp first
         try {
-            return await readFile(filename)
-        } finally {
-            unlink(filename).catch(() => {})
+            await youtubeDl(this.url, flags as Parameters<typeof youtubeDl>[1])
+            try {
+                return await readFile(filename)
+            } finally {
+                unlink(filename).catch(() => {})
+            }
+        } catch (ytdlpError) {
+            console.log('[YT] yt-dlp failed, trying API fallback:', ytdlpError)
+            
+            // Try API fallback for audio
+            if (this.type === 'audio') {
+                for (const apiBase of YOUTUBE_APIS) {
+                    try {
+                        let mediaUrl = ''
+                        
+                        if (apiBase.includes('davidcyril')) {
+                            const { data } = await axios.get(
+                                `${apiBase}?query=${encodeURIComponent(this.url)}`,
+                                { timeout: 120000 }
+                            )
+                            mediaUrl = data?.result?.download_url
+                        } else if (apiBase.includes('keith')) {
+                            const { data } = await axios.get(
+                                `${apiBase}?url=${encodeURIComponent(this.url)}`,
+                                { timeout: 120000 }
+                            )
+                            mediaUrl = data?.result?.download || data?.download || data?.url
+                        }
+
+                        if (mediaUrl) {
+                            console.log('[YT] Got media URL from API:', apiBase)
+                            const response = await axios.get(mediaUrl, { 
+                                responseType: 'arraybuffer',
+                                timeout: 120000 
+                            })
+                            return Buffer.from(response.data)
+                        }
+                    } catch (apiError: any) {
+                        console.log('[YT] API failed:', apiBase, apiError?.message)
+                    }
+                }
+            }
+            
+            throw ytdlpError
         }
     }
 
