@@ -37,20 +37,18 @@ export default class Command extends CommandModule {
             return void M.reply('❌ You have a pending request. Reply with a number or wait.')
         }
 
-        const caption = `🎧 *Title:* ${info.name || ''}\n🎤 *Artists:* ${(info.artists || []).join(', ')}\n💽 *Album:* ${info.album_name || ''}`
+        const caption = `📀 *Title:* ${info.name || ''}\n\n👤 *Artists:* ${(info.artists || []).join(', ')}\n\n💽 *Album:* ${info.album_name || ''}`
 
         if (info.cover_url) {
             try {
                 const coverBuffer = await request.buffer(info.cover_url)
                 await M.reply(coverBuffer, MessageType.image, undefined, undefined, caption)
             } catch (err) {
-                await M.reply(`⚠ Couldn't fetch cover image: ${(err as Error).message}`)
+                await M.reply(caption)
             }
         } else {
             await M.reply(caption)
         }
-
-        await M.reply('🔍 Searching on YouTube...')
 
         const ytResult = await track.searchYouTube()
         if (!ytResult) {
@@ -60,7 +58,7 @@ export default class Command extends CommandModule {
         try {
             await this.client.mediaMenu.saveMenuState(jid, {
                 step: 'format',
-                commandName: 'ytaudio',
+                commandName: 'spotify',
                 chatJid: M.from,
                 mediaInfo: {
                     url: ytResult.url,
@@ -70,7 +68,7 @@ export default class Command extends CommandModule {
                 expiresAt: Date.now() + 600000
             })
             
-            const menuText = this.client.mediaMenu.getMenuText('ytaudio', ytResult.title)
+            const menuText = this.client.mediaMenu.getMenuText('spotify', ytResult.title)
             return void M.reply(menuText)
         } catch (err) {
             await M.reply(`❌ Error: ${(err as Error).message}`)

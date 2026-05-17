@@ -1,10 +1,18 @@
 import { createRequire } from 'module'
 import yts from 'yt-search'
+import https from 'https'
 
 const require = createRequire(import.meta.url)
-const spotifyUrlInfo = require('spotify-url-info')
-const isomorphicFetch = require('isomorphic-unfetch')
-const { getPreview } = spotifyUrlInfo(isomorphicFetch)
+
+function fetchUrl(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            let data = ''
+            res.on('data', chunk => data += chunk)
+            res.on('end', () => resolve(data))
+        }).on('error', reject)
+    })
+}
 
 export default class {
     constructor(public url: string) {}
@@ -33,18 +41,42 @@ export default class {
             const parsed = this.parseSpotifyUrl()
             if (!parsed) return { error: 'Invalid Spotify URL' }
 
-            const spotifyUrl = `https://open.spotify.com/${parsed.type}/${parsed.id}`
-            const preview = await getPreview(spotifyUrl)
+            const cleanUrl = this.url.split('?')[0]
+            const html = await fetchUrl(cleanUrl)
+
+            // Extract title from JSON-LD
+            const titleMatch = html.match(/"name":\s*"([^"]+)"/)
+            const title = titleMatch?.[1] || 'Unknown'
+
+            // Try to get artist from various patterns
+            let artist = 'Unknown Artist'
+            const artistMatch1 = html.match(/"artist":\s*"([^"]+)"/)
+            const artistMatch2 = html.match(/"byArtist":\s*\{[^}]*"name":\s*"([^"]+)"/)
+            const artistMatch3 = html.match(/by\s+([A-Za-z\s]+)\s+on\s+Spotify/i)
+            artist = artistMatch1?.[1] || artistMatch2?.[1] || artistMatch3?.[1] || 'Unknown Artist'
+
+            // Get cover image from og:image
+            const coverMatch = html.match(/<meta property="og:image" content="([^"]+)"/)
+            const coverUrl = coverMatch?.[1] || null
+
+            // Get album name
+            const albumMatch = html.match(/"album":\s*\{[^}]*"name":\s*"([^"]+)"/)
+            const albumName = albumMatch?.[1] || null
+
+            // Get release date
+            const dateMatch = html.match(/"datePublished":\s*"([^"]+)"/)
+            const releaseDate = dateMatch?.[1] || null
 
             return {
-                name: preview.track || preview.title || 'Unknown',
-                artists: [preview.artist || 'Unknown Artist'],
-                cover_url: preview.image || null,
-                album_name: preview.album || null,
-                release_date: preview.date || null
+                name: title,
+                artists: [artist],
+                cover_url: coverUrl || undefined,
+                album_name: albumName || undefined,
+                release_date: releaseDate || undefined
             }
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+            console.error('[Spotify] Error:', err)
+            const errorMsg = err instanceof Error ? err.message : String(err)
             return { error: `Error Fetching: ${errorMsg}` }
         }
     }
