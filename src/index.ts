@@ -27,7 +27,9 @@ const client = new RuntimeClient({
     groqKey: process.env.GROQ_API_KEY || '',
     cerebrasKey: process.env.CEREBRAS_API_KEY || '',
     geminiKey: process.env.GEMINI_KEY || '',
-    openrouterKey: process.env.OPENROUTER_API_KEY || ''
+    openrouterKey: process.env.OPENROUTER_API_KEY || '',
+    tiktokApiUrl: process.env.TIKTOK_API_URL || '',
+    instagramApiUrl: process.env.INSTAGRAM_API_URL || ''
 })
 client.log('Initializing runtime...')
 

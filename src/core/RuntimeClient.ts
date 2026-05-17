@@ -37,6 +37,7 @@ import DatabaseHandler from '../pipeline/DataStore.js'
 import ChatAI from './ChatAI.js'
 import Identity from './Identity.js'
 import Toolkit from './Toolkit.js'
+import MediaMenu from './MediaMenu.js'
 import { ExponentialBackoff } from '../runtime/ExponentialBackoff.js'
 import { TimerRegistry } from '../runtime/TimerRegistry.js'
 import {
@@ -126,6 +127,7 @@ export default class RuntimeClient extends EventEmitter {
     util = new Toolkit()
     identity: Identity = new Identity(this)
     chatAI: ChatAI = new ChatAI(this)
+    mediaMenu = new MediaMenu(this)
     assets = new Map<string, Buffer>()
     features = new Map<string, boolean>()
     contacts = new Map<string, IContactInfo>()
@@ -917,6 +919,11 @@ export default class RuntimeClient extends EventEmitter {
             { $setOnInsert: { jid } },
             { upsert: true, new: true, setDefaultsOnInsert: true }
         )) as IUserModel
+
+    getMediaPreference = async (jid: string): Promise<'document' | 'audio' | 'video'> => {
+        const user = await this.getUser(jid)
+        return user.mediaPreference || 'video'
+    }
 
     getBuffer = async (url: string): Promise<Buffer> =>
         (await axios.get<Buffer>(url, { responseType: 'arraybuffer', timeout: 15_000 })).data

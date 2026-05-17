@@ -32,6 +32,17 @@ Copy `.env.example` to `.env` and configure:
 | `MODS` | Comma-separated moderator numbers |
 | `PORT` | HTTP server port |
 
+### Media APIs (Optional)
+
+These APIs are used for downloading media from external platforms. Default URLs are provided but you can use custom endpoints.
+
+| Variable | Default URL | How to Get |
+|----------|-------------|------------|
+| `TIKTOK_API_URL` | `contact dev or use your own` | Free - Use default or deploy your own |
+| `INSTAGRAM_API_URL` | `contact dev or use your own` | Free - Use default or deploy your own |
+
+**Note:** If left empty, the bot will use the default URLs. To use custom APIs, set the full URL in your `.env` file.
+
 ## License
 
 AGPL-3.0

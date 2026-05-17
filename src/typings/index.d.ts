@@ -14,6 +14,8 @@ export interface IConfig {
     cerebrasKey: string
     geminiKey: string
     openrouterKey: string
+    tiktokApiUrl?: string
+    instagramApiUrl?: string
 }
 
 export interface IParsedArgs {
@@ -57,6 +59,7 @@ export interface IUser {
     chatQuotaUsed: number
     chatQuotaResetAt: Date
     chatIdentity?: ICharacterDelta
+    mediaPreference?: 'document' | 'audio' | 'video'
 }
 
 

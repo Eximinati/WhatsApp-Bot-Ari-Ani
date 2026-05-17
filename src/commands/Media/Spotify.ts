@@ -14,7 +14,8 @@ export default class Command extends CommandModule {
             category: 'media',
             usage: `${client.config.prefix}spotify [URL]`,
             baseXp: 20,
-            aliases: ['sp']
+            aliases: ['sp'],
+            since: '2026-05-17'
         })
     }
 
@@ -29,6 +30,11 @@ export default class Command extends CommandModule {
             return void M.reply(`⚓ Error fetching: ${url}. Check if the URL is valid.`)
         }
         if (info.error) return void M.reply(`⚓ Error Fetching: ${url}. Check if the url is valid and try again`)
+
+        const jid = M.sender.jid
+        if (await this.client.mediaMenu.hasPending(jid)) {
+            return void M.reply('❌ You have a pending request. Reply with a number or wait.')
+        }
 
         const caption = `🎧 *Title:* ${info.name || ''}\n🎤 *Artists:* ${(info.artists || []).join(',')}\n💽 *Album:* ${
             info.album_name
@@ -46,10 +52,22 @@ export default class Command extends CommandModule {
         }
 
         try {
-            const audioBuffer = await track.getAudio()
-            await M.reply(audioBuffer, MessageType.audio)
+            await this.client.mediaMenu.saveMenuState(jid, {
+                step: 'format',
+                commandName: 'spotify',
+                chatJid: M.from,
+                mediaInfo: {
+                    url: url,
+                    title: info.name || 'Spotify Track',
+                    type: 'audio'
+                },
+                expiresAt: Date.now() + 600000
+            })
+            
+            const menuText = this.client.mediaMenu.getMenuText('spotify', info.name || 'Spotify Track')
+            return void M.reply(menuText)
         } catch (err) {
-            await M.reply(`❌ Couldn't download the audio: ${(err as Error).message}`)
+            await M.reply(`❌ Error: ${(err as Error).message}`)
         }
     }
 }

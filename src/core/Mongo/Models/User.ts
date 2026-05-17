@@ -49,6 +49,19 @@ const UserSchema = new Schema({
         lore: { type: [String], default: [] },
         topics: { type: [String], default: [] },
         styleChat: { type: [String], default: [] }
+    },
+    mediaPreference: {
+        type: String,
+        enum: ['document', 'audio', 'video'],
+        default: 'video'
+    },
+    mediaPreferences: {
+        type: String,
+        default: ''
+    },
+    mediaMenuState: {
+        type: String,
+        default: ''
     }
 })
 export default model<IUserModel>('users', UserSchema)

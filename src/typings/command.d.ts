@@ -32,6 +32,8 @@ export interface ICommand {
 
         baseXp?: number
         modsOnly?: boolean
+
+        since?: string // Date or version when command was added (e.g., "May 2026")
     }
 }
 

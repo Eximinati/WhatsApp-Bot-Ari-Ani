@@ -30,6 +30,38 @@ export default class MessagePipeline {
         if ((await this.client.getGroupData(M.from)).mod && this.client.isBotAdmin(M.groupMetadata))
             this.moderate(M)
         if (!args[0] || !args[0].startsWith(this.client.config.prefix)) {
+            // Check for pending media selection
+            const jid = M.sender.jid
+            this.client.log(`[MEDIA] Checking pending for ${jid}`)
+            const hasMediaPending = await this.client.mediaMenu.hasPending(jid)
+            this.client.log(`[MEDIA] hasPending result: ${hasMediaPending}`)
+            if (hasMediaPending) {
+                const text = M.content?.trim() || ''
+                this.client.log(`[MEDIA] User replied with: "${text}"`)
+                const result = await this.client.mediaMenu.handleReply(jid, M.from, text)
+                this.client.log(`[MEDIA] handleReply result: handled=${result.handled}, response=${result.response}, sendNow=${!!result.sendNow}, clearState=${result.clearState}`)
+                if (result.handled) {
+                    if (result.sendNow) {
+                        this.client.log(`[MEDIA] Sending media with mode: ${result.sendNow.mode}`)
+                        await M.reply('⏳ Downloading & sending media...')
+                        const sendResult = await this.sendMediaFromReply(M, result.sendNow.mode, result.sendNow.media)
+                        if (result.clearState) {
+                            this.client.log(`[MEDIA] Clearing menu state for ${jid}`)
+                            await this.client.mediaMenu.clearMenuState(jid)
+                        }
+                        return sendResult
+                    }
+                    if (result.clearState) {
+                        this.client.log(`[MEDIA] Clearing menu state for ${jid}`)
+                        await this.client.mediaMenu.clearMenuState(jid)
+                    }
+                    if (result.response) {
+                        this.client.log(`[MEDIA] Sending response: ${result.response}`)
+                        return void M.reply(result.response)
+                    }
+                }
+                if (result.handled) return
+            }
             // Non-command message. In DMs where a mod has enabled chat for this
             // user, route into the LLM. Group messages without a prefix are never
             // auto-answered (would spam unrelated chatter).
@@ -126,6 +158,104 @@ export default class MessagePipeline {
             return void M.reply(`Hmm, my brain glitched. Try again in a sec.`)
         }
         return void M.reply(result.reply)
+    }
+
+    sendMediaFromReply = async (M: ISimplifiedMessage, mode: string, mediaInfo: any): Promise<void> => {
+        this.client.log(`[MEDIA] sendMediaFromReply called. mode=${mode}, mediaInfo=${JSON.stringify(mediaInfo)}`)
+        
+        if (!mediaInfo?.url) {
+            this.client.log(`[MEDIA] ERROR: No media info found for ${M.sender.jid}`, true)
+            await M.reply('❌ No media info found. Please run the command again.')
+            return
+        }
+
+        const { MessageType, Mimetype } = await import('../core/types.js')
+
+        try {
+            this.client.log(`[MEDIA] Downloading from: ${mediaInfo.url}`)
+            
+            let downloadUrl = mediaInfo.url
+            
+            // If it's audio mode, we need to get audio URL (different from video URL)
+            const sendMode = mode // capture for type narrowing workaround
+
+            if (mediaInfo.type === 'audio' && (sendMode === 'audio' || sendMode === 'document')) {
+                // For play/ytaudio commands - use YT class
+                const YT = (await import('../core/YT.js')).default
+                const yt = new YT(mediaInfo.url, 'audio')
+                const buffer = await yt.getBuffer()
+                
+                this.client.log(`[MEDIA] Downloaded ${buffer.length} bytes, sending as ${sendMode}`)
+                
+                if (sendMode === 'document') {
+                    this.client.log(`[MEDIA] Sending as document...`)
+                    await this.client.sendMessage(M.from, buffer, MessageType.document, {
+                        mimetype: Mimetype.m4a,
+                        quoted: M.WAMessage,
+                        caption: mediaInfo.title || 'audio'
+                    })
+                } else {
+                    this.client.log(`[MEDIA] Sending as audio...`)
+                    await this.client.sendMessage(M.from, buffer, MessageType.audio, {
+                        mimetype: Mimetype.m4a,
+                        quoted: M.WAMessage
+                    })
+                }
+                this.client.log(`[MEDIA] Media sent successfully`)
+                return
+            }
+            
+            if (mediaInfo.type === 'video' && (sendMode === 'video' || sendMode === 'document')) {
+                const YT = (await import('../core/YT.js')).default
+                const yt = new YT(mediaInfo.url, 'video')
+                const buffer = await yt.getBuffer()
+                
+                this.client.log(`[MEDIA] Downloaded ${buffer.length} bytes, sending as ${sendMode}`)
+                
+                if (sendMode === 'document') {
+                    await this.client.sendMessage(M.from, buffer, MessageType.document, {
+                        quoted: M.WAMessage,
+                        caption: mediaInfo.title || 'video'
+                    })
+                } else {
+                    await this.client.sendMessage(M.from, buffer, MessageType.video, {
+                        quoted: M.WAMessage
+                    })
+                }
+                this.client.log(`[MEDIA] Media sent successfully`)
+                return
+            }
+            
+            // For Spotify
+            if (mediaInfo.url.includes('spotify.com') && (sendMode === 'audio' || sendMode === 'document')) {
+                const Spotify = (await import('../core/Spotify.js')).default
+                const track = new Spotify(mediaInfo.url)
+                const buffer = await track.getAudio()
+                
+                this.client.log(`[MEDIA] Downloaded ${buffer.length} bytes, sending as ${sendMode}`)
+                
+                if (sendMode === 'document') {
+                    await this.client.sendMessage(M.from, buffer, MessageType.document, {
+                        mimetype: Mimetype.m4a,
+                        quoted: M.WAMessage,
+                        caption: mediaInfo.title || 'track'
+                    })
+                } else {
+                    await this.client.sendMessage(M.from, buffer, MessageType.audio, {
+                        mimetype: Mimetype.m4a,
+                        quoted: M.WAMessage
+                    })
+                }
+                this.client.log(`[MEDIA] Media sent successfully`)
+                return
+            }
+            
+            this.client.log(`[MEDIA] Unknown media type or mode, cannot send`)
+            await M.reply('❌ Cannot send media in this format.')
+        } catch (err) {
+            this.client.log(`[MEDIA] ERROR sending media: ${err}`, true)
+            await M.reply(`❌ Failed to send media: ${err}`)
+        }
     }
 
     moderate = async (M: ISimplifiedMessage): Promise<void> => {
