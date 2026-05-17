@@ -21,6 +21,12 @@ interface MediaMenuState {
         title: string
         type: 'audio' | 'video'
     }
+    playlistData?: {
+        name: string
+        total: number
+        tracks: { url: string; title: string; artist: string; trackName: string }[]
+        trackRange?: { start: number; end: number }
+    }
 }
 
 const COMMAND_CONFIGS: Record<string, { label: string; options: { mode: string; label: string }[] }> = {
