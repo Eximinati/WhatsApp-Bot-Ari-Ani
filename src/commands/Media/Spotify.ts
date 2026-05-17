@@ -23,6 +23,7 @@ export default class Command extends CommandModule {
         if (!M.urls.length) return void M.reply(`🔎 Provide the Spotify Track URL that you want to download`)
         const url = M.urls[0]
         const track = new Spotify(url)
+        
         let info: Awaited<ReturnType<Spotify['getInfo']>>
         try {
             info = await track.getInfo()
@@ -36,9 +37,7 @@ export default class Command extends CommandModule {
             return void M.reply('❌ You have a pending request. Reply with a number or wait.')
         }
 
-        const caption = `🎧 *Title:* ${info.name || ''}\n🎤 *Artists:* ${(info.artists || []).join(',')}\n💽 *Album:* ${
-            info.album_name
-        }\n📆 *Release Date:* ${info.release_date || ''}`
+        const caption = `🎧 *Title:* ${info.name || ''}\n🎤 *Artists:* ${(info.artists || []).join(', ')}\n💽 *Album:* ${info.album_name || ''}`
 
         if (info.cover_url) {
             try {
@@ -51,20 +50,27 @@ export default class Command extends CommandModule {
             await M.reply(caption)
         }
 
+        await M.reply('🔍 Searching on YouTube...')
+
+        const ytResult = await track.searchYouTube()
+        if (!ytResult) {
+            return void M.reply('⚓ Could not find the song on YouTube.')
+        }
+
         try {
             await this.client.mediaMenu.saveMenuState(jid, {
                 step: 'format',
-                commandName: 'spotify',
+                commandName: 'ytaudio',
                 chatJid: M.from,
                 mediaInfo: {
-                    url: url,
-                    title: info.name || 'Spotify Track',
+                    url: ytResult.url,
+                    title: ytResult.title,
                     type: 'audio'
                 },
                 expiresAt: Date.now() + 600000
             })
             
-            const menuText = this.client.mediaMenu.getMenuText('spotify', info.name || 'Spotify Track')
+            const menuText = this.client.mediaMenu.getMenuText('ytaudio', ytResult.title)
             return void M.reply(menuText)
         } catch (err) {
             await M.reply(`❌ Error: ${(err as Error).message}`)
