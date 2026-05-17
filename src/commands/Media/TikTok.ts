@@ -1,8 +1,22 @@
-import axios from 'axios'
+import { youtubeDl, type Payload } from 'youtube-dl-exec'
+import { MessageType } from '../../core/types.js'
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
+import request from '../../core/request.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
+
+const tiktokFlags = {
+    noWarnings: true,
+    noCheckCertificates: true,
+    preferFreeFormats: true
+}
+
+function formatDuration(seconds: number): string {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+}
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -30,33 +44,32 @@ export default class Command extends CommandModule {
             return void M.reply('❌ You have a pending request. Reply with a number or wait.')
         }
 
-try {
+        try {
             await M.reply('⏳ Fetching your TikTok video...')
 
-            const apiUrl = this.client.config.tiktokApiUrl
-            if (!apiUrl) {
-                return void M.reply('❌ TikTok API not configured. Set TIKTOK_API_URL in .env')
-            }
+            const info = await youtubeDl(tiktokUrl, {
+                ...tiktokFlags,
+                dumpSingleJson: true
+            } as Parameters<typeof youtubeDl>[1]) as Payload
 
-            const response = await axios.post<any>(
-                apiUrl,
-                { url: tiktokUrl },
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 60000
-                }
-            )
-
-            const data = response.data
-            const videoUrl = Array.isArray(data?.videos) && data.videos.length
-                ? data.videos[0].url
-                : ''
-
+            const videoUrl = info.formats?.[0]?.url
             if (!videoUrl) {
                 return void M.reply('❌ No downloadable video found.')
             }
 
-            const title = data.title || data.description || 'TikTok Video'
+            const title = info.title || 'TikTok Video'
+            const thumbnail = info.thumbnail
+            const duration = info.duration ? formatDuration(info.duration) : null
+
+            if (thumbnail) {
+                const caption = `🎵 *Title:* ${title}${duration ? `\n\n⏱️ *Duration:* ${duration}` : ''}`
+                try {
+                    const thumbBuffer = await request.buffer(thumbnail)
+                    await M.reply(thumbBuffer, MessageType.image, undefined, undefined, caption)
+                } catch {
+                    await M.reply(caption)
+                }
+            }
 
             await this.client.mediaMenu.saveMenuState(jid, {
                 step: 'format',
@@ -74,7 +87,7 @@ try {
             return void M.reply(menuText)
         } catch (error: any) {
             console.error('TikTok Error:', error?.message || error)
-            return void M.reply('❌ Failed to download TikTok video.')
+            return void M.reply(`❌ Failed to download TikTok video: ${error?.message || 'Unknown error'}`)
         }
     }
 }

@@ -1,5 +1,7 @@
+import { MessageType } from '../../core/types.js'
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
+import request from '../../core/request.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import YT from '../../core/YT.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
@@ -37,19 +39,33 @@ export default class Command extends CommandModule {
         }
 
         try {
+            const title = info.title
+            const thumbnail = info.thumbnail
+            const duration = info.duration
+
+            if (thumbnail) {
+                const caption = `🎬 *Title:* ${title}\n\n⏱️ *Duration:* ${duration || 'Unknown'}`
+                try {
+                    const thumbBuffer = await request.buffer(thumbnail)
+                    await M.reply(thumbBuffer, MessageType.image, undefined, undefined, caption)
+                } catch {
+                    await M.reply(caption)
+                }
+            }
+
             await this.client.mediaMenu.saveMenuState(jid, {
                 step: 'format',
                 commandName: 'ytvideo',
                 chatJid: M.from,
                 mediaInfo: {
                     url: M.urls[0],
-                    title: info.title,
+                    title: title,
                     type: 'video'
                 },
                 expiresAt: Date.now() + 600000
             })
             
-            const menuText = this.client.mediaMenu.getMenuText('ytvideo', info.title)
+            const menuText = this.client.mediaMenu.getMenuText('ytvideo', title)
             return void M.reply(menuText)
         } catch (reason) {
             M.reply(`❌ an error occurred, Reason: ${(reason as Error).message}`)

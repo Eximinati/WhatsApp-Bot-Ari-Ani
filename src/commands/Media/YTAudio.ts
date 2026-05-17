@@ -1,5 +1,7 @@
+import { MessageType } from '../../core/types.js'
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
+import request from '../../core/request.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import YT from '../../core/YT.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
@@ -34,6 +36,20 @@ export default class Command extends CommandModule {
             } catch (reason) {
                 return void M.reply(`❌ Couldn't fetch video info: ${(reason as Error).message}`)
             }
+
+            const title = info?.title || 'YouTube Audio'
+            const thumbnail = info?.thumbnail
+            const duration = info?.duration
+
+            if (thumbnail) {
+                const caption = `📀 *Title:* ${title}\n\n⏱️ *Duration:* ${duration || 'Unknown'}`
+                try {
+                    const thumbBuffer = await request.buffer(thumbnail)
+                    await M.reply(thumbBuffer, MessageType.image, undefined, undefined, caption)
+                } catch {
+                    await M.reply(caption)
+                }
+            }
             
             await this.client.mediaMenu.saveMenuState(jid, {
                 step: 'format',
@@ -41,13 +57,13 @@ export default class Command extends CommandModule {
                 chatJid: M.from,
                 mediaInfo: {
                     url: M.urls[0],
-                    title: info?.title || 'YouTube Audio',
+                    title: title,
                     type: 'audio'
                 },
                 expiresAt: Date.now() + 600000
             })
             
-            const menuText = this.client.mediaMenu.getMenuText('ytaudio', info?.title || 'YouTube Audio')
+            const menuText = this.client.mediaMenu.getMenuText('ytaudio', title)
             return void M.reply(menuText)
         } catch (reason) {
             M.reply(`❌ an error occurred, Reason: ${(reason as Error).message}`)

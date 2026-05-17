@@ -47,7 +47,7 @@ export default class YT {
     getBuffer = async (
         filename = path.join(
             tmpdir(),
-            `${Math.random().toString(36).slice(2)}.${this.type === 'audio' ? 'm4a' : 'mp4'}`
+            `${Math.random().toString(36).slice(2)}.${this.type === 'audio' ? 'mp3' : 'mp4'}`
         )
     ): Promise<Buffer> => {
         const common = { ...ytdlpBaseFlags(), output: filename }
@@ -55,14 +55,9 @@ export default class YT {
             this.type === 'audio'
                 ? {
                       ...common,
-                      // Prefer m4a/AAC audio-only (no re-encode), fall back to any
-                      // audio-only stream (ffmpeg transcodes to m4a), and finally
-                      // to a muxed best stream — some videos publish only combined
-                      // formats under the player_clients we use, so without this
-                      // fallback yt-dlp errors with "Requested format is not available".
-                      format: 'bestaudio[ext=m4a]/bestaudio/best',
+                      format: 'bestaudio[ext=mp3]/bestaudio/best',
                       extractAudio: true,
-                      audioFormat: 'm4a',
+                      audioFormat: 'mp3',
                       audioQuality: 0
                   }
                 : { ...common, format: 'best[ext=mp4][height<=720]/best[height<=720]/best' }

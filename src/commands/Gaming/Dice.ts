@@ -175,26 +175,29 @@ export default class Command extends CommandModule {
                     const faces = rolls.map(() => randomFace())
                     renderFrame(canvas, ctx, faces, width, height)
                     encoder.setDelay(FAST_DELAY)
-                    encoder.addFrame(ctx)
+                    const frameData = ctx.getImageData(0, 0, width, height).data
+                    encoder.addFrame(frameData)
                 }
 
                 // Phase 2: slow down — mix of random and correct faces
                 for (let f = FAST_END + 1; f <= SLOW_END; f++) {
                     // More likely to show the correct face as we approach the end
-                    const faces = rolls.map((r, i) => {
+                    const faces = rolls.map((r) => {
                         const progress = (f - FAST_END) / (SLOW_END - FAST_END)
                         return Math.random() < progress ? r : randomFace()
                     })
                     renderFrame(canvas, ctx, faces, width, height)
                     encoder.setDelay(SLOW_DELAY)
-                    encoder.addFrame(ctx)
+                    const frameData = ctx.getImageData(0, 0, width, height).data
+                    encoder.addFrame(frameData)
                 }
 
                 // Phase 3: hold the final result
                 for (let f = SLOW_END + 1; f < TOTAL_FRAMES; f++) {
                     renderFrame(canvas, ctx, rolls, width, height)
                     encoder.setDelay(HOLD_DELAY)
-                    encoder.addFrame(ctx)
+                    const frameData = ctx.getImageData(0, 0, width, height).data
+                    encoder.addFrame(frameData)
                 }
 
                 encoder.finish()

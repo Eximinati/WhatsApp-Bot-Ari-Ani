@@ -6,6 +6,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+
+base-2/
+
 # Create a file with "notes" name for your conviencence which won't be tracked by git
 notes.ts
 

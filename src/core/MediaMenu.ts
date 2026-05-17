@@ -8,6 +8,9 @@ interface PendingMedia {
     type: 'audio' | 'video'
 }
 
+const pendingCache = new Map<string, { hasPending: boolean; expiresAt: number }>()
+const CACHE_TTL = 2000
+
 interface MediaMenuState {
     step: string
     commandName: string
@@ -103,28 +106,26 @@ export default class MediaMenu {
     }
 
     async saveMenuState(userJid: string, state: MediaMenuState): Promise<void> {
-        console.log(`[MediaMenu] saveMenuState for ${userJid}, step: ${state.step}, command: ${state.commandName}`)
         await this.client.DB.user.updateOne(
             { jid: userJid },
             { $set: { mediaMenuState: JSON.stringify({ ...state, expiresAt: Date.now() + this.MENU_TTL_MS }) } },
             { upsert: true }
         )
-        console.log(`[MediaMenu] Menu state saved`)
+        pendingCache.delete(userJid)
     }
 
     async getMenuState(userJid: string): Promise<MediaMenuState | null> {
-        console.log(`[MediaMenu] getMenuState called for ${userJid}`)
         const user = await this.client.getUser(userJid)
         return this.parseMenuState((user as any).mediaMenuState)
     }
 
     async clearMenuState(userJid: string): Promise<void> {
-        console.log(`[MediaMenu] clearMenuState for ${userJid}`)
         await this.client.DB.user.updateOne(
             { jid: userJid },
             { $unset: { mediaMenuState: 1 } }
         )
         this.pendingBuffers.delete(userJid)
+        pendingCache.delete(userJid)
     }
 
     addPending(jid: string, buffer: Buffer, command: string, title?: string, type: 'audio' | 'video' = 'audio'): void {
@@ -137,22 +138,25 @@ export default class MediaMenu {
     }
 
     async hasPending(userJid: string): Promise<boolean> {
-        console.log(`[MediaMenu] hasPending called for ${userJid}`)
+        const cached = pendingCache.get(userJid)
+        if (cached && Date.now() < cached.expiresAt) {
+            return cached.hasPending
+        }
+
         const state = await this.getMenuState(userJid)
-        console.log(`[MediaMenu] hasPending state: ${JSON.stringify(state)}`)
         
         if (!state) {
-            console.log(`[MediaMenu] No state, returning false`)
+            pendingCache.set(userJid, { hasPending: false, expiresAt: Date.now() + CACHE_TTL })
             return false
         }
         
         if (Date.now() > state.expiresAt) {
-            console.log(`[MediaMenu] State expired, clearing`)
             await this.clearMenuState(userJid)
+            pendingCache.set(userJid, { hasPending: false, expiresAt: Date.now() + CACHE_TTL })
             return false
         }
         
-        console.log(`[MediaMenu] hasPending returning true`)
+        pendingCache.set(userJid, { hasPending: true, expiresAt: Date.now() + CACHE_TTL })
         return true
     }
 
@@ -218,65 +222,48 @@ Reply with a number.`
         sendNow?: { mode: string; media: any }
         clearState?: boolean
     }> {
-        console.log(`[MediaMenu] handleReply called: userJid=${userJid}, chatJid=${chatJid}, text="${text}"`)
-        
         const state = await this.getMenuState(userJid)
-        console.log(`[MediaMenu] getMenuState result: ${JSON.stringify(state)}`)
         
         if (!state) {
-            console.log(`[MediaMenu] No menu state found for ${userJid}`)
             return { handled: false }
         }
 
         if (Date.now() > state.expiresAt) {
-            console.log(`[MediaMenu] Session expired`)
             await this.clearMenuState(userJid)
             return { handled: true, response: '⌛ Session expired. Please run the command again.', clearState: true }
         }
 
         if (state.chatJid !== chatJid) {
-            console.log(`[MediaMenu] chatJid mismatch: state=${state.chatJid}, actual=${chatJid}`)
             return { handled: false }
         }
 
         const trimmed = text.trim().toLowerCase()
-        console.log(`[MediaMenu] trimmed text: "${trimmed}"`)
         
         if (['0', 'cancel', 'back', 'menu', 'exit'].includes(trimmed)) {
-            console.log(`[MediaMenu] User cancelled`)
             await this.clearMenuState(userJid)
             return { handled: true, response: '❌ Cancelled.', clearState: true }
         }
 
         if (!/^\d+$/.test(trimmed)) {
-            console.log(`[MediaMenu] Not a number, ignoring`)
             return { handled: false }
         }
 
         if (state.step !== 'format') {
-            console.log(`[MediaMenu] Invalid step: ${state.step}`)
             return { handled: false }
         }
 
         const actions = this.createFormatActions(state.commandName)
-        console.log(`[MediaMenu] actions: ${JSON.stringify(actions)}, choice: ${trimmed}`)
-        
         const action = actions[trimmed]
 
         if (!action) {
-            console.log(`[MediaMenu] Invalid choice: ${trimmed}`)
             return { handled: true, response: 'Reply with a valid number from the media format menu.' }
         }
 
-        console.log(`[MediaMenu] Valid action: mode=${action.mode}, remember=${action.remember}`)
-
         if (action.remember) {
-            console.log(`[MediaMenu] Saving preference for ${state.commandName}: ${action.mode}`)
             await this.setPreference(userJid, state.commandName, action.mode)
         }
 
         const mediaInfo = state.mediaInfo
-        console.log(`[MediaMenu] mediaInfo exists: ${!!mediaInfo}`)
         
         return {
             handled: true,

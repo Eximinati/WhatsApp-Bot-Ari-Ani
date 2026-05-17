@@ -15,7 +15,7 @@ declare module 'gif-encoder-2' {
         setRepeat(repeat: number): void
         setDelay(ms: number): void
         setQuality(quality: number): void
-        addFrame(ctx: SKRSContext2D): void
+        addFrame(ctx: SKRSContext2D | Uint8ClampedArray | Buffer): void
         finish(): void
         out: {
             getData(): Uint8Array

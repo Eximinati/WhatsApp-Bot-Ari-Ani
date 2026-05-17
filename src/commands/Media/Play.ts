@@ -1,5 +1,7 @@
+import { MessageType } from '../../core/types.js'
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
+import request from '../../core/request.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import yts from 'yt-search'
@@ -32,7 +34,19 @@ export default class Command extends CommandModule {
         }
 
         try {
-            // Save info for later download - don't download now
+            const caption = `📀 *Title:* ${video.title}\n\n👤 *Artist:* ${video.author.name}\n\n⏱️ *Duration:* ${video.duration.timestamp}`
+
+            if (video.thumbnail) {
+                try {
+                    const thumbBuffer = await request.buffer(video.thumbnail)
+                    await M.reply(thumbBuffer, MessageType.image, undefined, undefined, caption)
+                } catch {
+                    await M.reply(caption)
+                }
+            } else {
+                await M.reply(caption)
+            }
+
             await this.client.mediaMenu.saveMenuState(jid, {
                 step: 'format',
                 commandName: 'play',
