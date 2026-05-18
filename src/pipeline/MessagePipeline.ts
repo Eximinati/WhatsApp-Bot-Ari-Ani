@@ -25,9 +25,9 @@ export default class MessagePipeline {
 
         if (M.from.includes('status')) return void null
         const { args, groupMetadata, sender } = M
-        if (!M.groupMetadata && !(M.chat === 'dm')) return void null
+        if (M.chat === 'dm' && !M.groupMetadata) return void null
 
-        if ((await this.client.getGroupData(M.from)).mod && this.client.isBotAdmin(M.groupMetadata))
+        if ((await this.client.getGroupData(M.from)).mod && M.groupMetadata && this.client.isBotAdmin(M.groupMetadata))
             this.moderate(M)
         if (!args[0] || !args[0].startsWith(this.client.config.prefix)) {
             // New unified menu handler

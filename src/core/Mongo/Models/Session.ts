@@ -9,8 +9,7 @@ const SessionSchema = new Schema({
     },
     session: {
         type: String,
-        default: "",
-        index: { sparse: true, unique: true }
+        default: ""
     },
     creds: {
         type: String,
