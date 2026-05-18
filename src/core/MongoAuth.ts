@@ -16,9 +16,11 @@ export async function useMongoAuthState(sessionId: string): Promise<any> {
 
     const saveCreds = async () => {
         try {
+            const str = JSON.stringify(creds, BufferJSON.replacer)
+            if (!str || str === 'undefined') return
             await SessionModel.findOneAndUpdate(
                 { ID: sessionId },
-                { $set: { session: JSON.parse(JSON.stringify(creds, BufferJSON.replacer)) } },
+                { $set: { session: JSON.parse(str) } },
                 { upsert: true }
             )
         } catch (err) {
@@ -44,9 +46,12 @@ export async function useMongoAuthState(sessionId: string): Promise<any> {
 
     const keysSet = async (type: string, map: any) => {
         try {
+            const str = JSON.stringify(map, BufferJSON.replacer)
+            if (!str || str === 'undefined') return
+            const cleaned = JSON.parse(str)
             await SessionModel.findOneAndUpdate(
                 { ID: `${sessionId}:${type}` },
-                { $set: { session: JSON.parse(JSON.stringify(map, BufferJSON.replacer)) } },
+                { $set: { session: cleaned } },
                 { upsert: true }
             )
         } catch (err) {
