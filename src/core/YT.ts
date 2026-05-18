@@ -15,12 +15,6 @@ const YOUTUBE_APIS = [
     'https://apis-keith.vercel.app/download/dlmp3'
 ]
 
-/** Shared yt-dlp flags. `player_client=tv,android,web` tries the TV and Android
- * API endpoints first — these often skip age-gates and sometimes bot checks
- * that the default web client trips. For videos these tricks can't bypass,
- * set `YT_COOKIES_BROWSER` (chrome|firefox|safari|edge|brave) so yt-dlp
- * extracts cookies from your logged-in browser, or `YT_COOKIES_FILE` to
- * point at a Netscape cookies.txt. */
 const ytdlpBaseFlags = (): Record<string, unknown> => ({
     noWarnings: true,
     noCheckCertificates: true,
@@ -38,18 +32,39 @@ export default class YT {
 
     validateURL = (): boolean => YT_URL_RE.test(this.url)
 
-    getInfo = async (): Promise<Payload> =>
-        (await youtubeDl(this.url, {
-            ...ytdlpBaseFlags(),
-            dumpSingleJson: true,
-            preferFreeFormats: true
-        } as Parameters<typeof youtubeDl>[1])) as Payload
+    getInfo = async (): Promise<Payload> => {
+        try {
+            return (await youtubeDl(this.url, {
+                ...ytdlpBaseFlags(),
+                dumpSingleJson: true,
+                preferFreeFormats: true
+            } as Parameters<typeof youtubeDl>[1])) as Payload
+        } catch (ytdlpError: any) {
+            console.log('[YT] getInfo yt-dlp failed, trying API:', ytdlpError?.message || ytdlpError)
+            
+            for (const apiBase of YOUTUBE_APIS) {
+                try {
+                    const { data } = await axios.get(
+                        `${apiBase}?query=${encodeURIComponent(this.url)}`,
+                        { timeout: 30000 }
+                    )
+                    if (data?.result) {
+                        return {
+                            title: data.result.title || 'Unknown',
+                            thumbnail: data.result.thumbnail,
+                            duration: data.result.duration,
+                            channel: data.result.channel
+                        } as any
+                    }
+                } catch (apiError: any) {
+                    console.log('[YT] getInfo API failed:', apiBase, apiError?.message)
+                }
+            }
+            
+            throw ytdlpError
+        }
+    }
 
-    /** WhatsApp audio playback is finicky on Android: yt-dlp's default MP3 output
-     * (VBR libmp3lame + ID3v2 with embedded thumbnail) plays on iOS but often
-     * fails on Android. AAC-in-M4A (audio/mp4) is the universally-compatible
-     * path — YouTube's `bestaudio[ext=m4a]` (itag 140) is already AAC, so
-     * yt-dlp extracts it without re-encoding. */
     getBuffer = async (
         filename = path.join(
             tmpdir(),
@@ -68,7 +83,6 @@ export default class YT {
                   }
                 : { ...common, format: 'best[ext=mp4][height<=720]/best[height<=720]/best' }
 
-        // Try yt-dlp first
         try {
             await youtubeDl(this.url, flags as Parameters<typeof youtubeDl>[1])
             try {
@@ -76,40 +90,37 @@ export default class YT {
             } finally {
                 unlink(filename).catch(() => {})
             }
-        } catch (ytdlpError) {
-            console.log('[YT] yt-dlp failed, trying API fallback:', ytdlpError)
+        } catch (ytdlpError: any) {
+            console.log('[YT] yt-dlp failed, trying API fallback:', ytdlpError?.message || ytdlpError)
             
-            // Try API fallback for audio
-            if (this.type === 'audio') {
-                for (const apiBase of YOUTUBE_APIS) {
-                    try {
-                        let mediaUrl = ''
-                        
-                        if (apiBase.includes('davidcyril')) {
-                            const { data } = await axios.get(
-                                `${apiBase}?query=${encodeURIComponent(this.url)}`,
-                                { timeout: 120000 }
-                            )
-                            mediaUrl = data?.result?.download_url
-                        } else if (apiBase.includes('keith')) {
-                            const { data } = await axios.get(
-                                `${apiBase}?url=${encodeURIComponent(this.url)}`,
-                                { timeout: 120000 }
-                            )
-                            mediaUrl = data?.result?.download || data?.download || data?.url
-                        }
-
-                        if (mediaUrl) {
-                            console.log('[YT] Got media URL from API:', apiBase)
-                            const response = await axios.get(mediaUrl, { 
-                                responseType: 'arraybuffer',
-                                timeout: 120000 
-                            })
-                            return Buffer.from(response.data)
-                        }
-                    } catch (apiError: any) {
-                        console.log('[YT] API failed:', apiBase, apiError?.message)
+            for (const apiBase of YOUTUBE_APIS) {
+                try {
+                    let mediaUrl = ''
+                    
+                    if (apiBase.includes('davidcyril')) {
+                        const { data } = await axios.get(
+                            `${apiBase}?query=${encodeURIComponent(this.url)}`,
+                            { timeout: 120000 }
+                        )
+                        mediaUrl = data?.result?.download_url
+                    } else if (apiBase.includes('keith')) {
+                        const { data } = await axios.get(
+                            `${apiBase}?url=${encodeURIComponent(this.url)}`,
+                            { timeout: 120000 }
+                        )
+                        mediaUrl = data?.result?.download || data?.download || data?.url
                     }
+
+                    if (mediaUrl) {
+                        console.log('[YT] Got media URL from API:', apiBase)
+                        const response = await axios.get(mediaUrl, { 
+                            responseType: 'arraybuffer',
+                            timeout: 120000 
+                        })
+                        return Buffer.from(response.data)
+                    }
+                } catch (apiError: any) {
+                    console.log('[YT] API failed:', apiBase, apiError?.message)
                 }
             }
             
