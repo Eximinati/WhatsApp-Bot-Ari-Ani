@@ -78,7 +78,6 @@ export default class Command extends CommandModule {
         }
 
         this.client.menus.clear(M.sender.jid, 'play')
-        await M.reply('⏳ Downloading & sending media...')
         return this.handler.sendMediaFromReply(M, action.mode, data)
     }
 }
