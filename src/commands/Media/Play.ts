@@ -29,10 +29,6 @@ export default class Command extends CommandModule {
         const video = videos[0]
         const jid = M.sender.jid
         
-        if (await this.client.mediaMenu.hasPending(jid)) {
-            return void M.reply('❌ You have a pending request. Reply with a number or wait.')
-        }
-
         try {
             const caption = `📀 *Title:* ${video.title}\n\n👤 *Artist:* ${video.author.name}\n\n⏱️ *Duration:* ${video.duration.timestamp}`
 
@@ -47,22 +43,42 @@ export default class Command extends CommandModule {
                 await M.reply(caption)
             }
 
-            await this.client.mediaMenu.saveMenuState(jid, {
-                step: 'format',
+            this.client.menus.set(jid, {
                 commandName: 'play',
+                step: 'format',
                 chatJid: M.from,
-                mediaInfo: {
+                data: {
                     url: video.url,
                     title: video.title,
                     type: 'audio'
-                },
-                expiresAt: Date.now() + 600000
+                }
             })
             
             const menuText = this.client.mediaMenu.getMenuText('play', video.title)
-            return void M.reply(menuText)
+            const sent = await M.reply(menuText)
+            if (sent?.key?.id) {
+                this.client.menus.addId(jid, 'play', sent.key.id)
+            }
         } catch (reason) {
             M.reply(`❌ an error occurred, Reason: ${(reason as Error).message}`)
         }
+    }
+
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const { data } = session
+        const actions = this.client.mediaMenu.createFormatActions('play')
+        const action = actions[String(index)]
+
+        if (!action) {
+            return void M.reply('Reply with a valid number from the media format menu.')
+        }
+
+        if (action.remember) {
+            await this.client.mediaMenu.setPreference(M.sender.jid, 'play', action.mode)
+        }
+
+        this.client.menus.clear(M.sender.jid, 'play')
+        await M.reply('⏳ Downloading & sending media...')
+        return this.handler.sendMediaFromReply(M, action.mode, data)
     }
 }

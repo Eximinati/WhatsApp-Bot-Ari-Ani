@@ -34,6 +34,7 @@ const client = new RuntimeClient({
 client.log('Initializing runtime...')
 
 const messagePipeline = new MessagePipeline(client)
+client.pipeline = messagePipeline
 const callDispatcher = new CallDispatcher(client)
 const resourceLoader = new ResourceLoader(client)
 const groupDispatcher = new GroupDispatcher(client)
@@ -64,6 +65,7 @@ const start = async (): Promise<void> => {
         },
         database: async () => {
             await dropLegacyIndexes()
+            await clearStaleMenuStates()
             client.log('Startup: database ready')
         },
         runtime: async () => {
@@ -173,6 +175,20 @@ const dropLegacyIndexes = async (): Promise<void> => {
         } catch {
             /* index didn't exist — fine */
         }
+    }
+}
+
+const clearStaleMenuStates = async (): Promise<void> => {
+    try {
+        const result = await mongoose.connection.collection('users').updateMany(
+            { mediaMenuState: { $exists: true } },
+            { $unset: { mediaMenuState: 1 } }
+        )
+        if (result.modifiedCount > 0) {
+            client.log(`Cleared ${result.modifiedCount} stale menu sessions from database`)
+        }
+    } catch (err) {
+        client.log(`Failed to clear stale sessions: ${err}`, true)
     }
 }
 

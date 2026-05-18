@@ -38,6 +38,7 @@ import ChatAI from './ChatAI.js'
 import Identity from './Identity.js'
 import Toolkit from './Toolkit.js'
 import MediaMenu from './MediaMenu.js'
+import MenuManager from './MenuManager.js'
 import { ExponentialBackoff } from '../runtime/ExponentialBackoff.js'
 import { TimerRegistry } from '../runtime/TimerRegistry.js'
 import {
@@ -128,6 +129,8 @@ export default class RuntimeClient extends EventEmitter {
     identity: Identity = new Identity(this)
     chatAI: ChatAI = new ChatAI(this)
     mediaMenu = new MediaMenu(this)
+    menus = new MenuManager(this)
+    pipeline: any
     assets = new Map<string, Buffer>()
     features = new Map<string, boolean>()
     contacts = new Map<string, IContactInfo>()

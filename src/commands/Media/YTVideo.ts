@@ -34,9 +34,6 @@ export default class Command extends CommandModule {
         if (Number(info.duration) > 1800) return void M.reply('⚓ Cannot download videos longer than 30 minutes')
 
         const jid = M.sender.jid
-        if (await this.client.mediaMenu.hasPending(jid)) {
-            return void M.reply('❌ You have a pending request. Reply with a number or wait.')
-        }
 
         try {
             const title = info.title
@@ -53,22 +50,42 @@ export default class Command extends CommandModule {
                 }
             }
 
-            await this.client.mediaMenu.saveMenuState(jid, {
-                step: 'format',
+            this.client.menus.set(jid, {
                 commandName: 'ytvideo',
+                step: 'format',
                 chatJid: M.from,
-                mediaInfo: {
+                data: {
                     url: M.urls[0],
                     title: title,
                     type: 'video'
-                },
-                expiresAt: Date.now() + 600000
+                }
             })
             
             const menuText = this.client.mediaMenu.getMenuText('ytvideo', title)
-            return void M.reply(menuText)
+            const sent = await M.reply(menuText)
+            if (sent?.key?.id) {
+                this.client.menus.addId(jid, 'ytvideo', sent.key.id)
+            }
         } catch (reason) {
             M.reply(`❌ an error occurred, Reason: ${(reason as Error).message}`)
         }
+    }
+
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const { data } = session
+        const actions = this.client.mediaMenu.createFormatActions('ytvideo')
+        const action = actions[String(index)]
+
+        if (!action) {
+            return void M.reply('Reply with a valid number from the media format menu.')
+        }
+
+        if (action.remember) {
+            await this.client.mediaMenu.setPreference(M.sender.jid, 'ytvideo', action.mode)
+        }
+
+        this.client.menus.clear(M.sender.jid, 'ytvideo')
+        await M.reply('⏳ Downloading & sending media...')
+        return this.handler.sendMediaFromReply(M, action.mode, data)
     }
 }

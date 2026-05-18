@@ -30,36 +30,10 @@ export default class MessagePipeline {
         if ((await this.client.getGroupData(M.from)).mod && this.client.isBotAdmin(M.groupMetadata))
             this.moderate(M)
         if (!args[0] || !args[0].startsWith(this.client.config.prefix)) {
-            const jid = M.sender.jid
-            const hasMediaPending = await this.client.mediaMenu.hasPending(jid)
-            if (hasMediaPending) {
-                const text = M.content?.trim() || ''
-                const result = await this.client.mediaMenu.handleReply(jid, M.from, text)
-                if (result.handled) {
-                    if (result.sendNow) {
-                        await M.reply('⏳ Downloading & sending media...')
-                        const sendResult = await this.sendMediaFromReply(M, result.sendNow.mode, result.sendNow.media)
-                        if (result.clearState) {
-                            await this.client.mediaMenu.clearMenuState(jid)
-                        }
-                        return sendResult
-                    }
-                    if (result.playlistNow) {
-                        await this.sendPlaylistFromReply(M, result.playlistNow.selection, result.playlistNow.data)
-                        if (result.clearState) {
-                            await this.client.mediaMenu.clearMenuState(jid)
-                        }
-                        return
-                    }
-                    if (result.clearState) {
-                        await this.client.mediaMenu.clearMenuState(jid)
-                    }
-                    if (result.response) {
-                        return void M.reply(result.response)
-                    }
-                }
-                if (result.handled) return
-            }
+            // New unified menu handler
+            const menuHandled = await this.client.menus.handleReply(M)
+            if (menuHandled) return
+
             // Non-command message. In DMs where a mod has enabled chat for this
             // user, route into the LLM. Group messages without a prefix are never
             // auto-answered (would spam unrelated chatter).
@@ -165,16 +139,21 @@ export default class MessagePipeline {
         }
 
         const { MessageType, Mimetype } = await import('../core/types.js')
+        const command = (M as any)._session?.commandName || 'media'
 
         try {
-            const sendMode = mode
-
-            if (mediaInfo.type === 'audio' && (sendMode === 'audio' || sendMode === 'document')) {
+            this.client.log(`[Media] Selection: ${mode} for ${mediaInfo.title} (URL: ${mediaInfo.url})`)
+            
+            if (mediaInfo.type === 'audio' && (mode === 'audio' || mode === 'document')) {
                 const YT = (await import('../core/YT.js')).default
                 const yt = new YT(mediaInfo.url, 'audio')
-                const buffer = await yt.getBuffer()
                 
-                if (sendMode === 'document') {
+                await M.reply(`📥 Downloading audio: *${mediaInfo.title}*...`)
+                const buffer = await yt.getBuffer()
+                this.client.log(`[Media] Download complete: ${mediaInfo.title} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
+                
+                await M.reply(`📤 Sending audio as ${mode.toUpperCase()}...`)
+                if (mode === 'document') {
                     await this.client.sendMessage(M.from, buffer, MessageType.document, {
                         mimetype: 'audio/mpeg',
                         quoted: M.WAMessage,
@@ -186,15 +165,20 @@ export default class MessagePipeline {
                         quoted: M.WAMessage
                     })
                 }
+                this.client.log(`[Media] Sent successfully: ${mediaInfo.title}`)
                 return
             }
             
-            if (mediaInfo.type === 'video' && (sendMode === 'video' || sendMode === 'document')) {
+            if (mediaInfo.type === 'video' && (mode === 'video' || mode === 'document')) {
                 const YT = (await import('../core/YT.js')).default
                 const yt = new YT(mediaInfo.url, 'video')
-                const buffer = await yt.getBuffer()
                 
-                if (sendMode === 'document') {
+                await M.reply(`📥 Downloading video: *${mediaInfo.title}*...`)
+                const buffer = await yt.getBuffer()
+                this.client.log(`[Media] Download complete: ${mediaInfo.title} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
+                
+                await M.reply(`📤 Sending video as ${mode.toUpperCase()}...`)
+                if (mode === 'document') {
                     await this.client.sendMessage(M.from, buffer, MessageType.document, {
                         mimetype: Mimetype.mp4,
                         quoted: M.WAMessage,
@@ -205,13 +189,15 @@ export default class MessagePipeline {
                         quoted: M.WAMessage
                     })
                 }
+                this.client.log(`[Media] Sent successfully: ${mediaInfo.title}`)
                 return
             }
             
-            // Spotify now uses YouTube, handled above via audio type
             await M.reply('❌ Cannot send media in this format.')
         } catch (err) {
-            await M.reply(`❌ Failed to send media: ${err}`)
+            const errorMsg = err instanceof Error ? err.message : String(err)
+            this.client.log(`[Media] ERROR processing ${mediaInfo.title}: ${errorMsg}`, true)
+            await M.reply(`❌ Failed to send media: ${errorMsg}`)
         }
     }
 

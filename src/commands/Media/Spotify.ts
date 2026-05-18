@@ -61,9 +61,6 @@ export default class Command extends CommandModule {
         if (!parsed) return void M.reply('⚓ Invalid Spotify URL')
 
         const jid = M.sender.jid
-        if (await this.client.mediaMenu.hasPending(jid)) {
-            return void M.reply('❌ You have a pending request. Reply with a number or wait.')
-        }
 
         if (parsed.type === 'playlist' || parsed.type === 'album') {
             await this.handlePlaylist(M, spotify, jid, range)
@@ -102,20 +99,22 @@ export default class Command extends CommandModule {
         }
 
         try {
-            await this.client.mediaMenu.saveMenuState(jid, {
-                step: 'format',
+            this.client.menus.set(jid, {
                 commandName: 'spotify',
+                step: 'format',
                 chatJid: M.from,
-                mediaInfo: {
+                data: {
                     url: ytResult.url,
                     title: ytResult.title,
                     type: 'audio'
-                },
-                expiresAt: Date.now() + 600000
+                }
             })
 
             const menuText = this.client.mediaMenu.getMenuText('spotify', ytResult.title)
-            return void M.reply(menuText)
+            const sent = await M.reply(menuText)
+            if (sent?.key?.id) {
+                this.client.menus.addId(jid, 'spotify', sent.key.id)
+            }
         } catch (err) {
             await M.reply(`❌ Error: ${(err as Error).message}`)
         }
@@ -147,17 +146,16 @@ export default class Command extends CommandModule {
         const label = rangeLabel || (total <= 100 ? ' (full)' : '')
 
         // Save state for menu selection - we DON'T search YouTube here to keep it fast
-        await this.client.mediaMenu.saveMenuState(jid, {
+        this.client.menus.set(jid, {
             step: 'playlistDelivery',
             commandName: 'spotify',
             chatJid: M.from,
-            playlistData: {
+            data: {
                 name,
                 total: displayTotal,
                 tracks: selectedTracks,
                 trackRange: range || undefined
-            },
-            expiresAt: Date.now() + 600000
+            }
         })
 
         const menuText = `📦 Playlist detected: *${name}* (${displayTotal} tracks)${label}
@@ -168,6 +166,41 @@ Choose how you want it:
 2 - Download as ZIP file
 0 - Cancel`
 
-        return void M.reply(menuText)
+        const sent = await M.reply(menuText)
+        if (sent?.key?.id) {
+            this.client.menus.addId(jid, 'spotify', sent.key.id)
+        }
+    }
+
+    /**
+     * Unified handler for menu selections
+     */
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const { step, data } = session
+
+        if (step === 'format') {
+            const actions = this.client.mediaMenu.createFormatActions('spotify')
+            const action = actions[String(index)]
+
+            if (!action) {
+                return void M.reply('Reply with a valid number from the media format menu.')
+            }
+
+            if (action.remember) {
+                await this.client.mediaMenu.setPreference(M.sender.jid, 'spotify', action.mode)
+            }
+
+            this.client.menus.clear(M.sender.jid)
+            await M.reply('⏳ Downloading & sending media...')
+            return this.handler.sendMediaFromReply(M, action.mode, data)
+        }
+
+        if (step === 'playlistDelivery') {
+            if (index === 1 || index === 2) {
+                this.client.menus.clear(M.sender.jid)
+                return this.handler.sendPlaylistFromReply(M, String(index), data)
+            }
+            return void M.reply('Reply with 1 for Streaming, 2 for ZIP, or 0 to Cancel.')
+        }
     }
 }

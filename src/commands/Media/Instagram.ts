@@ -26,9 +26,6 @@ export default class Command extends CommandModule {
         }
 
         const jid = M.sender.jid
-        if (await this.client.mediaMenu.hasPending(jid)) {
-            return void M.reply('❌ You have a pending request. Reply with a number or wait.')
-        }
 
         try {
             const apiUrl = this.client.config.instagramApiUrl
@@ -90,23 +87,43 @@ export default class Command extends CommandModule {
             // For videos, show the format menu
             const title = data.result?.title || data.result?.description || 'Instagram Video'
 
-            await this.client.mediaMenu.saveMenuState(jid, {
-                step: 'format',
+            this.client.menus.set(jid, {
                 commandName: 'instagram',
+                step: 'format',
                 chatJid: M.from,
-                mediaInfo: {
+                data: {
                     url: downloadUrl,
                     title: title,
                     type: 'video'
-                },
-                expiresAt: Date.now() + 600000
+                }
             })
 
             const menuText = this.client.mediaMenu.getMenuText('instagram', title)
-            return void M.reply(menuText)
+            const sent = await M.reply(menuText)
+            if (sent?.key?.id) {
+                this.client.menus.addId(jid, 'instagram', sent.key.id)
+            }
         } catch (error: any) {
             console.error('Instagram Error:', error?.message || error)
             return void M.reply('❌ Failed to fetch Instagram content.')
         }
+    }
+
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const { data } = session
+        const actions = this.client.mediaMenu.createFormatActions('instagram')
+        const action = actions[String(index)]
+
+        if (!action) {
+            return void M.reply('Reply with a valid number from the media format menu.')
+        }
+
+        if (action.remember) {
+            await this.client.mediaMenu.setPreference(M.sender.jid, 'instagram', action.mode)
+        }
+
+        this.client.menus.clear(M.sender.jid, 'instagram')
+        await M.reply('⏳ Downloading & sending media...')
+        return this.handler.sendMediaFromReply(M, action.mode, data)
     }
 }

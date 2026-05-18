@@ -20,11 +20,6 @@ export default class Command extends CommandModule {
         const args = M.args.join(' ').toLowerCase()
         const jid = M.sender.jid
 
-        if (this.pendingSelection.has(jid)) {
-            this.pendingSelection.delete(jid)
-            return this.handleNumberSelection(M, jid, args)
-        }
-
         if (args === 'reset') {
             return void this.resetMedia(M, jid)
         }
@@ -75,14 +70,22 @@ Current: *${current.toUpperCase()}* ${current === 'video' ? '(Default)' : ''}
 • ${prefix}media video   - Send as video
 • ${prefix}media reset  - Reset to default`
 
-        this.pendingSelection.add(jid)
-        return void M.reply(menu)
+        this.client.menus.set(jid, {
+            commandName: 'media',
+            chatJid: M.from,
+            step: 'selection'
+        })
+        const sent = await M.reply(menu)
+        if (sent?.key?.id) {
+            this.client.menus.addId(jid, 'media', sent.key.id)
+        }
     }
 
-    private handleNumberSelection = async (M: ISimplifiedMessage, jid: string, input: string): Promise<void> => {
-        const num = parseInt(input.trim())
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const jid = M.sender.jid
+        this.client.menus.clear(jid)
 
-        switch (num) {
+        switch (index) {
             case 1:
                 return void this.setMedia(M, jid, 'document')
             case 2:

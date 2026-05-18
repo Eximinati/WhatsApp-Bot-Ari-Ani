@@ -25,9 +25,6 @@ export default class Command extends CommandModule {
         if (!audio.validateURL()) return void M.reply(`⚓ Provide a Valid YT URL`)
 
         const jid = M.sender.jid
-        if (await this.client.mediaMenu.hasPending(jid)) {
-            return void M.reply('❌ You have a pending request. Reply with a number or wait.')
-        }
 
         try {
             let info
@@ -51,22 +48,42 @@ export default class Command extends CommandModule {
                 }
             }
             
-            await this.client.mediaMenu.saveMenuState(jid, {
-                step: 'format',
+            this.client.menus.set(jid, {
                 commandName: 'ytaudio',
+                step: 'format',
                 chatJid: M.from,
-                mediaInfo: {
+                data: {
                     url: M.urls[0],
                     title: title,
                     type: 'audio'
-                },
-                expiresAt: Date.now() + 600000
+                }
             })
             
             const menuText = this.client.mediaMenu.getMenuText('ytaudio', title)
-            return void M.reply(menuText)
+            const sent = await M.reply(menuText)
+            if (sent?.key?.id) {
+                this.client.menus.addId(jid, 'ytaudio', sent.key.id)
+            }
         } catch (reason) {
             M.reply(`❌ an error occurred, Reason: ${(reason as Error).message}`)
         }
+    }
+
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const { data } = session
+        const actions = this.client.mediaMenu.createFormatActions('ytaudio')
+        const action = actions[String(index)]
+
+        if (!action) {
+            return void M.reply('Reply with a valid number from the media format menu.')
+        }
+
+        if (action.remember) {
+            await this.client.mediaMenu.setPreference(M.sender.jid, 'ytaudio', action.mode)
+        }
+
+        this.client.menus.clear(M.sender.jid, 'ytaudio')
+        await M.reply('⏳ Downloading & sending media...')
+        return this.handler.sendMediaFromReply(M, action.mode, data)
     }
 }

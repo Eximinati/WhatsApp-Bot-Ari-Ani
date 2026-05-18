@@ -21,7 +21,7 @@ export interface ISimplifiedMessage {
         mention?: string[],
         caption?: string,
         thumbnail?: Buffer
-    ): Promise<unknown>
+    ): Promise<any>
 
     mentioned: string[]
 

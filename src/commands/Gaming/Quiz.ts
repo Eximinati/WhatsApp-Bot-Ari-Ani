@@ -38,48 +38,56 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
         const input = joined.trim().toLowerCase()
-        const s = this.scores.get(M.sender.jid) || { correct: 0, total: 0 }
+        const jid = M.sender.jid
 
-        // Answer handling
-        if (input.match(/^[1-4]$/)) {
-            const ans = parseInt(input) - 1
-            const last = this.lasts.get(M.sender.jid)
-
-            if (!last) {
-                return void M.reply(
-                    `🧠 No active question.\nUse ${this.client.config.prefix}quiz to start.`
-                )
-            }
-
-            s.total++
-            if (ans === last.answer) s.correct++
-            this.scores.set(M.sender.jid, s)
-
-            const acc = Math.round((s.correct / s.total) * 100)
-
-            const result =
-                ans === last.answer
-                    ? `✅ Correct!`
-                    : `❌ Wrong! Correct answer: ${last.options[last.answer]}`
-
-            return void M.reply(
-                `🧠 Quiz Result\n\n${result}\nScore: ${s.correct}/${s.total} (${acc}%)`
-            )
-        }
-
-        // New question
+        // Start a new question
         const q = this.questions[Math.floor(Math.random() * this.questions.length)]
-        this.lasts.set(M.sender.jid, q)
+        
+        this.client.menus.set(jid, {
+            commandName: 'quiz',
+            step: 'question',
+            chatJid: M.from,
+            data: { q }
+        })
 
         const options = q.options
             .map((o, i) => `${i + 1}. ${o}`)
             .join('\n')
 
-        return void M.reply(
+        const sent = await M.reply(
             `🧠 Trivia\n\n` +
             `Category: ${q.category || 'General'}\n` +
             `Question: ${q.question}\n\n` +
             `${options}`
+        )
+        if (sent?.key?.id) {
+            this.client.menus.addId(jid, 'quiz', sent.key.id)
+        }
+    }
+
+    handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
+        const jid = M.sender.jid
+        const { q } = session.data
+        const s = this.scores.get(jid) || { correct: 0, total: 0 }
+
+        if (index < 1 || index > 4) {
+            return void M.reply('❌ Please reply with a number between 1 and 4.')
+        }
+
+        const ans = index - 1
+        s.total++
+        if (ans === q.answer) s.correct++
+        this.scores.set(jid, s)
+
+        const acc = Math.round((s.correct / s.total) * 100)
+        const result = ans === q.answer
+            ? `✅ Correct!`
+            : `❌ Wrong! Correct answer: ${q.options[q.answer]}`
+
+        this.client.menus.clear(jid)
+        
+        return void M.reply(
+            `🧠 Quiz Result\n\n${result}\nScore: ${s.correct}/${s.total} (${acc}%)`
         )
     }
 }
