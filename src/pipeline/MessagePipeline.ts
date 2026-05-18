@@ -148,11 +148,11 @@ export default class MessagePipeline {
                 const YT = (await import('../core/YT.js')).default
                 const yt = new YT(mediaInfo.url, 'audio')
                 
-                await M.reply(`📥 Downloading audio: *${mediaInfo.title}*...`)
+                
                 const buffer = await yt.getBuffer()
                 this.client.log(`[Media] Download complete: ${mediaInfo.title} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
                 
-                await M.reply(`📤 Sending audio as ${mode.toUpperCase()}...`)
+                
                 if (mode === 'document') {
                     await this.client.sendMessage(M.from, buffer, MessageType.document, {
                         mimetype: 'audio/mpeg',
