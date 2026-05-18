@@ -30,8 +30,7 @@ import {
     type AnyMessageContent,
     type GroupMetadata,
     type ConnectionState,
-    type WAVersion,
-    type AuthenticationState
+    type WAVersion
 } from 'baileys'
 
 import DatabaseHandler from '../pipeline/DataStore.js'
@@ -40,7 +39,6 @@ import Identity from './Identity.js'
 import Toolkit from './Toolkit.js'
 import MediaMenu from './MediaMenu.js'
 import MenuManager from './MenuManager.js'
-import { useMongoAuthState } from './MongoAuth.js'
 import { ExponentialBackoff } from '../runtime/ExponentialBackoff.js'
 import { TimerRegistry } from '../runtime/TimerRegistry.js'
 import {
@@ -285,34 +283,22 @@ export default class RuntimeClient extends EventEmitter {
             this.disposeSocket()
         }
         
-        type AuthResult = { state: AuthenticationState; saveCreds: () => Promise<void> }
-        let authResult: AuthResult
-        
-        const useMongoAuth = process.env.SESSION_STORAGE !== 'file'
-        
-        if (useMongoAuth) {
-            try {
-                authResult = await useMongoAuthState(this.config.session)
-                this.log('[Auth] Using MongoDB session storage')
-            } catch (err) {
-                this.log('[Auth] MongoDB auth failed, falling back to file storage', true)
-                authResult = await useMultiFileAuthState(`sessions/${this.config.session}`)
-            }
-        } else {
-            authResult = await useMultiFileAuthState(`sessions/${this.config.session}`)
-            this.log('[Auth] Using file-based session storage')
-        }
-        
+        const sessionDir = join(process.cwd(), 'sessions', this.config.session)
+        if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true })
+        const { state: authState, saveCreds } = await useMultiFileAuthState(sessionDir)
         const { version, isLatest } = await fetchLatestBaileysVersion()
         this.log(`Using Baileys WA v${version.join('.')} (latest: ${isLatest})`)
 
         this.sock = makeWASocket({
             version: version as WAVersion,
-            auth: authResult.state,
+            auth: authState,
             logger: this.logger,
             browser: Browsers.appropriate('Ari-Ani'),
             getMessage: this.getMessage,
             cachedGroupMetadata: this.cachedGroupMetadata,
+            // node-cache satisfies the CacheStore shape Baileys actually uses; the
+            // typed `PossiblyExtendedCacheStore` declares async mget/mset which
+            // node-cache implements synchronously. Cast through unknown to bridge.
             msgRetryCounterCache: this.msgRetryCounterCache as unknown as never,
             userDevicesCache: this.userDevicesCache as unknown as never,
             shouldIgnoreJid: this.shouldIgnoreJid,
@@ -324,7 +310,7 @@ export default class RuntimeClient extends EventEmitter {
             maxMsgRetryCount: 5
         })
 
-        this.sock.ev.on('creds.update', authResult.saveCreds)
+        this.sock.ev.on('creds.update', saveCreds)
 
         this.sock.ev.on('connection.update', (update) => this.handleConnectionUpdate(update))
 

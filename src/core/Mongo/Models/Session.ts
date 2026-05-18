@@ -9,7 +9,8 @@ const SessionSchema = new Schema({
     },
     session: {
         type: Object,
-        required: false
+        required: false,
+        unique: true
     }
 })
 
