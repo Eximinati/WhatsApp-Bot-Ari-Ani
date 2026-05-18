@@ -98,7 +98,7 @@ export default class {
                 release_date: releaseDate || undefined
             }
         } catch (err) {
-            console.error('[Spotify] Error:', err)
+            console.error('[Spotify] ERROR getInfo:', err)
             const errorMsg = err instanceof Error ? err.message : String(err)
             return { error: `Error Fetching: ${errorMsg}` }
         }
@@ -127,28 +127,37 @@ export default class {
 
     getPlaylist = async (maxTracks = 100): Promise<SpotifyPlaylist | null> => {
         const parsed = this.parseSpotifyUrl()
-        if (!parsed || parsed.type !== 'playlist') return null
+        if (!parsed || (parsed.type !== 'playlist' && parsed.type !== 'album')) return null
 
-        const cleanUrl = `https://open.spotify.com/playlist/${parsed.id}`
+        const cleanUrl = `https://open.spotify.com/${parsed.type}/${parsed.id}`
 
         try {
-            console.log('[Spotify] Fetching playlist:', parsed.id)
+            console.log(`[Spotify] Fetching ${parsed.type}:`, parsed.id)
             
             const tracksRaw = await getTracks(cleanUrl)
-            console.log('[Spotify] Raw tracks:', tracksRaw?.length || 0)
+            console.log(`[Spotify] Raw tracks:`, tracksRaw?.length || 0)
             
             const tracks: SpotifyTrack[] = (tracksRaw || []).slice(0, maxTracks).map((t: any, index: number) => ({
                 name: t.track || t.name || 'Unknown',
-                artists: t.artist ? [t.artist] : ['Unknown Artist'],
+                artists: t.artist ? [t.artist] : (t.artists ? t.artists.map((a: any) => a.name || a) : ['Unknown Artist']),
                 album_name: t.album || undefined,
                 cover_url: t.image || undefined,
                 id: t.id || `track-${index}`
             }))
 
-            console.log('[Spotify] Mapped tracks:', tracks.length)
-            return { name: 'Playlist', total: tracksRaw?.length || tracks.length, tracks }
+            console.log(`[Spotify] Mapped tracks:`, tracks.length)
+            
+            let playlistName = 'Playlist'
+            try {
+                const info = await this.getInfo()
+                if (info.name) playlistName = info.name
+            } catch {
+                // Ignore error
+            }
+
+            return { name: playlistName, total: tracksRaw?.length || tracks.length, tracks }
         } catch (err) {
-            console.log('[Spotify] Playlist error:', err)
+            console.error('[Spotify] ERROR getPlaylist:', err)
             return this.getPlaylistBasic(maxTracks)
         }
     }
@@ -201,8 +210,8 @@ export default class {
                     console.log(`[Spotify] No results: ${track.name}`)
                 }
             } catch (e) {
-                console.log(`[Spotify] Search error for: ${track.name} - ${e}`)
-            }
+                    console.error(`[Spotify] ERROR searchYouTubeBatch for "${track.name}":`, e)
+                }
 
             // Add delay to avoid rate limiting
             if (i < tracks.length - 1) {

@@ -44,6 +44,13 @@ export default class MessagePipeline {
                         }
                         return sendResult
                     }
+                    if (result.playlistNow) {
+                        await this.sendPlaylistFromReply(M, result.playlistNow.selection, result.playlistNow.data)
+                        if (result.clearState) {
+                            await this.client.mediaMenu.clearMenuState(jid)
+                        }
+                        return
+                    }
                     if (result.clearState) {
                         await this.client.mediaMenu.clearMenuState(jid)
                     }
@@ -205,6 +212,136 @@ export default class MessagePipeline {
             await M.reply('❌ Cannot send media in this format.')
         } catch (err) {
             await M.reply(`❌ Failed to send media: ${err}`)
+        }
+    }
+
+    sendPlaylistFromReply = async (M: ISimplifiedMessage, selection: string, data: any): Promise<void> => {
+        const { tracks, name } = data
+        if (!tracks || !tracks.length) {
+            console.error('[Spotify] ERROR: No tracks found in playlist data')
+            return void M.reply('❌ No tracks found in playlist.')
+        }
+
+        const { MessageType, Mimetype } = await import('../core/types.js')
+        const YT = (await import('../core/YT.js')).default
+        const archiver = (await import('archiver')).default
+        const yts = (await import('yt-search')).default
+
+        const total = tracks.length
+
+        if (selection === '1') {
+            console.log(`[Spotify] START Stream - Playlist: "${name}" (${total} tracks) - User: ${M.sender.jid}`)
+            await M.reply(`📥 You selected option *1* (Stream). Now downloading *${total}* tracks one by one...`)
+
+            for (let i = 0; i < total; i++) {
+                const track = tracks[i]
+                const trackNum = i + 1
+                const query = `${track.artists[0]} - ${track.name}`
+
+                if (i === 0) {
+                    await M.reply(`🎵 Downloading first track: *${track.name}*...`)
+                }
+
+                try {
+                    await M.reply(`🔍 [${trackNum}/${total}] Searching: *${track.name}*...`)
+                    console.log(`[Spotify Stream] Searching track ${trackNum}/${total}: "${track.name}"`)
+                    const { videos } = await yts(query)
+                    if (!videos || !videos.length) {
+                        console.warn(`[Spotify Stream] WARN: Not found on YouTube: "${track.name}"`)
+                        await M.reply(`❌ [${trackNum}/${total}] Not found: ${track.name}`)
+                        continue
+                    }
+
+                    const url = videos[0].url
+                    const yt = new YT(url, 'audio')
+
+                    await M.reply(`⬇️ [${trackNum}/${total}] Downloading: *${track.name}*...`)
+                    console.log(`[Spotify Stream] Downloading track ${trackNum}/${total}: "${track.name}" from ${url}`)
+                    const buffer = await yt.getBuffer()
+
+                    console.log(`[Spotify Stream] SUCCESS track ${trackNum}/${total}: "${track.name}" (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
+                    await M.reply(`📤 [${trackNum}/${total}] Sending: *${track.name}*...`)
+                    await this.client.sendMessage(M.from, buffer, MessageType.audio, {
+                        mimetype: Mimetype.m4a,
+                        quoted: M.WAMessage
+                    })
+                } catch (err) {
+                    const errorMsg = err instanceof Error ? err.message : String(err)
+                    console.error(`[Spotify Stream] ERROR track ${trackNum}/${total}: "${track.name}" - ${errorMsg}`)
+                    await M.reply(`⚠️ [${trackNum}/${total}] Failed: ${track.name}`)
+                }
+            }
+            console.log(`[Spotify] END Stream - Playlist: "${name}" completed`)
+            await M.reply(`✅ Playlist *${name}* streaming complete!`)
+        } else if (selection === '2') {
+            console.log(`[Spotify ZIP] START - Playlist: "${name}" (${total} tracks) - User: ${M.sender.jid}`)
+            await M.reply(`📦 You selected option *2* (ZIP). Now downloading *${total}* tracks and packaging them...`)
+            await M.reply(`🎵 Downloading first track: *${tracks[0].name}*...`)
+            
+            const archive = archiver('zip', { zlib: { level: 9 } })
+            const chunks: Buffer[] = []
+            
+            archive.on('data', (chunk) => chunks.push(chunk))
+
+            for (let i = 0; i < total; i++) {
+                const track = tracks[i]
+                const trackNum = i + 1
+                const query = `${track.artists[0]} - ${track.name}`
+
+                if (i === 0) {
+                    await M.reply(`⬇️ [1/${total}] Downloading first track: *${track.name}*...`)
+                }
+
+                try {
+                    await M.reply(`⬇️ [${trackNum}/${total}] Downloading: *${track.name}*...`)
+                    console.log(`[Spotify ZIP] Downloading track ${trackNum}/${total}: "${track.name}"`)
+                    const { videos } = await yts(query)
+                    if (!videos || !videos.length) {
+                        console.warn(`[Spotify ZIP] WARN: Not found on YouTube: "${track.name}"`)
+                        continue
+                    }
+
+                    const yt = new YT(videos[0].url, 'audio')
+                    const buffer = await yt.getBuffer()
+
+                    console.log(`[Spotify ZIP] SUCCESS added ${trackNum}/${total}: "${track.name}" (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
+                    archive.append(buffer, { name: `${track.artists[0]} - ${track.name}.mp3` })
+
+                    await M.reply(`✅ [${trackNum}/${total}] Ready: *${track.name}*`)
+                } catch (err) {
+                    const errorMsg = err instanceof Error ? err.message : String(err)
+                    console.error(`[Spotify ZIP] ERROR track ${trackNum}/${total}: "${track.name}" - ${errorMsg}`)
+                    await M.reply(`⚠️ [${trackNum}/${total}] Failed: ${track.name}`)
+                }
+            }
+
+            await M.reply(`🗜️ Finalizing ZIP file...`)
+            console.log(`[Spotify ZIP] Finalizing ZIP: "${name}.zip"`)
+            
+            const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+                archive.on('end', () => resolve(Buffer.concat(chunks)))
+                archive.on('error', (err) => {
+                    console.error(`[Spotify ZIP] ARCHIVE ERROR: ${err.message}`)
+                    reject(err)
+                })
+                archive.finalize()
+            })
+
+            console.log(`[Spotify ZIP] SUCCESS: ZIP finalized - ${name}.zip (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
+            await M.reply(`📤 Sending ZIP: *${name}.zip* (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
+            try {
+                await this.client.sendMessage(M.from, zipBuffer, MessageType.document, {
+                    mimetype: 'application/zip',
+                    quoted: M.WAMessage,
+                    caption: `${name}.zip`
+                })
+                console.log(`[Spotify ZIP] COMPLETE: Sent ${name}.zip to ${M.from}`)
+                await M.reply(`✅ Playlist *${name}* ZIP sent successfully!`)
+            } catch (err) {
+                const errorMsg = err instanceof Error ? err.message : String(err)
+                console.error(`[Spotify ZIP] SEND ERROR: ${errorMsg}`)
+                await M.reply(`❌ Failed to send ZIP: ${errorMsg}`)
+            }
         }
     }
 

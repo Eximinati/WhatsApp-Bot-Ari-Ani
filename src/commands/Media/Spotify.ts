@@ -137,47 +137,30 @@ export default class Command extends CommandModule {
         let rangeLabel = ''
 
         if (range) {
-            const startIndex = range.start - 1
+            const startIndex = Math.max(0, range.start - 1)
             const endIndex = Math.min(range.end, tracks.length)
             selectedTracks = tracks.slice(startIndex, endIndex)
             displayTotal = selectedTracks.length
             rangeLabel = ` (tracks ${range.start}-${range.end})`
         }
 
-        await M.reply(`📦 *${name}*\n\n🎵 ${displayTotal} tracks found\n\nSearching YouTube for all ${displayTotal} tracks...`)
+        const label = rangeLabel || (total <= 100 ? ' (full)' : '')
 
-        const ytResults = await spotify.searchYouTubeBatch(selectedTracks)
-
-        if (ytResults.length === 0) {
-            return void M.reply('⚓ Could not find any tracks on YouTube.')
-        }
-
-        const foundCount = ytResults.length
-        const label = rangeLabel || (displayTotal <= PLAYLIST_LIMIT ? ' (full playlist)' : '')
-
-        // Save state for menu selection
-        const playlistState: PlaylistState = {
-            name,
-            total: displayTotal,
-            tracks: selectedTracks,
-            ytResults,
-            trackRange: range || undefined
-        }
-
+        // Save state for menu selection - we DON'T search YouTube here to keep it fast
         await this.client.mediaMenu.saveMenuState(jid, {
             step: 'playlistDelivery',
             commandName: 'spotify',
             chatJid: M.from,
-            mediaInfo: {
-                url: ytResults[0]?.url || '',
-                title: ytResults[0]?.title || '',
-                type: 'audio'
+            playlistData: {
+                name,
+                total: displayTotal,
+                tracks: selectedTracks,
+                trackRange: range || undefined
             },
-            playlistData: playlistState as any,
             expiresAt: Date.now() + 600000
         })
 
-        const menuText = `📦 Playlist detected: ${name} (${displayTotal} tracks)${label}
+        const menuText = `📦 Playlist detected: *${name}* (${displayTotal} tracks)${label}
 
 Choose how you want it:
 

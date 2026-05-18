@@ -24,7 +24,8 @@ interface MediaMenuState {
     playlistData?: {
         name: string
         total: number
-        tracks: { url: string; title: string; artist: string; trackName: string }[]
+        tracks: any[]
+        ytResults?: { url: string; title: string; artist: string; trackName: string }[]
         trackRange?: { start: number; end: number }
     }
 }
@@ -226,6 +227,7 @@ Reply with a number.`
         handled: boolean
         response?: string
         sendNow?: { mode: string; media: any }
+        playlistNow?: { selection: string; data: any }
         clearState?: boolean
     }> {
         const state = await this.getMenuState(userJid)
@@ -252,6 +254,31 @@ Reply with a number.`
 
         if (!/^\d+$/.test(trimmed)) {
             return { handled: false }
+        }
+
+        if (state.step === 'playlistDelivery') {
+            if (trimmed === '1') {
+                const selectionText = '1 - Stream one by one (audio)'
+                const dataWithSelection = {
+                    ...state.playlistData,
+                    _selectionNote: `📥 You selected: *${selectionText}*. Now downloading the audio...`
+                }
+                return {
+                    handled: true,
+                    playlistNow: { selection: trimmed, data: { ...state.playlistData, selectionNote: `Option 1: Stream one by one` } },
+                    response: `📥 You selected *Option 1*: Stream one by one (audio). Bot is now downloading the audio...`,
+                    clearState: true
+                }
+            }
+            if (trimmed === '2') {
+                return {
+                    handled: true,
+                    playlistNow: { selection: trimmed, data: { ...state.playlistData, selectionNote: `Option 2: Download as ZIP` } },
+                    response: `📥 You selected *Option 2*: Download as ZIP file. Bot is now downloading and packaging the tracks...`,
+                    clearState: true
+                }
+            }
+            return { handled: true, response: 'Reply with 1 for Streaming, 2 for ZIP, or 0 to Cancel.' }
         }
 
         if (state.step !== 'format') {
