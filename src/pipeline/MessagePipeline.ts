@@ -267,7 +267,7 @@ export default class MessagePipeline {
             const archive = archiver('zip', { zlib: { level: 9 } })
             const chunks: Buffer[] = []
             
-            archive.on('data', (chunk) => chunks.push(chunk))
+            archive.on('data', (chunk: Buffer) => chunks.push(chunk))
 
             for (let i = 0; i < total; i++) {
                 const track = tracks[i]
@@ -306,7 +306,7 @@ export default class MessagePipeline {
             
             const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
                 archive.on('end', () => resolve(Buffer.concat(chunks)))
-                archive.on('error', (err) => {
+                archive.on('error', (err: Error) => {
                     console.error(`[Spotify ZIP] ARCHIVE ERROR: ${err.message}`)
                     reject(err)
                 })
