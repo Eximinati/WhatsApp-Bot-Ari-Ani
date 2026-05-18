@@ -1,17 +1,26 @@
 import { Schema, model } from 'mongoose'
-import { ISessionModel } from '../../../typings/index.js'
 
 const SessionSchema = new Schema({
-    ID: {
+    sessionId: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        index: true
     },
     session: {
-        type: Object,
-        required: false,
-        unique: true
+        type: String,
+        default: ""
+    },
+    creds: {
+        type: String,
+        default: ""
+    },
+    encryptionKey: {
+        type: String,
+        default: ""
     }
+}, {
+    timestamps: true
 })
 
-export default model<ISessionModel>('session', SessionSchema)
+export default model('Session', SessionSchema)

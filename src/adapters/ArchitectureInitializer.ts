@@ -250,7 +250,7 @@ function registerDispatcherShadow(client: RuntimeClient, ctx: ArchitectureContex
 
                 client.log(`[execution-start] ${executionId} received`)
 
-                const parseResult = parseCommandIndependently(message.text, configPrefix)
+                const parseResult = parseCommandIndependently(message.content, configPrefix)
                 const canonical = parseResult.command
 
                 if (!canonical || !ctx.messageDispatcher.isOwnedByDispatcher(canonical)) {
@@ -289,7 +289,7 @@ function registerDispatcherShadow(client: RuntimeClient, ctx: ArchitectureContex
                             args: parseResult.args,
                             flags: [],
                             joined: parseResult.args.join(' '),
-                            raw: message.text ?? ''
+                            raw: message.content ?? ''
                         }
                     )
 
@@ -316,7 +316,7 @@ function registerDispatcherShadow(client: RuntimeClient, ctx: ArchitectureContex
 }
 
 interface ShadowMessage {
-    text: string | null
+    content: string | null
     command: string | null
     commandPrefix: string | null
     chatType: string

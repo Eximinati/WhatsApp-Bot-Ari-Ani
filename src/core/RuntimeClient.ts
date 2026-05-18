@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
-import { existsSync, mkdirSync } from 'fs'
-import { promises as fsPromises } from 'fs'
+import { existsSync, mkdirSync, promises as fsPromises } from 'fs'
 import { join } from 'path'
+import crypto from 'crypto'
 import { Boom } from '@hapi/boom'
 import qrcode from 'qrcode'
 import axios from 'axios'
@@ -9,7 +9,6 @@ import pino from 'pino'
 import NodeCache from 'node-cache'
 import {
     makeWASocket,
-    useMultiFileAuthState,
     fetchLatestBaileysVersion,
     Browsers,
     DisconnectReason,
@@ -32,6 +31,7 @@ import {
     type ConnectionState,
     type WAVersion
 } from 'baileys'
+import { MongoAuthStore } from './MongoAuth.js'
 
 import DatabaseHandler from '../pipeline/DataStore.js'
 import ChatAI from './ChatAI.js'
@@ -278,27 +278,40 @@ export default class RuntimeClient extends EventEmitter {
         }
     }
 
+    private authSession: Awaited<ReturnType<MongoAuthStore['getAuthState']>> | null = null
+
     connect = async (): Promise<void> => {
         if (this.sock) {
             this.disposeSocket()
         }
-        
-        const sessionDir = join(process.cwd(), 'sessions', this.config.session)
-        if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true })
-        const { state: authState, saveCreds } = await useMultiFileAuthState(sessionDir)
+
+        const getEncryptionKey = (): string => {
+            const existing = process.env.APP_ENCRYPTION_KEY
+            if (existing) return existing
+            const generated = crypto.randomBytes(32).toString('hex')
+            console.log(`[MongoAuth] APP_ENCRYPTION_KEY auto-generated: ${generated}`)
+            console.log(`[MongoAuth] Set APP_ENCRYPTION_KEY env var to persist this key across restarts.`)
+            return generated
+        }
+        const encryptionKey = getEncryptionKey()
+        const authStore = new MongoAuthStore({
+            sessionId: this.config.session,
+            logger: this.logger,
+            encryptionKey
+        })
+        this.authSession = await authStore.getAuthState()
+        const { state: authState, saveCreds } = this.authSession
+
         const { version, isLatest } = await fetchLatestBaileysVersion()
         this.log(`Using Baileys WA v${version.join('.')} (latest: ${isLatest})`)
 
         this.sock = makeWASocket({
             version: version as WAVersion,
-            auth: authState,
+            auth: authState as never,
             logger: this.logger,
             browser: Browsers.appropriate('Ari-Ani'),
             getMessage: this.getMessage,
             cachedGroupMetadata: this.cachedGroupMetadata,
-            // node-cache satisfies the CacheStore shape Baileys actually uses; the
-            // typed `PossiblyExtendedCacheStore` declares async mget/mset which
-            // node-cache implements synchronously. Cast through unknown to bridge.
             msgRetryCounterCache: this.msgRetryCounterCache as unknown as never,
             userDevicesCache: this.userDevicesCache as unknown as never,
             shouldIgnoreJid: this.shouldIgnoreJid,
@@ -458,9 +471,18 @@ export default class RuntimeClient extends EventEmitter {
         } else if (connection === 'close') {
             const code = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode
             const shouldReconnect = code !== DisconnectReason.loggedOut
+
+            const shouldClearSession = code === DisconnectReason.loggedOut || code === DisconnectReason.badSession
+            if (shouldClearSession) {
+                this.log('Session became invalid, clearing auth state...', true)
+                if (this.authSession) {
+                    await this.authSession.clear()
+                }
+            }
+
             this.log(
                 `Connection closed${code ? ` (code ${code})` : ''}. ${
-                    shouldReconnect ? 'Reconnecting...' : 'Logged out — delete sessions/ to re-pair.'
+                    shouldReconnect ? 'Reconnecting...' : 'Logged out — auth cleared, will re-pair on restart.'
                 }`,
                 !shouldReconnect
             )
