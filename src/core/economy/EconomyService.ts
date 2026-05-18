@@ -49,7 +49,7 @@ import { REWARD_CAPS } from './types.js'
 
 // ── Internal progression shape ─────────────────────────────────────────
 
-interface IProgression {
+    interface IProgression {
     faction: IFactionInfo | null
     job: IEconomyJob | null
     equippedTool: IEconomyShopItem | null
