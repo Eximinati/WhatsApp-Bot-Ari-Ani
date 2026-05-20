@@ -88,6 +88,8 @@ export default class Command extends CommandModule {
                 reasonParts.join('|').trim() || ''
         }).save()
 
+        this.handler.invalidateDisabledCommandCache(cmd.config.command)
+
         const text =
 `⚙️ COMMAND DISABLED
 

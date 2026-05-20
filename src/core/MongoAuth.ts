@@ -4,9 +4,16 @@ import SessionKeyModel from './Mongo/Models/SessionKey.js'
 import { BufferJSON } from '../utils/buffer-json.js'
 import { decryptString, encryptString } from '../utils/secure-store.js'
 
+let authPersistCount = 0
+let authPersistDuration = 0
+
+export function getAuthMetrics() {
+    return { persistCount: authPersistCount, totalDuration: authPersistDuration }
+}
+
 export class MongoAuthStore {
     private sessionId: string
-    private logger: { warn: (obj: object, msg: string) => void }
+    private logger: { warn: (obj: object, msg: string) => void; info?: (obj: object, msg: string) => void }
     private encryptionKey: string
     private keyMap: Record<string, string> = {
         "pre-key": "preKeys",
@@ -22,7 +29,7 @@ export class MongoAuthStore {
     }
     private reverseKeyMap: Record<string, string>
 
-    constructor({ sessionId, logger, encryptionKey }: { sessionId: string; logger: { warn: (obj: object, msg: string) => void }; encryptionKey: string }) {
+    constructor({ sessionId, logger, encryptionKey }: { sessionId: string; logger: { warn: (obj: object, msg: string) => void; info?: (obj: object, msg: string) => void }; encryptionKey: string }) {
         this.sessionId = sessionId
         this.logger = logger
         this.encryptionKey = encryptionKey
@@ -161,11 +168,14 @@ export class MongoAuthStore {
     }
 
     async persistState({ creds, keys, clearLegacyStorage = false }: { creds: unknown; keys: Record<string, Record<string, unknown>>; clearLegacyStorage?: boolean }) {
+        const start = Date.now()
         const payload = encryptString(JSON.stringify({ creds, keys }, BufferJSON.replacer, 2), this.encryptionKey)
         await SessionModel.updateOne(
             { sessionId: this.sessionId },
             { $set: { session: payload, creds: "", encryptionKey: this.encryptionKey } }
         )
+        authPersistCount++
+        authPersistDuration += Date.now() - start
         if (clearLegacyStorage) {
             await SessionKeyModel.deleteMany({ sessionId: this.sessionId })
         }

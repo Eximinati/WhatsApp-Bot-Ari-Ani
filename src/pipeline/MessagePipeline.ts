@@ -10,99 +10,181 @@ import archiver from 'archiver'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+let mongoQueryCount = 0
+let messageProcessDuration = 0
+let messagesProcessed = 0
+
+export function getPipelineMetrics() {
+    return { mongoQueries: mongoQueryCount, avgDuration: messagesProcessed > 0 ? Math.round(messageProcessDuration / messagesProcessed) : 0, messagesProcessed }
+}
+
 export default class MessagePipeline {
     commands = new Map<string, ICommand>()
     aliases = new Map<string, ICommand>()
+    private disabledCommandsCache = new Map<string, { disabled: boolean; reason?: string }>()
     constructor(public client: RuntimeClient) {}
 
     handleMessage = async (M: ISimplifiedMessage): Promise<void> => {
-        // For messages sent from the bot's own phone, override the displayed
-        // username so logs make sense. We DO want to process these — they let
-        // the operator drive the bot from their own WhatsApp client. The
-        // infinite-loop protection is in WAClient.sentByBot, which strips the
-        // bot's own outbound message echoes before they reach this handler.
-        if (M.WAMessage.key?.fromMe) {
-            M.sender.jid = this.client.user.jid
-            M.sender.username =
-                this.client.user.name || this.client.user.vname || this.client.user.short || 'Ari-Ani Bot'
-        }
+        const pipelineStart = performance.now()
+        let timing: Record<string, number> = {}
+        try {
+            if ((M as any)._pipelineProcessed) return
+            ;(M as any)._pipelineProcessed = true
 
-        if (M.from.includes('status')) return void null
-        const { args, groupMetadata, sender } = M
-        if (M.chat === 'dm' && !M.groupMetadata) return void null
-
-        // Fetch group data only when we actually need it (moderation / command gating).
-        // This avoids a MongoDB hit on every single DM and non-command message.
-        const groupAuth = async (): Promise<{ mod: boolean; cmd: boolean }> => {
-            if (!M.groupMetadata) return { mod: false, cmd: true }
-            const gd = await this.client.getGroupData(M.from)
-            return { mod: !!gd.mod, cmd: !!gd.cmd }
-        }
-
-        // Moderation: only for group messages + bot is admin.
-        if (M.groupMetadata && this.client.isBotAdmin(M.groupMetadata)) {
-            const { mod } = await groupAuth()
-            if (mod) this.moderate(M)
-        }
-
-        if (!args[0] || !args[0].startsWith(this.client.config.prefix)) {
-            // New unified menu handler
-            const menuHandled = await this.client.menus.handleReply(M)
-            if (menuHandled) return
-
-            // Non-command message. In DMs where a mod has enabled chat for this
-            // user, route into the LLM. Group messages without a prefix are never
-            // auto-answered (would spam unrelated chatter).
-            if (
-                M.chat === 'dm' &&
-                !M.WAMessage.key?.fromMe &&
-                this.client.isFeature('chatbot')
-            ) {
-                await this.handleAutoChat(M)
+            const t0 = performance.now()
+            // For messages sent from the bot's own phone, override the displayed
+            // username so logs make sense. We DO want to process these — they let
+            // the operator drive the bot from their own WhatsApp client. The
+            // infinite-loop protection is in WAClient.sentByBot, which strips the
+            // bot's own outbound message echoes before they reach this handler.
+            if (M.WAMessage.key?.fromMe) {
+                M.sender.jid = this.client.user.jid
+                M.sender.username =
+                    this.client.user.name || this.client.user.vname || this.client.user.short || 'Ari-Ani Bot'
             }
-            return void this.client.log(
-                `MSG from ${sender.username} in ${groupMetadata?.subject || 'DM'}`
-            )
-        }
-        const cmd = args[0].slice(this.client.config.prefix.length).toLowerCase()
-        const allowedCommands = ['activate', 'deactivate', 'act', 'deact']
-        if (!(allowedCommands.includes(cmd) || (await groupAuth()).cmd))
-            return void this.client.log(
+            timing.fromMeCheck = performance.now() - t0
+
+            if (M.from.includes('status')) return void null
+            const { args, groupMetadata, sender } = M
+            if (M.chat === 'dm' && !M.groupMetadata) return void null
+
+            const t1 = performance.now()
+            // Deduplicate getUser() - resolve once per message
+            let cachedUser: Awaited<ReturnType<RuntimeClient['getUser']>> | null = null
+            const getUserOnce = async () => {
+                if (!cachedUser) {
+                    const uStart = performance.now()
+                    cachedUser = await this.client.getUser(M.sender.jid)
+                    timing.getUser = (timing.getUser || 0) + (performance.now() - uStart)
+                    mongoQueryCount++
+                }
+                return cachedUser
+            }
+
+            // Fetch group data only when we actually need it (moderation / command gating).
+            // Deduplicate groupAuth() - resolve once per message
+            let cachedGroupAuth: { mod: boolean; cmd: boolean } | null = null
+            const groupAuth = async (): Promise<{ mod: boolean; cmd: boolean }> => {
+                if (cachedGroupAuth) return cachedGroupAuth
+                if (!M.groupMetadata) {
+                    cachedGroupAuth = { mod: false, cmd: true }
+                    return cachedGroupAuth
+                }
+                const gStart = performance.now()
+                const gd = await this.client.getGroupData(M.from)
+                timing.getGroupData = (timing.getGroupData || 0) + (performance.now() - gStart)
+                mongoQueryCount++
+                cachedGroupAuth = { mod: !!gd.mod, cmd: !!gd.cmd }
+                return cachedGroupAuth
+            }
+            timing.initDedupe = performance.now() - t1
+
+            // Moderation: only for group messages + bot is admin.
+            const modStart = performance.now()
+            if (M.groupMetadata && this.client.isBotAdmin(M.groupMetadata)) {
+                const { mod } = await groupAuth()
+                if (mod) this.moderate(M)
+            }
+            timing.moderation = performance.now() - modStart
+
+            if (!args[0] || !args[0].startsWith(this.client.config.prefix)) {
+                // New unified menu handler
+                const menuStart = performance.now()
+                const menuHandled = await this.client.menus.handleReply(M)
+                timing.menuCheck = performance.now() - menuStart
+                if (menuHandled) return
+
+                // Non-command message. In DMs where a mod has enabled chat for this
+                // user, route into the LLM. Group messages without a prefix are never
+                // auto-answered (would spam unrelated chatter).
+                if (
+                    M.chat === 'dm' &&
+                    !M.WAMessage.key?.fromMe &&
+                    this.client.isFeature('chatbot')
+                ) {
+                    const chatStart = performance.now()
+                    await this.handleAutoChat(M, getUserOnce)
+                    timing.autoChat = performance.now() - chatStart
+                }
+                return void this.client.log(
+                    `MSG from ${sender.username} in ${groupMetadata?.subject || 'DM'}`
+                )
+            }
+            const cmd = args[0].slice(this.client.config.prefix.length).toLowerCase()
+            const allowedCommands = ['activate', 'deactivate', 'act', 'deact']
+            const cmdCheckStart = performance.now()
+            if (!(allowedCommands.includes(cmd) || (await groupAuth()).cmd))
+                return void this.client.log(
+                    `CMD ${args[0]}[${args.length - 1}] from ${sender.username} in ${groupMetadata?.subject || 'DM'}`
+                )
+            timing.cmdCheck = performance.now() - cmdCheckStart
+
+            const command = this.commands.get(cmd) || this.aliases.get(cmd)
+            this.client.log(
                 `CMD ${args[0]}[${args.length - 1}] from ${sender.username} in ${groupMetadata?.subject || 'DM'}`
             )
-        const command = this.commands.get(cmd) || this.aliases.get(cmd)
-        this.client.log(
-            `CMD ${args[0]}[${args.length - 1}] from ${sender.username} in ${groupMetadata?.subject || 'DM'}`
-        )
-        if (!command) return void M.reply('No Command Found! Try using one from the help list.')
-        const user = await this.client.getUser(M.sender.jid)
-        if (user.ban) return void M.reply("You're Banned from using commands.")
-        const state = await this.client.DB.disabledcommands.findOne({ command: command.config.command })
-        if (state) return void M.reply(`❌ This command is disabled${state.reason ? ` for ${state.reason}` : ''}`)
-        // DM is allowed for every command. Commands that need group context
-        // (admin checks, group metadata) fail gracefully on their own — see
-        // adminOnly below and individual command guards for !M.groupMetadata.
-        if (command.config?.modsOnly && !this.client.isMod(M.sender.jid)) {
-            return void M.reply(`Only MODS are allowed to use this command`)
-        }
-        if (command.config?.adminOnly && !M.sender.isAdmin)
-            return void M.reply(`Only admins are allowed to use this command`)
-        try {
-            await command.run(M, this.parseArgs(args))
-            if (command.config.baseXp) {
-                await this.client.setXp(M.sender.jid, command.config.baseXp || 10, 50)
+            if (!command) return void M.reply('No Command Found! Try using one from the help list.')
+
+            // Use cached user
+            const userStart = performance.now()
+            const user = await getUserOnce()
+            timing.userFetch = performance.now() - userStart
+            if (user.ban) return void M.reply("You're Banned from using commands.")
+
+            // Use cached disabled commands check
+            const cmdName = command.config.command
+            const disabledStart = performance.now()
+            let disabledState = this.disabledCommandsCache.get(cmdName)
+            if (disabledState === undefined) {
+                const result = await this.client.DB.disabledcommands.findOne({ command: cmdName }).lean()
+                mongoQueryCount++
+                disabledState = result ? { disabled: true, reason: result.reason } : { disabled: false }
+                this.disabledCommandsCache.set(cmdName, disabledState)
             }
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err)
-            return void this.client.log(message, true)
+            timing.disabledCheck = performance.now() - disabledStart
+            if (disabledState.disabled) return void M.reply(`❌ This command is disabled${disabledState.reason ? ` for ${disabledState.reason}` : ''}`)
+
+            // DM is allowed for every command. Commands that need group context
+            // (admin checks, group metadata) fail gracefully on their own — see
+            // adminOnly below and individual command guards for !M.groupMetadata.
+            if (command.config?.modsOnly && !this.client.isMod(M.sender.jid)) {
+                return void M.reply(`Only MODS are allowed to use this command`)
+            }
+            if (command.config?.adminOnly && !M.sender.isAdmin)
+                return void M.reply(`Only admins are allowed to use this command`)
+            const cmdRunStart = performance.now()
+            try {
+                await command.run(M, this.parseArgs(args))
+                timing.commandRun = performance.now() - cmdRunStart
+                if (command.config.baseXp) {
+                    const xpStart = performance.now()
+                    await this.client.setXp(M.sender.jid, command.config.baseXp || 10, 50)
+                    timing.xpSet = performance.now() - xpStart
+                }
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : String(err)
+                return void this.client.log(message, true)
+            }
+        } finally {
+            const totalDuration = performance.now() - pipelineStart
+            messageProcessDuration += totalDuration
+            messagesProcessed++
+            
+            // Build detailed timing string
+            const timingParts = Object.entries(timing).map(([k, v]) => `${k}:${Math.round(v)}ms`).join(', ')
+            this.client.log(`[PIPELINE_TIMING] total=${Math.round(totalDuration)}ms ${timingParts}`)
+            
+            if (totalDuration > 1000) {
+                this.client.log(`Slow message pipeline: ${Math.round(totalDuration)}ms`, true)
+            }
         }
     }
 
     /** DM auto-reply path: routes the user's message (text or voice note) into
      * the LLM provider chain. Quota-gated; opt-in per user via `!chat start`. */
-    handleAutoChat = async (M: ISimplifiedMessage): Promise<void> => {
-        const user = await this.client.getUser(M.sender.jid)
-        if (user.ban) return
+    handleAutoChat = async (M: ISimplifiedMessage, getUserOnce: () => Promise<any>): Promise<void> => {
+        const user = await getUserOnce()
+        if (!user || user.ban) return
         if (!user.chatEnabled) return
 
         // Audio voice notes go to a multimodal provider with the raw buffer; text
@@ -410,6 +492,23 @@ export default class MessagePipeline {
         this.client.setFeatures().then(() => {
             this.client.log(`Loaded ${this.client.features.size} features`)
         })
+    }
+
+    loadDisabledCommandsCache = async (): Promise<void> => {
+        this.client.log('Loading disabled commands cache...')
+        const docs = await this.client.DB.disabledcommands.find().lean()
+        for (const doc of docs) {
+            this.disabledCommandsCache.set(doc.command, { disabled: true, reason: doc.reason })
+        }
+        this.client.log(`Cached ${this.disabledCommandsCache.size} disabled commands`)
+    }
+
+    invalidateDisabledCommandCache = (command?: string): void => {
+        if (command) {
+            this.disabledCommandsCache.delete(command)
+        } else {
+            this.disabledCommandsCache.clear()
+        }
     }
 
     parseArgs = (args: string[]): IParsedArgs => {

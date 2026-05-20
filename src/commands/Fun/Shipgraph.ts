@@ -50,7 +50,7 @@ export default class Command extends CommandModule {
             ? { members: { $all: [focal], $nin: [botJid] } }
             : { members: focal }
 
-        const bonds = (await this.client.DB.bond.find(query)) as IBondModel[]
+        const bonds = (await this.client.DB.bond.find(query).lean()) as unknown as IBondModel[]
 
         if (!bonds.length) {
             await M.reply(

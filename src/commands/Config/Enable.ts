@@ -83,6 +83,8 @@ export default class Command extends CommandModule {
             { command: cmd.config.command }
         )
 
+        this.handler.invalidateDisabledCommandCache(cmd.config.command)
+
         const text =
 `⚙️ COMMAND ENABLED
 

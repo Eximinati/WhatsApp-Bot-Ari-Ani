@@ -74,6 +74,7 @@ const start = async (): Promise<void> => {
         commands: async () => {
             await messagePipeline.loadCommands()
             client.log(`Loaded ${messagePipeline.commands.size} commands`)
+            await messagePipeline.loadDisabledCommandsCache()
         },
         assets: async () => {
             resourceLoader.loadAssets()
@@ -112,6 +113,7 @@ const start = async (): Promise<void> => {
             }, { category: 'handler', severity: 'high', source: 'client.on:incoming-call', phase: 'runtime' }))
 
             client.on('new-message', safeAsyncVoid(async (M: unknown) => {
+                const msgStart = performance.now()
                 const simplified = M as import('./typings/message.js').ISimplifiedMessage
                 const rawMessage = simplified?.WAMessage
                 const validated = rawMessage ? archContext.legacyAdapter.safeNormalize(rawMessage) : null
@@ -120,23 +122,31 @@ const start = async (): Promise<void> => {
                     return
                 }
 
+                const normStart = performance.now()
                 const normalized = await archContext.serializer.normalize(validated)
+                const normEnd = performance.now()
                 archContext.serializer.setUserJid(client.user.jid)
 
                 const mode = archContext.runtimeKernel?.getMode() ?? archContext.runtimeMode
+                const kernelStart = performance.now()
+                let kernelEnd = kernelStart
 
                 if (archContext.runtimeKernel && mode !== 'LEGACY_ONLY') {
                     const result = await archContext.runtimeKernel.handleMessage(normalized)
+                    kernelEnd = performance.now()
                     if (result && result.success) {
-                        client.log(`[kernel] ${normalized.command} -> SUCCESS (${result.durationMs}ms, hash: ${result.finalStateHash})`)
+                        client.log(`[kernel] ${normalized.command} -> SUCCESS (${result.durationMs}ms, hash: ${result.finalStateHash}) [total: ${Math.round(performance.now() - msgStart)}ms, serialization: ${Math.round(normEnd - normStart)}ms, kernel: ${Math.round(kernelEnd - kernelStart)}ms]`)
                         return
                     }
                     if (result) {
-                        client.log(`[kernel] ${normalized.command} -> FAILED (${result.durationMs}ms) - falling back to legacy`)
+                        client.log(`[kernel] ${normalized.command} -> FAILED (${result.durationMs}ms) - falling back to legacy [kernel: ${Math.round(kernelEnd - kernelStart)}ms]`)
                     }
                 }
 
+                const legacyStart = performance.now()
                 await messagePipeline.handleMessage(M as any)
+                const legacyEnd = performance.now()
+                client.log(`[TIMING] Message processed: total=${Math.round(performance.now() - msgStart)}ms, serialization=${Math.round(normEnd - normStart)}ms, kernel=${Math.round(kernelEnd - kernelStart)}ms, legacyPipeline=${Math.round(legacyEnd - legacyStart)}ms`)
             }, { category: 'handler', severity: 'high', source: 'client.on:new-message', phase: 'runtime' }))
 
             client.on('group-participants-update', safeAsyncVoid(async (event: unknown) => {

@@ -48,7 +48,7 @@ export default class Command extends CommandModule {
             ? { members: { $in: scopeArr, $ne: botJid } }
             : { members: { $in: scopeArr } }
 
-        const bondDocs = (await this.client.DB.bond.find(query)) as IBondModel[]
+        const bondDocs = (await this.client.DB.bond.find(query).lean()) as unknown as IBondModel[]
 
         const bonds = bondDocs.filter((b) =>
             b.members.every((m) => scope.has(m))

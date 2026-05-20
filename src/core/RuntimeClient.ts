@@ -376,7 +376,12 @@ export default class RuntimeClient extends EventEmitter {
                 // CDN garbage-collects view-once media quickly, so a deferred
                 // !retrieve on an old message will fail without this cache.
                 this.captureViewOnce(m as WAMessage).catch(() => undefined)
-                this.emitNewMessage(this.simplifyMessage(m as WAMessage))
+                const simplifyStart = performance.now()
+                this.emitNewMessage(this.simplifyMessage(m as WAMessage).then((simplified) => {
+                    const simplifyDuration = performance.now() - simplifyStart
+                    ;(simplified as any)._simplifyDuration = simplifyDuration
+                    return simplified
+                }))
             }
         })
 
@@ -1057,7 +1062,7 @@ export default class RuntimeClient extends EventEmitter {
         )) as IFeatureModel
 
     setFeatures = async (): Promise<void> => {
-        const dbfeatures = await this.DB.feature.find()
+        const dbfeatures = await this.DB.feature.find().lean()
         for (const feature of dbfeatures) this.features.set(feature.feature.toString(), feature.state)
     }
 

@@ -481,6 +481,7 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
     registerMiddlewareShadow(client, ctx)
 
     client.on('new-message', async (M: unknown) => {
+        const bridgeStart = performance.now()
         const simplified = M as import('../typings/message.js').ISimplifiedMessage
         const rawMessage = simplified?.WAMessage
         const validated = rawMessage ? ctx.legacyAdapter.safeNormalize(rawMessage) : null
@@ -489,7 +490,9 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
             return
         }
 
+        const normStart = performance.now()
         const normalized = await ctx.serializer.normalize(validated)
+        const normDuration = performance.now() - normStart
         ctx.serializer.setUserJid(client.user.jid)
 
         if (normalized.chatJid.includes('status')) return
@@ -502,14 +505,17 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
             }
         }
 
+        const busStart = performance.now()
         const result = await ctx.eventBus.emitRaw(
             EventType.RUNTIME_MESSAGE_RECEIVED,
             normalized,
             { source: 'legacy-bridge' }
         )
+        const busDuration = performance.now() - busStart
 
         const handlers = ctx.eventBus.getSubscriptions(EventType.RUNTIME_MESSAGE_RECEIVED)
-        client.log(`Event bridge: ${EventType.RUNTIME_MESSAGE_RECEIVED} → ${handlers.length} subscribers (errors: ${result.errorCount})`)
+        const totalDuration = performance.now() - bridgeStart
+        client.log(`[EVENT_BRIDGE] total=${Math.round(totalDuration)}ms normalize=${Math.round(normDuration)}ms eventBus=${Math.round(busDuration)}ms handlers=${handlers.length} errors=${result.errorCount}`)
     })
 
     client.on('group-participants-update', async (event: any) => {

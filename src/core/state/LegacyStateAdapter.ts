@@ -23,7 +23,7 @@ export class LegacyStateAdapter {
 
     async getUserState(jid: string): Promise<UserState | null> {
         try {
-            const user = await this.db.user.findOne({ jid })
+            const user = await this.db.user.findOne({ jid }).lean()
             if (!user) return null
             return Object.freeze({
                 jid: user.jid,
@@ -40,7 +40,7 @@ export class LegacyStateAdapter {
 
     async getGroupState(jid: string): Promise<GroupState | null> {
         try {
-            const group = await this.db.group.findOne({ jid })
+            const group = await this.db.group.findOne({ jid }).lean()
             if (!group) return null
             return Object.freeze({
                 jid: group.jid,
@@ -62,7 +62,7 @@ export class LegacyStateAdapter {
             const disabled = await this.db.disabledcommands.findOne({
                 command,
                 jid: chatJid
-            })
+            }).lean()
             return !!disabled
         } catch {
             return false
@@ -71,7 +71,7 @@ export class LegacyStateAdapter {
 
     async isFeatureEnabled(feature: string): Promise<boolean> {
         try {
-            const featureDoc = await this.db.feature.findOne({ name: feature })
+            const featureDoc = await this.db.feature.findOne({ name: feature }).lean()
             return featureDoc?.enabled ?? false
         } catch {
             return false
