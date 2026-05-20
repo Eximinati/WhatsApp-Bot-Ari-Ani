@@ -130,23 +130,30 @@ const start = async (): Promise<void> => {
                 const mode = archContext.runtimeKernel?.getMode() ?? archContext.runtimeMode
                 const kernelStart = performance.now()
                 let kernelEnd = kernelStart
+                let kernelHandled = false
+                let fallbackUsed = false
 
                 if (archContext.runtimeKernel && mode !== 'LEGACY_ONLY') {
                     const result = await archContext.runtimeKernel.handleMessage(normalized)
                     kernelEnd = performance.now()
                     if (result && result.success) {
-                        client.log(`[kernel] ${normalized.command} -> SUCCESS (${result.durationMs}ms, hash: ${result.finalStateHash}) [total: ${Math.round(performance.now() - msgStart)}ms, serialization: ${Math.round(normEnd - normStart)}ms, kernel: ${Math.round(kernelEnd - kernelStart)}ms]`)
+                        kernelHandled = true
+                        client.log(`[kernel] ${normalized.command} -> SUCCESS (${result.durationMs}ms, hash: ${result.finalStateHash}) [total: ${Math.round(performance.now() - msgStart)}ms, serialization: ${Math.round(normEnd - normStart)}ms, kernel: ${Math.round(kernelEnd - kernelStart)}ms, path: kernelHandled=true, fallbackUsed=false]`)
                         return
                     }
                     if (result) {
-                        client.log(`[kernel] ${normalized.command} -> FAILED (${result.durationMs}ms) - falling back to legacy [kernel: ${Math.round(kernelEnd - kernelStart)}ms]`)
+                        fallbackUsed = true
+                        client.log(`[kernel] ${normalized.command} -> FAILED (${result.durationMs}ms) - falling back to legacy [kernel: ${Math.round(kernelEnd - kernelStart)}ms, path: kernelHandled=false, fallbackUsed=true]`)
                     }
                 }
 
                 const legacyStart = performance.now()
                 await messagePipeline.handleMessage(M as any)
                 const legacyEnd = performance.now()
-                client.log(`[TIMING] Message processed: total=${Math.round(performance.now() - msgStart)}ms, serialization=${Math.round(normEnd - normStart)}ms, kernel=${Math.round(kernelEnd - kernelStart)}ms, legacyPipeline=${Math.round(legacyEnd - legacyStart)}ms`)
+                if (!kernelHandled && !fallbackUsed) {
+                    fallbackUsed = true
+                }
+                client.log(`[TIMING] Message processed: total=${Math.round(performance.now() - msgStart)}ms, serialization=${Math.round(normEnd - normStart)}ms, kernel=${Math.round(kernelEnd - kernelStart)}ms, legacyPipeline=${Math.round(legacyEnd - legacyStart)}ms, path: kernelHandled=${kernelHandled}, fallbackUsed=${fallbackUsed}, eventBridgeAuditOnly=true`)
             }, { category: 'handler', severity: 'high', source: 'client.on:new-message', phase: 'runtime' }))
 
             client.on('group-participants-update', safeAsyncVoid(async (event: unknown) => {

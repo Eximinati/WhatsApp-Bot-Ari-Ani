@@ -478,7 +478,11 @@ function parseCommandIndependently(
 }
 
 export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContext): void {
-    registerMiddlewareShadow(client, ctx)
+    // PHASE 2A: Simplified to passive audit-only bridge
+    // - Removed duplicate serialization (message normalized in index.ts)
+    // - Removed dispatcher-shadow execution (kernel handles routing)
+    // - Removed middleware-shadow execution (redundant validation)
+    // - Now only emits audit events without processing
 
     client.on('new-message', async (M: unknown) => {
         const bridgeStart = performance.now()
@@ -486,7 +490,6 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
         const rawMessage = simplified?.WAMessage
         const validated = rawMessage ? ctx.legacyAdapter.safeNormalize(rawMessage) : null
         if (!validated) {
-            client.log('Event bridge: Invalid message payload skipped')
             return
         }
 
@@ -500,7 +503,6 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
         if (normalized.isFromMe) {
             const loopAllowed = ctx.circuitBreaker.allow(normalized.chatJid)
             if (!loopAllowed) {
-                client.log(`Circuit breaker blocked fromMe in ${normalized.chatJid}`)
                 return
             }
         }
@@ -509,13 +511,16 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
         const result = await ctx.eventBus.emitRaw(
             EventType.RUNTIME_MESSAGE_RECEIVED,
             normalized,
-            { source: 'legacy-bridge' }
+            { source: 'audit-bridge' }
         )
         const busDuration = performance.now() - busStart
 
         const handlers = ctx.eventBus.getSubscriptions(EventType.RUNTIME_MESSAGE_RECEIVED)
         const totalDuration = performance.now() - bridgeStart
-        client.log(`[EVENT_BRIDGE] total=${Math.round(totalDuration)}ms normalize=${Math.round(normDuration)}ms eventBus=${Math.round(busDuration)}ms handlers=${handlers.length} errors=${result.errorCount}`)
+
+        if (totalDuration > 50) {
+            client.log(`[EVENT_BRIDGE] audit: ${Math.round(totalDuration)}ms normalize=${Math.round(normDuration)}ms bus=${Math.round(busDuration)}ms handlers=${handlers.length}`)
+        }
     })
 
     client.on('group-participants-update', async (event: any) => {
