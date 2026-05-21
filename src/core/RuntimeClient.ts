@@ -165,7 +165,9 @@ export default class RuntimeClient extends EventEmitter {
 
     state: ConnectionStatus = 'connecting'
     QR?: Buffer
-    private logger = pino({ level: process.env.LOG_LEVEL || 'fatal' })
+    private logger = pino({
+        level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'warn')
+    })
     /** Guards against multiple concurrent reconnect attempts when WA fires
      * `connection.update {connection: 'close'}` twice in quick succession. */
     private isReconnecting = false

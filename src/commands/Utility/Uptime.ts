@@ -13,17 +13,17 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage, _parsedArgs: IParsedArgs): Promise<void> => {
-        const now = Date.now()
-        const start = (this.client as any).startTime || now
-        const diff = now - start
-        const d = Math.floor(diff / 86400000)
-        const h = Math.floor((diff % 86400000) / 3600000)
-        const m = Math.floor((diff % 3600000) / 60000)
-        const uptime = d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`
+        const uptimeSeconds = Math.floor(process.uptime())
+        const d = Math.floor(uptimeSeconds / 86400)
+        const h = Math.floor((uptimeSeconds % 86400) / 3600)
+        const m = Math.floor((uptimeSeconds % 3600) / 60)
+        const s = uptimeSeconds % 60
+        const uptime = d > 0 ? `${d}d ${h}h ${m}m ${s}s` : `${h}h ${m}m ${s}s`
         const mem = process.memoryUsage()
         const heap = Math.round(mem.heapUsed / 1024 / 1024)
         const total = Math.round(mem.heapTotal / 1024 / 1024)
-        let text = `╭──────────────────────────────╮\n│      📊  BOT STATUS             │\n├──────────────────────────────┤\n│ ✅ *Status:* Online             │\n│ ⏰ *Uptime:* ${uptime.padEnd(20).slice(0,20)}│\n│ 💾 *Memory:* ${heap}/${total} MB          │\n│ 👤 *Session:* ${(this.client.user?.name || 'Bot').padEnd(16).slice(0,16)}│\n╰──────────────────────────────╯`
+        const rss = Math.round(mem.rss / 1024 / 1024)
+        let text = `╭──────────────────────────────╮\n│      📊  BOT STATUS             │\n├──────────────────────────────┤\n│ ✅ *Status:* Online             │\n│ ⏰ *Uptime:* ${uptime.padEnd(20).slice(0,20)}│\n│ 💾 *Heap:* ${heap}/${total} MB             │\n│ 🧠 *RSS:* ${rss} MB                  │\n│ 👤 *Session:* ${(this.client.user?.name || 'Bot').padEnd(16).slice(0,16)}│\n╰──────────────────────────────╯`
         return void M.reply(text)
     }
 }

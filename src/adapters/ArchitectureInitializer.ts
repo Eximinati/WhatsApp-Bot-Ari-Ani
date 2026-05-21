@@ -67,6 +67,8 @@ export interface ArchitectureContext {
     executionCoordinator: ExecutionCoordinator
     runtimeKernel: RuntimeKernel | null
     runtimeMode: RuntimeMode
+    bridgeListenerCount: number
+    client: RuntimeClient
     transferOwnership: (command: string, owner: 'legacy' | 'dispatcher') => void
     getOwnership: (command: string) => 'legacy' | 'dispatcher'
     shouldBypassLegacy: (message: any) => OwnershipDecision
@@ -186,6 +188,8 @@ export function initializeArchitecture(client: RuntimeClient): ArchitectureConte
     }
     const getAuditLog = () => runtimeKernel.getAuditLog()
 
+    let bridgeListenerCount = 0
+
     architectureContext = {
         eventBus,
         middlewareChain,
@@ -197,6 +201,8 @@ export function initializeArchitecture(client: RuntimeClient): ArchitectureConte
         executionCoordinator,
         runtimeKernel,
         runtimeMode: RuntimeMode.HYBRID,
+        bridgeListenerCount,
+        client,
         transferOwnership,
         getOwnership,
         shouldBypassLegacy,
@@ -483,8 +489,17 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
     // - Removed dispatcher-shadow execution (kernel handles routing)
     // - Removed middleware-shadow execution (redundant validation)
     // - Now only emits audit events without processing
+    // - Listener count tracked to prevent duplicate bridge registration
 
-    client.on('new-message', async (M: unknown) => {
+if (ctx.bridgeListenerCount > 0) {
+        client.log(`[EventBridge] Already registered (${ctx.bridgeListenerCount}), skipping duplicate`)
+        return
+    }
+
+const bridgeListeners: Array<{ event: string; handler: (arg: any) => void }> = []
+    ;(client as any)._bridgeListeners = bridgeListeners
+
+    const bridgeListener = async (M: unknown) => {
         const bridgeStart = performance.now()
         const simplified = M as import('../typings/message.js').ISimplifiedMessage
         const rawMessage = simplified?.WAMessage
@@ -508,7 +523,7 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
         }
 
         const busStart = performance.now()
-        const result = await ctx.eventBus.emitRaw(
+        await ctx.eventBus.emitRaw(
             EventType.RUNTIME_MESSAGE_RECEIVED,
             normalized,
             { source: 'audit-bridge' }
@@ -521,37 +536,52 @@ export function createEventBridge(client: RuntimeClient, ctx: ArchitectureContex
         if (totalDuration > 50) {
             client.log(`[EVENT_BRIDGE] audit: ${Math.round(totalDuration)}ms normalize=${Math.round(normDuration)}ms bus=${Math.round(busDuration)}ms handlers=${handlers.length}`)
         }
-    })
+    }
 
-    client.on('group-participants-update', async (event: any) => {
-        const payload = {
-            jid: event.jid,
-            action: event.action,
-            participants: event.participants,
-            actor: event.actor || null
-        }
+    client.on('new-message', bridgeListener)
+    bridgeListeners.push({ event: 'new-message', handler: bridgeListener })
+    ctx.bridgeListenerCount++
 
+    const groupHandler = async (event: any) => {
         await ctx.eventBus.emitRaw(
             EventType.RUNTIME_GROUP_EVENT,
-            payload,
+            { jid: event.jid, action: event.action, participants: event.participants, actor: event.actor || null },
             { source: 'legacy-bridge' }
         )
-    })
+    }
+    client.on('group-participants-update', groupHandler)
+    bridgeListeners.push({ event: 'group-participants-update', handler: groupHandler })
+    ctx.bridgeListenerCount++
 
-    client.on('incoming-call', async (data: any) => {
-        await ctx.eventBus.emitRaw(
-            EventType.RUNTIME_CALL_INCOMING,
-            data,
-            { source: 'legacy-bridge' }
-        )
-    })
+    const callHandler = async (data: any) => {
+        await ctx.eventBus.emitRaw(EventType.RUNTIME_CALL_INCOMING, data, { source: 'legacy-bridge' })
+    }
+    client.on('incoming-call', callHandler)
+    bridgeListeners.push({ event: 'incoming-call', handler: callHandler })
+    ctx.bridgeListenerCount++
+
+    client.log(`[EventBridge] Registered ${ctx.bridgeListenerCount} listeners`)
 }
 
 export async function shutdownArchitecture(): Promise<void> {
     if (!architectureContext) return
 
-    await architectureContext.messageDispatcher.shutdown()
-    await architectureContext.container.shutdown()
+    const ctx = architectureContext
+    const archClient = ctx.client
+    const listeners = (archClient as any)._bridgeListeners
+    if (listeners && Array.isArray(listeners)) {
+        for (const { event, handler } of listeners) {
+            try { archClient.removeListener(event, handler) } catch { /* ignore */ }
+        }
+        ;(archClient as any)._bridgeListeners = []
+        ctx.client.log('[EventBridge] Cleanup verified on shutdown')
+    }
+
+    if (ctx.eventBus) ctx.eventBus.clearHistory()
+    if (ctx.middlewareChain) ctx.middlewareChain.clearDiagnostics()
+
+    await ctx.messageDispatcher.shutdown()
+    await ctx.container.shutdown()
 
     architectureContext = null
 }

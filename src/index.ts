@@ -1,5 +1,4 @@
 import { config } from 'dotenv'
-
 config()
 
 import mongoose from 'mongoose'
@@ -15,8 +14,97 @@ import { StartupManager } from './runtime/StartupManager.js'
 import { ErrorBoundary, safeAsyncVoid } from './runtime/ErrorBoundary.js'
 import { initializeArchitecture, createEventBridge, shutdownArchitecture } from './adapters/ArchitectureInitializer.js'
 import type { ParsedArgs } from './core/middleware/types.js'
+import { readdir, unlink } from 'fs/promises'
+import { tmpdir } from 'os'
+import path from 'path'
 
 if (!process.env.MONGO_URI) throw new Error('MONGO_URI environment variable is required')
+
+const MEMORY_WARNING_HEAP_PCT = 0.80
+const MEMORY_WARNING_RSS_MB = 512
+const DIAGNOSTICS_INTERVAL_MS = 5 * 60 * 1000
+
+function getDiagnostics(): Record<string, unknown> {
+    const mem = process.memoryUsage()
+    const mediaDiag = (client as any).mediaMenu?.getDiagnostics?.() ?? {}
+    const menuDiag = (client as any).menus?.getDiagnostics?.() ?? {}
+    const timerDiag = ((client as any).timerRegistry?.getDiagnostics?.() ?? null) ?? {}
+    const chatAi = (client as any).chatAI
+    const archCtx = (client as any).archContext
+    const eventBus = archCtx?.eventBus
+
+    return {
+        timestamp: Date.now(),
+        heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+        rssMB: Math.round(mem.rss / 1024 / 1024),
+        externalMB: Math.round((mem.external || 0) / 1024 / 1024),
+        pendingBuffers: mediaDiag.pendingBuffers ?? 0,
+        pendingCache: mediaDiag.pendingCache ?? 0,
+        cacheEvictions: mediaDiag.cacheEvictions ?? 0,
+        menuSessions: menuDiag.cachedUsers ?? 0,
+        chatStates: chatAi?.store?.size ?? 0,
+        contacts: client.contacts.size,
+        chats: client.chats.size,
+        timers: timerDiag.total ?? 0,
+        listenerCount: client.listenerCount('new-message'),
+        bridgeListeners: archCtx?.bridgeListenerCount ?? 0,
+        eventBusSubscribers: eventBus?.getSubscriberCount?.() ?? 0
+    }
+}
+
+function checkMemoryWarning(): void {
+    const mem = process.memoryUsage()
+    const heapTotal = mem.heapTotal / 1024 / 1024
+    const heapUsed = mem.heapUsed / 1024 / 1024
+    const rss = mem.rss / 1024 / 1024
+
+    if (heapUsed / heapTotal > MEMORY_WARNING_HEAP_PCT) {
+        console.error(`[MEMORY_WARNING] heapUsedMB=${Math.round(heapUsed)} rssMB=${Math.round(rss)} pct=${Math.round((heapUsed / heapTotal) * 100)}%`)
+    } else if (rss > MEMORY_WARNING_RSS_MB) {
+        console.warn(`[MEMORY_WARNING] rssMB=${Math.round(rss)} (threshold: ${MEMORY_WARNING_RSS_MB}MB)`)
+    }
+}
+
+setInterval(checkMemoryWarning, 60_000)
+
+function emitDiagnostics(): void {
+    const diag = getDiagnostics()
+    console.log(`[MEMORY_DIAGNOSTICS] ${JSON.stringify(diag)}`)
+
+    if (diag.listenerCount as number > 15) {
+        console.warn(`[LISTENER_WARNING] new-message has ${diag.listenerCount} listeners — possible duplicate registration`)
+    }
+}
+
+setInterval(emitDiagnostics, DIAGNOSTICS_INTERVAL_MS)
+
+async function cleanupStaleTempFiles(): Promise<void> {
+    const patterns = [/\.webp$/, /\.gif$/, /\.mp4$/, /\.wav$/, /\.in$/]
+    const maxAgeMs = 24 * 60 * 60 * 1000
+    const seen = new Set<string>()
+    let cleaned = 0
+
+    try {
+        const files = await readdir(tmpdir())
+        const now = Date.now()
+        for (const file of files) {
+            if (seen.has(file)) continue
+            seen.add(file)
+            if (!patterns.some(p => p.test(file))) continue
+            try {
+                const stat = await import('fs/promises').then(m => m.stat(path.join(tmpdir(), file)))
+                if (now - stat.mtimeMs > maxAgeMs) {
+                    await unlink(path.join(tmpdir(), file))
+                    cleaned++
+                }
+            } catch { /* ignore */ }
+        }
+        if (cleaned > 0) {
+            console.log(`[TEMP_CLEANUP] Removed ${cleaned} stale temp file(s) from tmpdir`)
+        }
+    } catch { /* ignore */ }
+}
 
 const client = new RuntimeClient({
     name: process.env.NAME || 'Ari-Ani',
@@ -44,6 +132,7 @@ const startupManager = StartupManager.getInstance()
 const errorBoundary = ErrorBoundary.getInstance()
 
 const archContext = initializeArchitecture(client)
+;(client as any).archContext = archContext
 
 shutdownManager.registerOwner({
     client,
@@ -59,6 +148,7 @@ ShutdownManager.setupSignalHandlers()
 new HttpServer(Number(process.env.PORT) || 4040, client)
 
 const start = async (): Promise<void> => {
+    await cleanupStaleTempFiles()
     await startupManager.start({
         environment: async () => {
             client.log('Startup: environment validated')

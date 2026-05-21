@@ -6,10 +6,16 @@ interface PendingMedia {
     command: string
     title?: string
     type: 'audio' | 'video'
+    addedAt: number
 }
 
+const PENDING_CACHE_MAX = 5000
+const PENDING_CACHE_TTL = 2000
+const PENDING_BUFFERS_MAX = 100
+const PENDING_BUFFERS_CLEANUP_MS = 5 * 60 * 1000
+
 const pendingCache = new Map<string, { hasPending: boolean; expiresAt: number }>()
-const CACHE_TTL = 2000
+let pendingCacheEvictions = 0
 
 interface MediaMenuState {
     step: string
@@ -86,9 +92,64 @@ export default class MediaMenu {
     private client: RuntimeClient
     private pendingBuffers: Map<string, PendingMedia> = new Map()
     private MENU_TTL_MS = 10 * 60 * 1000
+    private cleanupTimer: NodeJS.Timeout | null = null
 
     constructor(client: RuntimeClient) {
         this.client = client
+        this.startPeriodicCleanup()
+    }
+
+    private evictPendingCache(): void {
+        if (pendingCache.size >= PENDING_CACHE_MAX) {
+            let evicted = 0
+            const now = Date.now()
+            for (const [key, entry] of pendingCache) {
+                if (now > entry.expiresAt) {
+                    pendingCache.delete(key)
+                    evicted++
+                }
+            }
+            if (evicted === 0) {
+                const firstKey = pendingCache.keys().next().value
+                if (firstKey) {
+                    pendingCache.delete(firstKey)
+                    evicted = 1
+                }
+            }
+            pendingCacheEvictions += evicted
+        }
+    }
+
+    private startPeriodicCleanup(): void {
+        this.cleanupTimer = setInterval(() => {
+            let evicted = 0
+            const now = Date.now()
+            for (const [key, media] of this.pendingBuffers) {
+                if (now > (media as any).addedAt + this.MENU_TTL_MS) {
+                    this.pendingBuffers.delete(key)
+                    evicted++
+                }
+            }
+            if (evicted > 0) {
+                console.log(`[MediaMenu] Evicted ${evicted} stale pendingBuffer(s). Active: ${this.pendingBuffers.size}`)
+            }
+        }, PENDING_BUFFERS_CLEANUP_MS)
+        if (this.cleanupTimer.unref) this.cleanupTimer.unref()
+    }
+
+    dispose(): void {
+        if (this.cleanupTimer) {
+            clearInterval(this.cleanupTimer)
+            this.cleanupTimer = null
+        }
+    }
+
+    getDiagnostics(): { pendingBuffers: number; pendingCache: number; cacheEvictions: number } {
+        return {
+            pendingBuffers: this.pendingBuffers.size,
+            pendingCache: pendingCache.size,
+            cacheEvictions: pendingCacheEvictions
+        }
     }
 
     getSupportedCommands(): string[] {
@@ -136,8 +197,12 @@ export default class MediaMenu {
     }
 
     addPending(jid: string, buffer: Buffer, command: string, title?: string, type: 'audio' | 'video' = 'audio'): void {
+        if (this.pendingBuffers.size >= PENDING_BUFFERS_MAX) {
+            const oldest = this.pendingBuffers.keys().next().value
+            if (oldest) this.pendingBuffers.delete(oldest)
+        }
         console.log(`[MediaMenu] addPending: jid=${jid}, command=${command}, title=${title}, bufferSize=${buffer.length}`)
-        this.pendingBuffers.set(jid, { jid, buffer, command, title, type })
+        this.pendingBuffers.set(jid, { jid, buffer, command, title, type, addedAt: Date.now() })
     }
 
     getPending(jid: string): PendingMedia | undefined {
@@ -150,20 +215,22 @@ export default class MediaMenu {
             return cached.hasPending
         }
 
+        this.evictPendingCache()
+
         const state = await this.getMenuState(userJid)
         
         if (!state) {
-            pendingCache.set(userJid, { hasPending: false, expiresAt: Date.now() + CACHE_TTL })
+            pendingCache.set(userJid, { hasPending: false, expiresAt: Date.now() + PENDING_CACHE_TTL })
             return false
         }
         
         if (Date.now() > state.expiresAt) {
             await this.clearMenuState(userJid)
-            pendingCache.set(userJid, { hasPending: false, expiresAt: Date.now() + CACHE_TTL })
+            pendingCache.set(userJid, { hasPending: false, expiresAt: Date.now() + PENDING_CACHE_TTL })
             return false
         }
         
-        pendingCache.set(userJid, { hasPending: true, expiresAt: Date.now() + CACHE_TTL })
+        pendingCache.set(userJid, { hasPending: true, expiresAt: Date.now() + PENDING_CACHE_TTL })
         return true
     }
 

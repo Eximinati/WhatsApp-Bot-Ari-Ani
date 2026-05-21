@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import RuntimeClient from './RuntimeClient.js'
+import mongoose from 'mongoose'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -24,6 +25,60 @@ export default class HttpServer extends EventEmitter {
             res.contentType('image/png')
             return void res.send(this.client.QR)
         })
+
+        this.app.get('/health', (_req, res) => {
+            const mem = process.memoryUsage()
+            const mongoState = mongoose.connection.readyState
+            const uptime = process.uptime()
+
+            let reconnectState = 'unknown'
+            let reconnectAttempts = 0
+            try {
+                const backoff = (this.client as any).reconnectBackoff
+                if (backoff && typeof backoff.getState === 'function') {
+                    const state = backoff.getState()
+                    reconnectAttempts = state.attempt
+                    reconnectState = `attempt=${state.attempt} delay=${state.delay}ms active=${state.isActive}`
+                }
+            } catch { /* ignore */ }
+
+            const mediaDiag = (this.client.mediaMenu as any)?.getDiagnostics?.() ?? null
+            const menuDiag = (this.client.menus as any)?.getDiagnostics?.() ?? null
+            const timerDiag = ((this.client as any).timerRegistry?.getDiagnostics?.() ?? null) ?? {}
+            const eventBusSubs = (this.client as any).archContext?.eventBus?.getSubscriberCount?.() ?? 0
+
+            const isHealthy = this.client.state === 'open' && mongoState === 1
+
+            res.json({
+                status: isHealthy ? 'healthy' : 'degraded',
+                uptime: Math.round(uptime),
+                heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+                heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+                rssMB: Math.round(mem.rss / 1024 / 1024),
+                mongoConnected: mongoState === 1,
+                connectionState: this.client.state,
+                reconnectState,
+                reconnectAttempts,
+                pid: process.pid,
+                diagnostics: {
+                    pendingBuffers: mediaDiag?.pendingBuffers ?? 0,
+                    pendingCache: mediaDiag?.pendingCache ?? 0,
+                    cacheEvictions: mediaDiag?.cacheEvictions ?? 0,
+                    menuSessions: menuDiag?.cachedUsers ?? 0,
+                    contacts: this.client.contacts.size,
+                    chats: this.client.chats.size,
+                    eventBusSubscribers: eventBusSubs,
+                    timers: {
+                        total: timerDiag.total ?? 0,
+                        timeouts: timerDiag.timeouts ?? 0,
+                        intervals: timerDiag.intervals ?? 0
+                    },
+                    listenerCount: this.client.listenerCount('new-message'),
+                    bridgeListenerCount: (this.client as any).archContext?.bridgeListenerCount ?? 0
+                }
+            })
+        })
+
         this.app.listen(PORT, () => this.client.log(`HTTP Server started on port ${PORT}`))
     }
 

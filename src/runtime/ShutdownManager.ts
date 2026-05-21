@@ -71,13 +71,21 @@ export class ShutdownManager {
 
         try {
             if (this.owners.architecture) {
-                log('Shutting down architecture...')
+                log('Shutting down architecture context...')
                 await shutdownArchitecture()
+                log('Architecture context shutdown complete')
             }
 
             if (this.owners.client) {
                 log('Cleaning up client listeners...')
                 this.owners.client.removeAllListeners()
+                const listenerCount = this.owners.client.listenerCount('new-message')
+                log(`Client listeners cleared (new-message count before clear: ${listenerCount})`)
+            }
+
+            if ((this.owners.client as any).mediaMenu?.dispose) {
+                ;(this.owners.client as any).mediaMenu.dispose()
+                log('MediaMenu resources disposed')
             }
 
             log(`Clearing ${this.cronJobs.length} cron job(s)...`)

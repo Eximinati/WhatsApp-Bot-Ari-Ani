@@ -8,10 +8,9 @@ import MessagePipeline from "../../pipeline/MessagePipeline.js";
 import CommandModule from "../../core/CommandModule.js";
 import RuntimeClient from "../../core/RuntimeClient.js";
 import { IParsedArgs, ISimplifiedMessage } from "../../typings/index.js";
-import fs from "fs";
+import { readFile, unlink, writeFile } from "fs/promises";
 import { tmpdir } from "os";
-import { exec } from "child_process";
-import { promisify } from "util";
+
 export default class Command extends CommandModule {
 	exe() {
 		throw new Error("Method not implemented.");
@@ -27,91 +26,99 @@ export default class Command extends CommandModule {
 		});
 	}
 
+	private cleanup = async (path: string): Promise<void> => {
+		try { await unlink(path) } catch { /* ignore */ }
+	}
+
 	run = async (
 		M: ISimplifiedMessage,
 		parsedArgs: IParsedArgs
 	): Promise<void> => {
-		let buffer;
-		if (M.quoted?.message?.message?.stickerMessage)
-			buffer = await this.client.downloadMediaMessage(M.quoted.message);
-		if (!buffer)
-			return void M.reply(`Provide a sticker to format, Baka!`);
-			const pack = parsedArgs.joined.split("|");
-			if (!pack[1])
-				return void M.reply(
-					`Please provide the new name and author of the sticker.\nExample: ${this.client.config.prefix}steal | By | ${this.client.config.name}`
-				);
-			const filename = `${tmpdir()}/${Math.random().toString(36)}`;
-			const getQuality = (): number => {
-				const qualityFlag = parsedArgs.joined.match(/--(\d+)/g) || "";
-				return qualityFlag.length
-					? parseInt(qualityFlag[0].split("--")[1], 10)
-					: parsedArgs.flags.includes("--broke")
-					? 1
-					: parsedArgs.flags.includes("--low")
-					? 10
-					: parsedArgs.flags.includes("--high")
-					? 100
-					: 50;
-			};
-
-			let quality = getQuality();
-			if (quality > 100 || quality < 1) quality = 50;
-
-			parsedArgs.flags.forEach(
-				(flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, ""))
+		const stickerMsg = M.quoted?.message?.message?.stickerMessage
+		if (!stickerMsg) return void M.reply(`Provide a sticker to format, Baka!`)
+		const buffer = await this.client.downloadMediaMessage(M.quoted as any);
+		const pack = parsedArgs.joined.split("|");
+		if (!pack[1])
+			return void M.reply(
+				`Please provide the new name and author of the sticker.\nExample: ${this.client.config.prefix}steal | By | ${this.client.config.name}`
 			);
-			const getOptions = () => {
-				const categories = (() => {
-					const categories = parsedArgs.flags.reduce((categories, flag) => {
-						switch (flag) {
-							case "--angry":
-								categories.push("💢");
-								break;
-							case "--love":
-								categories.push("💕");
-								break;
-							case "--sad":
-								categories.push("😭");
-								break;
-							case "--happy":
-								categories.push("😂");
-								break;
-							case "--greet":
-								categories.push("👋");
-								break;
-							case "--celebrate":
-								categories.push("🎊");
-								break;
-						}
-						return categories;
-					}, new Array<Categories>());
-					categories.length = 2;
-					if (!categories[0]) categories.push("❤", "🌹");
+		const base = `${tmpdir()}/${Math.random().toString(36)}`;
+		const webpPath = `${base}.webp`;
+
+		const getQuality = (): number => {
+			const qualityFlag = parsedArgs.joined.match(/--(\d+)/g) || "";
+			return qualityFlag.length
+				? parseInt(qualityFlag[0].split("--")[1], 10)
+				: parsedArgs.flags.includes("--broke")
+				? 1
+				: parsedArgs.flags.includes("--low")
+				? 10
+				: parsedArgs.flags.includes("--high")
+				? 100
+				: 50;
+		};
+
+		let quality = getQuality();
+		if (quality > 100 || quality < 1) quality = 50;
+
+		parsedArgs.flags.forEach(
+			(flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, ""))
+		);
+		const getOptions = () => {
+			const categories = (() => {
+				const categories = parsedArgs.flags.reduce((categories, flag) => {
+					switch (flag) {
+						case "--angry":
+							categories.push("💢");
+							break;
+						case "--love":
+							categories.push("💕");
+							break;
+						case "--sad":
+							categories.push("😭");
+							break;
+						case "--happy":
+							categories.push("😂");
+							break;
+						case "--greet":
+							categories.push("👋");
+							break;
+						case "--celebrate":
+							categories.push("🎊");
+							break;
+					}
 					return categories;
-				})();
-				return {
-					categories,
-					pack: pack[1],
-					author: pack[2] || `${M.sender.username}`,
-					quality,
-					type: StickerTypes[
-						parsedArgs.flags.includes("--crop") ||
-						parsedArgs.flags.includes("--c")
-							? "CROPPED"
-							: parsedArgs.flags.includes("--stretch") ||
-							  parsedArgs.flags.includes("--s")
-							? "DEFAULT"
-							: "FULL"
-					],
-				};
+				}, new Array<Categories>());
+				categories.length = 2;
+				if (!categories[0]) categories.push("❤", "🌹");
+				return categories;
+			})();
+			return {
+				categories,
+				pack: pack[1],
+				author: pack[2] || `${M.sender.username}`,
+				quality,
+				type: StickerTypes[
+					parsedArgs.flags.includes("--crop") ||
+					parsedArgs.flags.includes("--c")
+						? "CROPPED"
+						: parsedArgs.flags.includes("--stretch") ||
+						  parsedArgs.flags.includes("--s")
+						? "DEFAULT"
+						: "FULL"
+				],
 			};
-			parsedArgs.flags.forEach(
-				(flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, ""))
-			);
+		};
+		parsedArgs.flags.forEach(
+			(flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, ""))
+		);
+		try {
 			const sticker: any = await new Sticker(buffer, getOptions()).build();
-			fs.writeFileSync(`${filename}.webp`, sticker);
-			const stickerbuffer = fs.readFileSync(`${filename}.webp`);
-		await M.reply(stickerbuffer, MessageType.sticker, Mimetype.webp);
+			await writeFile(webpPath, sticker);
+			const stickerbuffer = await readFile(webpPath);
+			await M.reply(stickerbuffer, MessageType.sticker, Mimetype.webp);
+		} finally {
+			this.cleanup(webpPath).catch(() => undefined)
+		}
 	};
 }

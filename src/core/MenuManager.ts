@@ -2,6 +2,9 @@ import NodeCache from 'node-cache'
 import RuntimeClient from './RuntimeClient.js'
 import { ISimplifiedMessage } from '../typings/index.js'
 
+const MENU_MAX_KEYS = 2000
+const MENU_TTL_SECONDS = 600
+
 export interface MenuSession {
     commandName: string
     chatJid: string
@@ -18,8 +21,15 @@ export default class MenuManager {
 
     constructor(client: RuntimeClient) {
         this.client = client
-        // Default TTL 10 minutes for menu sessions
-        this.cache = new NodeCache({ stdTTL: 600, useClones: false })
+        this.cache = new NodeCache({
+            stdTTL: MENU_TTL_SECONDS,
+            useClones: false,
+            maxKeys: MENU_MAX_KEYS,
+            checkperiod: MENU_TTL_SECONDS
+        })
+        this.cache.on('evicted', (_key: string, _value: MenuSession[]) => {
+            this.client.log(`[MenuManager] Session evicted due to maxKeys limit`)
+        })
     }
 
     /**
@@ -159,6 +169,13 @@ export default class MenuManager {
             this.client.log(`[MenuManager] Error handling reply for ${session.commandName}: ${err}`, true)
             await M.reply(`❌ Menu Error (${session.commandName}): ${err instanceof Error ? err.message : String(err)}`)
             return true
+        }
+    }
+
+    getDiagnostics(): { cachedUsers: number; stats: { hits: number; misses: number; keys: number; ksize: number; vsize: number } } {
+        return {
+            cachedUsers: this.cache.keys().length,
+            stats: this.cache.getStats()
         }
     }
 }
