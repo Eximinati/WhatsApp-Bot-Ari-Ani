@@ -134,12 +134,19 @@ export class RuntimeKernel {
     async initialize(): Promise<void> {
         this.autoRegisterHandlers()
         this.setupEventBridge()
-        this.client.log(`[kernel] Initialized in ${this.config.mode} mode`)
+        this.client.log(`[kernel] Initialized in ${this.config.mode} mode (dormant)`)
     }
 
     private autoRegisterHandlers(): void {
+        // PHASE 1: Evacuated commands (ping/help/hi) disabled from kernel registration
+        // These commands now execute via MessagePipeline only
         const registry = createHandlerRegistry()
+        const evacuatedCommands = new Set(['PingHandler', 'HelpHandler', 'HiHandler', 'ping', 'p', 'help', 'h', 'hi'])
         for (const [command, handler] of registry) {
+            if (evacuatedCommands.has(handler.name)) {
+                this.client.log(`[kernel] Skipping evacuated command: ${handler.name} (now pipeline-owned)`)
+                continue
+            }
             const descriptor: CommandDescriptor = {
                 capabilities: {
                     canonical: handler.name,
@@ -162,7 +169,7 @@ export class RuntimeKernel {
                 }
             }
         }
-        this.client.log(`[kernel] Auto-registered ${registry.size} handlers`)
+        this.client.log(`[kernel] Auto-registered ${registry.size - evacuatedCommands.size} handlers (evacuated: ${evacuatedCommands.size})`)
     }
 
     private setupEventBridge(): void {
