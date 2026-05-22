@@ -34,9 +34,7 @@ export default class Command extends CommandModule {
             )
         }
 
-        const groups = Array.from(
-            this.client.chats
-        ).filter((jid) => jid.endsWith('@g.us'))
+        const groups = this.client.getChatsSnapshot().filter((jid) => jid.endsWith('@g.us'))
 
         if (!groups.length) {
             return void M.reply(

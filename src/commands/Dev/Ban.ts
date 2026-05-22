@@ -48,15 +48,7 @@ export default class Command extends CommandModule {
             )
         }
 
-        await this.client.DB.user.updateOne(
-            { jid: user },
-            {
-                $set: {
-                    ban: true,
-                    banReason: reason
-                }
-            }
-        )
+        await this.client.banUser(user, reason)
 
         const text =
 `🔨 USER BANNED

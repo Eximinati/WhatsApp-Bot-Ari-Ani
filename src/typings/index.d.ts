@@ -3,6 +3,7 @@ import type { GroupMetadata } from 'baileys'
 export * from './message.js'
 export * from './command.js'
 export * from './mongo.js'
+export * from './context.js'
 
 export interface IConfig {
     name: string

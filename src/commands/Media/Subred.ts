@@ -40,7 +40,7 @@ export default class Command extends CommandModule {
                 `Cannot Display NSFW content before enabling. Use ${this.client.config.prefix}activate nsfw to activate nsfw`
             )
 
-        const notFound = this.client.assets.get('404')
+        const notFound = this.client.getAsset('404')
         let buffer: Buffer | undefined
         try {
             buffer = await request.buffer(res.url)

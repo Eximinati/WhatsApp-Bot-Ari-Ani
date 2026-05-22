@@ -21,9 +21,8 @@ export default class Command extends CommandModule {
             M.mentioned[0] || M.quoted?.sender || M.sender.jid
 
         let avatarUrl: string | undefined
-
         try {
-            avatarUrl = await this.client.sock.profilePictureUrl(targetJid, 'image')
+            avatarUrl = await this.client.getProfilePictureUrl(targetJid)
         } catch {
             avatarUrl = undefined
         }

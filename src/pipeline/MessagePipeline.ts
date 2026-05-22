@@ -7,6 +7,8 @@ import { MessageType, Mimetype } from '../core/types.js'
 import YT from '../core/YT.js'
 import yts from 'yt-search'
 import archiver from 'archiver'
+import { createWriteStream, promises as fsPromises, unlink } from 'fs'
+import { tmpdir } from 'os'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -153,7 +155,7 @@ export default class MessagePipeline {
             const disabledStart = performance.now()
             let disabledState = this.disabledCommandsCache.get(cmdName)
             if (disabledState === undefined) {
-                const result = await this.client.DB.disabledcommands.findOne({ command: cmdName }).lean()
+                const result = await this.client.getDisabledCommandInfo(cmdName)
                 mongoQueryCount++
                 disabledState = result ? { disabled: true, reason: result.reason } : { disabled: false }
                 this.disabledCommandsCache.set(cmdName, disabledState)
@@ -400,66 +402,77 @@ export default class MessagePipeline {
             await M.reply(trackListText)
             
             const archive = archiver('zip', { zlib: { level: 9 } })
-            const chunks: Buffer[] = []
-            
-            archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+            const tmpPath = join(tmpdir(), `spotify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.zip`)
+            const ws = createWriteStream(tmpPath)
 
-            for (let i = 0; i < total; i++) {
-                const track = tracks[i]
-                const trackNum = i + 1
-                const query = `${track.artists[0]} - ${track.name}`
+            try {
+                archive.pipe(ws)
 
-                try {
-                    console.log(`[Spotify ZIP] [${trackNum}/${total}] Downloading: "${track.name}"`)
-                    const { videos } = await yts(query)
-                    if (!videos || !videos.length) {
-                        console.warn(`[Spotify ZIP] WARN: Not found on YouTube: "${track.name}"`)
-                        this.client.log(`[Spotify ZIP] ❌ [${trackNum}/${total}] Not found: ${track.name}`, true)
-                        continue
+                for (let i = 0; i < total; i++) {
+                    const track = tracks[i]
+                    const trackNum = i + 1
+                    const query = `${track.artists[0]} - ${track.name}`
+
+                    try {
+                        console.log(`[Spotify ZIP] [${trackNum}/${total}] Downloading: "${track.name}"`)
+                        const { videos } = await yts(query)
+                        if (!videos || !videos.length) {
+                            console.warn(`[Spotify ZIP] WARN: Not found on YouTube: "${track.name}"`)
+                            this.client.log(`[Spotify ZIP] ❌ [${trackNum}/${total}] Not found: ${track.name}`, true)
+                            continue
+                        }
+
+                        const yt = new YT(videos[0].url, 'audio')
+                        const buffer = await yt.getBuffer()
+
+                        console.log(`[Spotify ZIP] SUCCESS [${trackNum}/${total}]: "${track.name}" (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
+                        this.client.log(`[Spotify ZIP] ✅ [${trackNum}/${total}] Added to archive: ${track.name}`)
+                        archive.append(buffer, { name: `${track.artists[0]} - ${track.name}.mp3` })
+                    } catch (err) {
+                        const errorMsg = err instanceof Error ? err.message : String(err)
+                        console.error(`[Spotify ZIP] ERROR [${trackNum}/${total}]: "${track.name}" - ${errorMsg}`)
+                        this.client.log(`[Spotify ZIP] ⚠️ [${trackNum}/${total}] Failed: ${track.name}`, true)
                     }
+                }
 
-                    const yt = new YT(videos[0].url, 'audio')
-                    const buffer = await yt.getBuffer()
+                console.log(`[Spotify ZIP] Finalizing ZIP: "${name}.zip"`)
+                this.client.log(`[Spotify ZIP] 🗜️ Finalizing ZIP archive...`)
 
-                    console.log(`[Spotify ZIP] SUCCESS [${trackNum}/${total}]: "${track.name}" (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
-                    this.client.log(`[Spotify ZIP] ✅ [${trackNum}/${total}] Added to archive: ${track.name}`)
-                    archive.append(buffer, { name: `${track.artists[0]} - ${track.name}.mp3` })
+                await new Promise<void>((resolve, reject) => {
+                    ws.on('finish', () => resolve())
+                    ws.on('error', (err: Error) => {
+                        console.error(`[Spotify ZIP] STREAM ERROR: ${err.message}`)
+                        reject(err)
+                    })
+                    archive.on('error', (err: Error) => {
+                        console.error(`[Spotify ZIP] ARCHIVE ERROR: ${err.message}`)
+                        reject(err)
+                    })
+                    archive.finalize()
+                })
+
+                const zipBuffer = await fsPromises.readFile(tmpPath)
+
+                console.log(`[Spotify ZIP] SUCCESS: ZIP finalized - ${name}.zip (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
+                this.client.log(`[Spotify ZIP] 📤 Ready to send: ${name}.zip (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
+
+                await M.reply(`✅ ZIP ready! Sending *${name}.zip* (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)...`)
+                try {
+                    await this.client.sendMessage(M.from, zipBuffer, MessageType.document, {
+                        mimetype: 'application/zip',
+                        quoted: M.WAMessage,
+                        caption: `${name}.zip`
+                    })
+                    console.log(`[Spotify ZIP] COMPLETE: Sent ${name}.zip to ${M.from}`)
+                    this.client.log(`[Spotify ZIP] ✅ ZIP sent successfully: ${name}.zip`)
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : String(err)
-                    console.error(`[Spotify ZIP] ERROR [${trackNum}/${total}]: "${track.name}" - ${errorMsg}`)
-                    this.client.log(`[Spotify ZIP] ⚠️ [${trackNum}/${total}] Failed: ${track.name}`, true)
+                    console.error(`[Spotify ZIP] SEND ERROR: ${errorMsg}`)
+                    await M.reply(`❌ Failed to send ZIP: ${errorMsg}`)
                 }
-            }
-
-            console.log(`[Spotify ZIP] Finalizing ZIP: "${name}.zip"`)
-            this.client.log(`[Spotify ZIP] 🗜️ Finalizing ZIP archive...`)
-            
-            const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
-                archive.on('end', () => resolve(Buffer.concat(chunks)))
-                archive.on('error', (err: Error) => {
-                    console.error(`[Spotify ZIP] ARCHIVE ERROR: ${err.message}`)
-                    reject(err)
-                })
-                archive.finalize()
-            })
-
-            console.log(`[Spotify ZIP] SUCCESS: ZIP finalized - ${name}.zip (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
-            this.client.log(`[Spotify ZIP] 📤 Ready to send: ${name}.zip (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
-            
-            // This is the ONLY update message sent to the group - when ZIP is ready
-            await M.reply(`✅ ZIP ready! Sending *${name}.zip* (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)...`)
-            try {
-                await this.client.sendMessage(M.from, zipBuffer, MessageType.document, {
-                    mimetype: 'application/zip',
-                    quoted: M.WAMessage,
-                    caption: `${name}.zip`
-                })
-                console.log(`[Spotify ZIP] COMPLETE: Sent ${name}.zip to ${M.from}`)
-                this.client.log(`[Spotify ZIP] ✅ ZIP sent successfully: ${name}.zip`)
-            } catch (err) {
-                const errorMsg = err instanceof Error ? err.message : String(err)
-                console.error(`[Spotify ZIP] SEND ERROR: ${errorMsg}`)
-                await M.reply(`❌ Failed to send ZIP: ${errorMsg}`)
+            } finally {
+                ws.close()
+                unlink(tmpPath, () => {})
             }
         }
     }
@@ -526,12 +539,12 @@ export default class MessagePipeline {
     loadFeatures = async (): Promise<void> => {
         this.client.log('Loading features...')
         await this.client.setFeatures()
-        this.client.log(`Loaded ${this.client.features.size} features`)
+        this.client.log(`Loaded ${this.client.getFeatureCount()} features`)
     }
 
     loadDisabledCommandsCache = async (): Promise<void> => {
         this.client.log('Loading disabled commands cache...')
-        const docs = await this.client.DB.disabledcommands.find().lean()
+        const docs = await this.client.getAllDisabledCommands()
         for (const doc of docs) {
             this.disabledCommandsCache.set(doc.command, { disabled: true, reason: doc.reason })
         }

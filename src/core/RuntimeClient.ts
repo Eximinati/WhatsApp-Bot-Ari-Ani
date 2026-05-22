@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events'
-import { existsSync, mkdirSync, promises as fsPromises } from 'fs'
 import { join } from 'path'
 import crypto from 'crypto'
 import { Boom } from '@hapi/boom'
@@ -43,6 +42,7 @@ import { ExponentialBackoff } from '../runtime/ExponentialBackoff.js'
 import { TimerRegistry } from '../runtime/TimerRegistry.js'
 import type MessagePipeline from '../pipeline/MessagePipeline.js'
 import {
+    ICommandContext,
     IConfig,
     IContactInfo,
     IExtendedGroupMetadata,
@@ -52,6 +52,9 @@ import {
     IUserModel
 } from '../typings/index.js'
 import { MessageType, Mimetype } from './types.js'
+import QuotaService from '../services/QuotaService.js'
+import XpService from '../services/XpService.js'
+import ViewOnceService from '../services/ViewOnceService.js'
 
 type ConnectionStatus = 'open' | 'connecting' | 'close'
 
@@ -123,8 +126,8 @@ const buildMessageContent = (
     }
 }
 
-export default class RuntimeClient extends EventEmitter {
-    sock!: WASocket
+export default class RuntimeClient extends EventEmitter implements ICommandContext {
+    private sock!: WASocket
     DB = new DatabaseHandler()
     util = new Toolkit()
     identity: Identity = new Identity(this)
@@ -132,10 +135,10 @@ export default class RuntimeClient extends EventEmitter {
     mediaMenu = new MediaMenu(this)
     menus = new MenuManager(this)
     pipeline!: MessagePipeline
-    assets = new Map<string, Buffer>()
-    features = new Map<string, boolean>()
-    contacts = new Map<string, IContactInfo>()
-    chats = new Set<string>()
+    private assets = new Map<string, Buffer>()
+    private features = new Map<string, boolean>()
+    private contacts = new Map<string, IContactInfo>()
+    private chats = new Set<string>()
 
     /** LRU cache of recent messages keyed by message id, used by getMessage for poll decryption + retries. */
     private messageCache = new NodeCache({ stdTTL: 60 * 60, useClones: false, maxKeys: 1000 })
@@ -533,89 +536,35 @@ export default class RuntimeClient extends EventEmitter {
     private viewOnceDir = join(process.cwd(), 'cache', 'viewonce')
     private viewOncePruneTimer: NodeJS.Timeout | null = null
 
-    /** Detect any view-once wrapper in `M.message` and download+save the inner
-     * media to disk indexed by message id. WhatsApp's CDN expires view-once
-     * media quickly, so this must run on receipt — deferred downloads fail. */
-    private captureViewOnce = async (M: WAMessage): Promise<void> => {
-        if (!M.key.id || !M.message) return
-        const msg = M.message as Record<string, unknown> & {
-            viewOnceMessage?: { message?: WAMessageContent } | null
-            viewOnceMessageV2?: { message?: WAMessageContent } | null
-            viewOnceMessageV2Extension?: { message?: WAMessageContent } | null
-        }
-        const wrapper =
-            msg.viewOnceMessage || msg.viewOnceMessageV2 || msg.viewOnceMessageV2Extension
-        const inner = wrapper?.message || extractMessageContent(M.message)
-        if (!inner) return
-        const innerCast = inner as { imageMessage?: unknown; videoMessage?: unknown }
-        if (!innerCast.imageMessage && !innerCast.videoMessage) return
+    private quotaService = new QuotaService(this.DB)
+    private xpService = new XpService(this.DB)
+    private viewOnceService = new ViewOnceService(this.viewOnceDir, (msg, isError) => this.log(msg, isError))
 
-        try {
-            if (!existsSync(this.viewOnceDir)) mkdirSync(this.viewOnceDir, { recursive: true })
-            const downloadable = { key: M.key, message: inner } as WAMessage
-            const buffer = (await baileysDownloadMediaMessage(downloadable, 'buffer', {})) as Buffer
-            const kind = innerCast.imageMessage ? 'image' : 'video'
-            const path = join(this.viewOnceDir, `${M.key.id}.bin`)
-            const metaPath = join(this.viewOnceDir, `${M.key.id}.json`)
-            await fsPromises.writeFile(path, buffer)
-            await fsPromises.writeFile(
-                metaPath,
-                JSON.stringify({
-                    type: kind,
-                    capturedAt: Date.now(),
-                    from: M.key.remoteJid,
-                    sender: M.key.participant || M.key.remoteJid
-                })
-            )
-        } catch (err) {
-            this.log(`Failed to capture view-once ${M.key.id}: ${String(err)}`)
-        }
-    }
+    private captureViewOnce = (M: WAMessage): Promise<void> => this.viewOnceService.captureViewOnce(M)
+    private pruneViewOnce = (): Promise<void> => this.viewOnceService.pruneViewOnce()
+    getCapturedViewOnce = (id: string | null | undefined): Promise<{ buffer: Buffer; type: 'image' | 'video' } | undefined> =>
+        this.viewOnceService.getCapturedViewOnce(id)
 
-    /** TTL for view-once snapshots before background eviction (7 days). */
-    private static readonly VIEW_ONCE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+    /** Safe accessor — returns a copy of the asset buffer or undefined. */
+    getAsset = (key: string): Buffer | undefined => this.assets.get(key)
 
-    /** Background pruner: deletes view-once snapshots older than the TTL.
-     * Runs once on connect and then every 6 hours. Idempotent and safe to skip
-     * on errors (e.g. cache dir doesn't exist yet). */
-    private pruneViewOnce = async (): Promise<void> => {
-        try {
-            if (!existsSync(this.viewOnceDir)) return
-            const entries = await fsPromises.readdir(this.viewOnceDir)
-            const cutoff = Date.now() - RuntimeClient.VIEW_ONCE_TTL_MS
-            for (const entry of entries) {
-                const full = join(this.viewOnceDir, entry)
-                try {
-                    const stat = await fsPromises.stat(full)
-                    if (stat.mtimeMs < cutoff) await fsPromises.unlink(full)
-                } catch {
-                    /* ignore single-file errors */
-                }
-            }
-        } catch {
-            /* ignore directory-level errors */
-        }
-    }
+    /** Internal: load an asset into the assets map (used by ResourceLoader at startup). */
+    setAsset = (key: string, buffer: Buffer): void => { this.assets.set(key, buffer) }
 
-    /** Look up a captured view-once media by the original message id. Returns
-     * undefined if we never saw it or the snapshot was deleted. */
-    getCapturedViewOnce = async (
-        id: string | null | undefined
-    ): Promise<{ buffer: Buffer; type: 'image' | 'video' } | undefined> => {
-        if (!id) return undefined
-        const path = join(this.viewOnceDir, `${id}.bin`)
-        const metaPath = join(this.viewOnceDir, `${id}.json`)
-        try {
-            const [buffer, metaRaw] = await Promise.all([
-                fsPromises.readFile(path),
-                fsPromises.readFile(metaPath, 'utf8')
-            ])
-            const meta = JSON.parse(metaRaw) as { type: 'image' | 'video' }
-            return { buffer, type: meta.type }
-        } catch {
-            return undefined
-        }
-    }
+    /** Safe accessor — count of loaded assets. */
+    getAssetCount = (): number => this.assets.size
+
+    /** Safe accessor — returns a snapshot copy of observed chat JIDs. */
+    getChatsSnapshot = (): string[] => [...this.chats]
+
+    /** Safe accessor — count of observed chats. */
+    getChatCount = (): number => this.chats.size
+
+    /** Safe accessor — count of known contacts. */
+    getContactCount = (): number => this.contacts.size
+
+    /** Safe accessor — count of loaded features. */
+    getFeatureCount = (): number => this.features.size
 
     /** Required by makeWASocket: retrieve a previously-sent message by key for resends + poll decryption. */
     private getMessage = async (key: WAMessageKey): Promise<WAMessageContent | undefined> => {
@@ -760,6 +709,20 @@ export default class RuntimeClient extends EventEmitter {
         }
     }
 
+    /** Returns the raw profile-picture URL string, or undefined if not found. */
+    getProfilePictureUrl = async (jid: string): Promise<string | undefined> => {
+        if (!this.sock) {
+            this.log(`[jail] sock not ready for ${jid}`, true)
+            return undefined
+        }
+        try {
+            return await this.sock.profilePictureUrl(jid, 'image')
+        } catch (err) {
+            this.log(`[jail] profilePictureUrl failed for ${jid}: ${err instanceof Error ? err.message : String(err)}`, true)
+            return undefined
+        }
+    }
+
     /** Returns the user's status text. v7's fetchStatus returns USyncQueryResultList[]. */
     getStatus = async (jid: string): Promise<{ status?: string; setAt?: Date }> => {
         try {
@@ -805,6 +768,15 @@ export default class RuntimeClient extends EventEmitter {
 
     deleteMessage = async (jid: string, key: WAMessageKey): Promise<void> => {
         await this.sock.sendMessage(jid, { delete: key })
+    }
+
+    /** Reject an incoming call. */
+    rejectCall = async (callID: string, caller: string): Promise<void> => {
+        try {
+            await this.sock.rejectCall(callID, caller)
+        } catch {
+            /* call already gone */
+        }
     }
 
     emitNewMessage = async (M: Promise<ISimplifiedMessage>): Promise<void> =>
@@ -963,10 +935,12 @@ export default class RuntimeClient extends EventEmitter {
 
     fetch = async <T>(url: string): Promise<T> => (await axios.get<T>(url, { timeout: 15_000 })).data
 
-    banUser = async (jid: string): Promise<void> => {
+    banUser = async (jid: string, reason?: string): Promise<void> => {
+        const $set: Record<string, unknown> = { ban: true }
+        if (reason) $set.banReason = reason
         await this.DB.user.findOneAndUpdate(
             { jid },
-            { $set: { ban: true }, $setOnInsert: { jid } },
+            { $set, $setOnInsert: { jid } },
             { upsert: true, setDefaultsOnInsert: true }
         )
     }
@@ -974,81 +948,81 @@ export default class RuntimeClient extends EventEmitter {
     unbanUser = async (jid: string): Promise<void> => {
         await this.DB.user.findOneAndUpdate(
             { jid },
-            { $set: { ban: false }, $setOnInsert: { jid } },
+            { $set: { ban: false }, $unset: { banReason: 1 }, $setOnInsert: { jid } },
             { upsert: true, setDefaultsOnInsert: true }
         )
     }
 
-    /** Atomic per-user quota gate. Resets daily; rolls forward `chatQuotaResetAt` to
-     * 24h after first use of the new period. Returns whether the call is allowed and
-     * the remaining count (post-decrement on success). */
-    consumeChatQuota = async (jid: string): Promise<{ allowed: boolean; remaining: number; limit: number }> => {
-        const now = new Date()
-        const user = await this.getUser(jid)
-        const limit = typeof user.chatQuotaLimit === 'number' ? user.chatQuotaLimit : 20
-        const resetAt = user.chatQuotaResetAt ? new Date(user.chatQuotaResetAt) : new Date(0)
-        let used = typeof user.chatQuotaUsed === 'number' ? user.chatQuotaUsed : 0
-        let nextReset = resetAt
-        if (now >= resetAt) {
-            used = 0
-            nextReset = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-        }
-        if (used >= limit) {
-            await this.DB.user.updateOne(
-                { jid },
-                { $set: { chatQuotaUsed: used, chatQuotaResetAt: nextReset } }
-            )
-            return { allowed: false, remaining: 0, limit }
-        }
+    /** Combined DB write + in-memory cache update for feature toggles. */
+    toggleFeature = async (feature: string, state: boolean): Promise<void> => {
+        await this.DB.feature.updateOne(
+            { feature },
+            { $set: { state } },
+            { upsert: true }
+        )
+        this.features.set(feature, state)
+    }
+
+    /** Check whether a command is already disabled in the DB. */
+    isCommandDisabled = async (command: string): Promise<boolean> => {
+        const doc = await this.DB.disabledcommands.findOne({ command }).lean()
+        return !!doc
+    }
+
+    /** Persist a disabled command to DB. */
+    disableCommand = async (command: string, reason: string): Promise<void> => {
+        await new this.DB.disabledcommands({ command, reason }).save()
+    }
+
+    /** Remove a disabled command from DB. */
+    enableCommand = async (command: string): Promise<void> => {
+        await this.DB.disabledcommands.deleteOne({ command })
+    }
+
+    /** Set a user's media send preference. */
+    setMediaPreference = async (jid: string, pref: 'document' | 'audio' | 'video'): Promise<void> => {
         await this.DB.user.updateOne(
             { jid },
-            { $set: { chatQuotaUsed: used + 1, chatQuotaResetAt: nextReset } }
+            { $set: { mediaPreference: pref } },
+            { upsert: true }
         )
-        return { allowed: true, remaining: Math.max(0, limit - (used + 1)), limit }
     }
 
-    /** Set a hard quota limit for a user (mod action). */
-    setChatQuotaLimit = async (jid: string, limit: number): Promise<void> => {
-        await this.DB.user.findOneAndUpdate(
+    /** Reset a user's media send preference to default. */
+    resetMediaPreference = async (jid: string): Promise<void> => {
+        await this.DB.user.updateOne(
             { jid },
-            { $set: { chatQuotaLimit: Math.max(0, Math.floor(limit)) }, $setOnInsert: { jid } },
-            { upsert: true, setDefaultsOnInsert: true }
+            { $unset: { mediaPreference: 1 } }
         )
     }
 
-    /** Top up a user's remaining quota for the current period without changing their limit. */
-    extendChatQuota = async (jid: string, by: number): Promise<void> => {
-        const user = await this.getUser(jid)
-        const used = typeof user.chatQuotaUsed === 'number' ? user.chatQuotaUsed : 0
-        const next = Math.max(0, used - Math.max(0, Math.floor(by)))
-        await this.DB.user.updateOne({ jid }, { $set: { chatQuotaUsed: next } })
+    /** Return up to 50 banned users, most recently banned first. */
+    getBannedUsers = async (): Promise<Array<{ jid: string; banReason?: string }>> => {
+        const docs = await this.DB.user
+            .find({ ban: true })
+            .sort({ _id: -1 })
+            .limit(50)
+            .lean()
+        return docs.map((d: Record<string, unknown>) => ({
+            jid: d.jid as string,
+            banReason: d.banReason as string | undefined
+        }))
     }
 
-    /** Toggle per-chat LLM auto-reply enablement (set on User for DMs, Group for groups). */
-    setChatEnabled = async (jid: string, enabled: boolean, kind: 'user' | 'group'): Promise<void> => {
-        if (kind === 'user') {
-            await this.DB.user.findOneAndUpdate(
-                { jid },
-                { $set: { chatEnabled: enabled }, $setOnInsert: { jid } },
-                { upsert: true, setDefaultsOnInsert: true }
-            )
-        } else {
-            await this.DB.group.findOneAndUpdate(
-                { jid },
-                { $set: { chatEnabled: enabled }, $setOnInsert: { jid } },
-                { upsert: true, setDefaultsOnInsert: true }
-            )
-        }
-    }
+    consumeChatQuota = (jid: string): Promise<{ allowed: boolean; remaining: number; limit: number }> =>
+        this.quotaService.consumeChatQuota(jid)
 
-    setXp = async (jid: string, min: number, max: number): Promise<void> => {
-        const Xp = Math.floor(Math.random() * max) + min
-        await this.DB.user.findOneAndUpdate(
-            { jid },
-            { $inc: { Xp }, $setOnInsert: { jid } },
-            { upsert: true, setDefaultsOnInsert: true }
-        )
-    }
+    setChatQuotaLimit = (jid: string, limit: number): Promise<void> =>
+        this.quotaService.setChatQuotaLimit(jid, limit)
+
+    extendChatQuota = (jid: string, by: number): Promise<void> =>
+        this.quotaService.extendChatQuota(jid, by)
+
+    setChatEnabled = (jid: string, enabled: boolean, kind: 'user' | 'group'): Promise<void> =>
+        this.quotaService.setChatEnabled(jid, enabled, kind)
+
+    setXp = (jid: string, min: number, max: number): Promise<void> =>
+        this.xpService.setXp(jid, min, max)
 
     getGroupData = async (jid: string): Promise<IGroupModel> =>
         (await this.DB.group.findOneAndUpdate(
@@ -1073,6 +1047,21 @@ export default class RuntimeClient extends EventEmitter {
 
     setFeature = (feature: string, value: boolean): void => {
         this.features.set(feature, value)
+    }
+
+    /** Return disabled-command info for the pipeline cache. */
+    getDisabledCommandInfo = async (command: string): Promise<{ command: string; reason: string } | null> => {
+        const doc = await this.DB.disabledcommands.findOne({ command }).lean()
+        return doc ? { command: doc.command, reason: doc.reason } : null
+    }
+
+    /** Return all disabled commands for the pipeline cache. */
+    getAllDisabledCommands = async (): Promise<Array<{ command: string; reason: string }>> => {
+        const docs = await this.DB.disabledcommands.find().lean()
+        return docs.map((d: Record<string, unknown>) => ({
+            command: d.command as string,
+            reason: d.reason as string
+        }))
     }
 
     /** Public diagnostics for health endpoints — avoids unsafe private access. */

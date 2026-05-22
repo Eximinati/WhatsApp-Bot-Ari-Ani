@@ -41,8 +41,8 @@ function getDiagnostics(): Record<string, unknown> {
         cacheEvictions: mediaDiag.cacheEvictions ?? 0,
         menuSessions: menuDiag.cachedUsers ?? 0,
         chatStates: chatAi?.storeSize ?? 0,
-        contacts: client.contacts.size,
-        chats: client.chats.size,
+        contacts: client.getContactCount(),
+        chats: client.getChatCount(),
         timers: runtimeDiag.timers.total,
         listenerCount: client.listenerCount('new-message')
     }
@@ -190,7 +190,7 @@ const start = async (): Promise<void> => {
 
             client.on('incoming-call', safeAsyncVoid(async (data) => {
                 const { id, from } = data as { id: string; from: string }
-                const display = client.contacts.get(from)?.notify || from
+                const display = client.getContact(from)?.notify || from
                 client.log(`Incoming call from ${display}`)
                 await callDispatcher.rejectCall(from, id)
             }, { category: 'handler', severity: 'high', source: 'client.on:incoming-call', phase: 'runtime' }))

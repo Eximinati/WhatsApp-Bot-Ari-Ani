@@ -52,8 +52,8 @@ export default class HttpServer extends EventEmitter {
                     pendingCache: mediaDiag?.pendingCache ?? 0,
                     cacheEvictions: mediaDiag?.cacheEvictions ?? 0,
                     menuSessions: menuDiag?.cachedUsers ?? 0,
-                    contacts: this.client.contacts.size,
-                    chats: this.client.chats.size,
+                    contacts: this.client.getContactCount(),
+                    chats: this.client.getChatCount(),
                     timers: {
                         total: runtimeDiag.timers.total,
                         timeouts: runtimeDiag.timers.timeouts,

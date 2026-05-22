@@ -10,9 +10,9 @@ import type {
 export type { WAMessage }
 
 export interface ISimplifiedMessage {
-    type: MessageType | string
-    content: string | null
-    args: string[]
+    readonly type: MessageType | string
+    readonly content: string | null
+    readonly args: string[]
 
     reply(
         content: string | Buffer,
@@ -25,30 +25,30 @@ export interface ISimplifiedMessage {
 
     mentioned: string[]
 
-    groupMetadata:
+    readonly groupMetadata:
         | IExtendedGroupMetadata
         | null
 
-    chat: 'group' | 'dm'
+    readonly chat: 'group' | 'dm'
 
-    from: string
+    readonly from: string
 
-    pushName?: string
+    readonly pushName?: string
 
-    sender: {
+    readonly sender: {
         jid: string
         username: string
         isAdmin: boolean
     }
 
-    quoted?: {
+    readonly quoted?: {
         message?: WAMessage | null
         sender?: string | null
     } | null
 
-    WAMessage: WAMessage
+    readonly WAMessage: WAMessage
 
-    urls: string[]
+    readonly urls: string[]
 
     /** @internal Set by MessagePipeline to prevent duplicate processing. */
     _pipelineProcessed?: boolean

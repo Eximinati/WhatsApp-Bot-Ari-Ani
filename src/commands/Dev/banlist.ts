@@ -16,10 +16,7 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
-        const users = await this.client.DB.user
-            .find({ ban: true })
-            .sort({ _id: -1 })
-            .limit(50)
+        const users = await this.client.getBannedUsers()
 
         if (!users.length) {
             return void M.reply(

@@ -58,7 +58,7 @@ export default class Command extends CommandModule {
     private getShipAssets(): ShipAsset | null {
         if (this.shipAssets) return this.shipAssets
         try {
-            const raw = this.client.assets.get('ship')
+            const raw = this.client.getAsset('ship')
             if (!raw) return null
             this.shipAssets = JSON.parse(raw.toString()) as ShipAsset
             return this.shipAssets

@@ -171,7 +171,7 @@ export default class Command extends CommandModule {
             await this.client.setXp(w, 500, 1000)
             return void this.client.sendMessage(
                 M.from,
-                this.client.assets.get('chess-win') || '',
+                this.client.getAsset('chess-win') || '',
                 MessageType.video,
                 {
                     caption: `@${w.split('@')[0]} Won! 🎊`,
@@ -195,7 +195,7 @@ export default class Command extends CommandModule {
         }
         if (!args || !args[0])
             return void M.reply(
-                this.client.assets.get('chess-notation') || '',
+                this.client.getAsset('chess-notation') || '',
                 MessageType.image,
                 undefined,
                 undefined,

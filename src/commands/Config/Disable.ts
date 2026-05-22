@@ -45,15 +45,7 @@ export default class Command extends CommandModule {
                 )
             }
 
-            await this.client.DB.feature.updateOne(
-                { feature: 'chatbot' },
-                { $set: { state: false } }
-            )
-
-            this.client.features.set(
-                'chatbot',
-                false
-            )
+            await this.client.toggleFeature('chatbot', false)
 
             return void M.reply(
                 '✅ Chatbot has been disabled.'
@@ -71,22 +63,13 @@ export default class Command extends CommandModule {
             )
         }
 
-        const exists =
-            await this.client.DB.disabledcommands.findOne(
-                { command: cmd.config.command }
-            )
-
-        if (exists) {
+        if (await this.client.isCommandDisabled(cmd.config.command)) {
             return void M.reply(
                 '⚠️ This command is already disabled.'
             )
         }
 
-        await new this.client.DB.disabledcommands({
-            command: cmd.config.command,
-            reason:
-                reasonParts.join('|').trim() || ''
-        }).save()
+        await this.client.disableCommand(cmd.config.command, reasonParts.join('|').trim() || '')
 
         this.handler.invalidateDisabledCommandCache(cmd.config.command)
 

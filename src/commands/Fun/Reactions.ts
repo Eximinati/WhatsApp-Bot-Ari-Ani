@@ -131,7 +131,9 @@ export default class Command extends CommandModule {
 
         if (M.quoted?.sender) M.mentioned.push(M.quoted.sender)
         if (!M.mentioned.length) M.mentioned.push(M.sender.jid)
-        M.mentioned = [...new Set(M.mentioned)]
+        const deduped = [...new Set(M.mentioned)]
+        M.mentioned.length = 0
+        M.mentioned.push(...deduped)
 
         // Reactions[term] is a shared module-level object, so we read by index
         // instead of mutating with .pop(). [0] is the active phrase ("Patted"),

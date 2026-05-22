@@ -109,11 +109,7 @@ Current: *${current.toUpperCase()}* ${current === 'video' ? '(Default)' : ''}
     }
 
     private setMedia = async (M: ISimplifiedMessage, jid: string, pref: 'document' | 'audio' | 'video'): Promise<void> => {
-        await this.client.DB.user.updateOne(
-            { jid },
-            { $set: { mediaPreference: pref } },
-            { upsert: true }
-        )
+        await this.client.setMediaPreference(jid, pref)
 
         const emoji = pref === 'document' ? '📄' : pref === 'audio' ? '🎵' : '🎬'
         const desc = pref === 'document' ? 'document (file)' : pref === 'audio' ? 'audio (music)' : 'video (clip)'
@@ -122,10 +118,7 @@ Current: *${current.toUpperCase()}* ${current === 'video' ? '(Default)' : ''}
     }
 
     private resetMedia = async (M: ISimplifiedMessage, jid: string): Promise<void> => {
-        await this.client.DB.user.updateOne(
-            { jid },
-            { $unset: { mediaPreference: 1 } }
-        )
+        await this.client.resetMediaPreference(jid)
 
         return void M.reply('✅ Media preference has been *reset* to default (video).\n\nUse /media to choose again.')
     }

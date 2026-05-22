@@ -34,13 +34,7 @@ export default class Command extends CommandModule {
             return void M.reply('⚠️ This user is not banned.')
         }
 
-        await this.client.DB.user.updateOne(
-            { jid: user },
-            {
-                $set: { ban: false },
-                $unset: { banReason: 1 }
-            }
-        )
+        await this.client.unbanUser(user)
 
         await M.reply(
             `🔓 User unbanned: ${user.split('@')[0]}`

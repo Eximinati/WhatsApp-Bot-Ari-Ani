@@ -35,7 +35,7 @@ export default class Command extends CommandModule {
     }
 
     private displayName = (jid: string): string => {
-        const c = this.client.contacts.get(jid)
+        const c = this.client.getContact(jid)
         return c?.notify || c?.name || c?.vname || jid.split('@')[0] || 'user'
     }
 

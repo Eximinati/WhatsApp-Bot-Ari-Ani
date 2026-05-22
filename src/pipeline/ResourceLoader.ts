@@ -17,9 +17,9 @@ export default class ResourceLoader {
             const buffer = readFileSync(file)
             const split = file.split(/[\\/]/)
             const key = split[split.length - 1].split('.')[0]
-            this.client.assets.set(key, buffer)
+            this.client.setAsset(key, buffer)
             this.client.log(`Loaded: ${key} from ${file}`)
         })
-        this.client.log(`Loaded ${this.client.assets.size} assets`)
+        this.client.log(`Loaded ${this.client.getAssetCount()} assets`)
     }
 }
