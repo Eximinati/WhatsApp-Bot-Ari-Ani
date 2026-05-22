@@ -20,10 +20,11 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
-        if (p.inventory.length === 0) return void M.reply('🎒 *Inventory*\n\nEmpty. Hunt enemies!')
+        if (p.inventory.length === 0) return void M.reply('🎒 *Inventory*\n\n📭 Empty. Go hunt some enemies!')
 
         const items = p.inventory.map(inv => {
             const item: ItemDefinition | undefined = ITEMS[inv.itemId]
@@ -34,15 +35,15 @@ export default class Command extends CommandModule {
             .filter(([, v]) => v)
             .map(([slot, itemId]) => {
                 const item = ITEMS[itemId!]
-                return `${slot}: ${item?.name || itemId}`
+                return `🛡️ ${slot}: ${item?.name || itemId}`
             }).join('\n') || 'Nothing'
 
         return void M.reply(
             '🎒 *INVENTORY*\n\n' +
-            `Coins: ${p.currency}\n\n` +
-            '━━━ EQUIPMENT ━━━\n' + equipStr + '\n\n' +
-            '━━━ ITEMS ━━━\n' + items + '\n\n' +
-            '*!rpguse <item>* | *!rpgequip <item>*'
+            `💰 Coins: ${p.currency}\n\n` +
+            '━━━━━ EQUIPMENT ━━━━━\n' + equipStr + '\n\n' +
+            '━━━━━ ITEMS ━━━━━\n' + items + '\n\n' +
+            `💉 *${prefix}rpguse <item>* | 🛡️ *${prefix}rpgequip <item>*`
         )
     }
 }

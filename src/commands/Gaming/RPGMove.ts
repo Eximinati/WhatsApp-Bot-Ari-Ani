@@ -20,15 +20,16 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage, { args, joined }: IParsedArgs): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
-        const combine = await RPGDataStore.getCombat(jid)
-        if (combine) return void M.reply('You are in combat! Cannot travel. Finish it with !rpghunt.')
+        const combat = await RPGDataStore.getCombat(jid)
+        if (combat) return void M.reply(`⚔️ You are in combat! Cannot travel.\n\nFinish it with *${prefix}rpghunt* — or use *${prefix}rpghunt flee* to escape.`)
 
         const search = joined.toLowerCase()
         const currentZone = ZONES[p.currentZone]
-        if (!currentZone) return void M.reply('Your current zone data is missing.')
+        if (!currentZone) return void M.reply('❌ Your current zone data is missing.')
 
         if (!search) {
             const connList = currentZone.connections.map((z: ZoneId) => {
@@ -41,8 +42,8 @@ export default class Command extends CommandModule {
 
             return void M.reply(
                 `📍 *Current:* ${currentZone.icon} ${currentZone.name}\n\n` +
-                `━━━ CAN TRAVEL TO ━━━\n${connList}\n\n` +
-                'Use *!rpgmove <zone_name>*'
+                `━━━━━ CAN TRAVEL TO ━━━━━\n${connList}\n\n` +
+                `🚶 Use *${prefix}rpgmove <zone_name>*`
             )
         }
 
@@ -97,7 +98,7 @@ export default class Command extends CommandModule {
         // Danger check - chance of ambush
         let ambushMsg = ''
         if (Math.random() * 10 < targetZone.dangerLevel && p.level < targetZone.dangerLevel + 3) {
-            ambushMsg = '\n\n⚠️ *AMBUSH!* Something is watching... use *!rpghunt* to face it.'
+            ambushMsg = `\n\n⚠️ *AMBUSH!* Something is watching... use *${prefix}rpghunt* to face it.`
         }
 
         await RPGDataStore.savePlayer(p)

@@ -20,8 +20,9 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
         const canvasImg = await RPGEngine.generateCharacterImage(p)
         const statusText = RPGEngine.formatStatus(p)

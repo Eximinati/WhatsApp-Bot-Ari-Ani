@@ -20,10 +20,11 @@ export default class Command extends CommandModule {
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const jid = M.sender.jid
         const name = M.sender.username || jid.split('@')[0]
+        const prefix = this.client.config.prefix
         let p = await RPGDataStore.getPlayer(jid)
 
         if (p && p.stage !== 'origin_selection') {
-            return void M.reply('You are already on your journey! Use !rpgstatus to see your status.')
+            return void M.reply(`🛡️ You are already on your journey!\n\n📊 Use *${prefix}rpgstatus* to see your status.`)
         }
 
         p = await RPGEngine.getOrCreateProfile(jid, name)
@@ -36,17 +37,17 @@ export default class Command extends CommandModule {
         }).join('\n\n')
 
         return void M.reply(
-            '━━━━━━━━━━━━━━━━━━━━━━━\n' +
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
             '⚡ *THE SYSTEM HAS AWAKENED* ⚡\n' +
-            '━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-            '*[System Notice]*\n\n' +
-            'The Tutorial has begun.\n' +
+            '━━━━━━━━━━━━━━━━━━━━━\n\n' +
+            '*📗 [System Notice]*\n\n' +
+            ' 📍 The Tutorial has begun.\n' +
             'Survival Rate: 18%\n\n' +
-            'Choose your origin carefully — this shapes everything.\n\n' +
+            '💡 Choose your origin carefully — this shapes everything.\n\n' +
             originList + '\n\n' +
-            '━━━━━━━━━━━━━━━━━━━━━━━\n' +
-            'Reply: *!rpgchoose <number>*\n' +
-            'Example: *!rpgchoose 3*'
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
+            `📌 Reply: *${prefix}rpgchoose <number>*\n` +
+            `💡Example: ${prefix}*rpgchoose 3*`
         )
     }
 }

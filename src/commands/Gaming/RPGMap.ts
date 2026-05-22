@@ -22,11 +22,12 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
         const mapBuf = await createMapCanvas(p)
-        if (!mapBuf) return void M.reply('Failed to generate map.')
+        if (!mapBuf) return void M.reply('❌ Failed to generate map.')
 
         const zone = ZONES[p.currentZone]
         const connList = zone.connections.map((z: ZoneId) => {
@@ -41,8 +42,8 @@ export default class Command extends CommandModule {
             '🗺️ *WORLD MAP*\n\n' +
             `📍 Location: ${zone.icon} ${zone.name}\n` +
             `⚠️ Danger: ${zone.dangerLevel}/10 | 💰 Treasure: x${zone.treasureMultiplier}\n\n` +
-            `━━━ CONNECTIONS ━━━\n${connList}\n\n` +
-            '*!rpgmove <zone>* to travel'
+            `━━━━━ CONNECTIONS ━━━━━\n${connList}\n\n` +
+            `🚶 *${prefix}rpgmove <zone>* to travel`
 
         return void M.reply(mapBuf, MessageType.image, undefined, undefined, caption)
     }

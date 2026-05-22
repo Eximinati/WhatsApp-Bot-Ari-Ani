@@ -19,14 +19,15 @@ export default class Command extends CommandModule {
     }
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
+        const prefix = this.client.config.prefix
         const jid = M.sender.jid
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`Start first: ${prefix}*rpgstart*`)
 
         const combat = await RPGDataStore.getCombat(jid)
-        if (combat) return void M.reply('You are in combat! Finish with !rpghunt.')
+        if (combat) return void M.reply(`You are in combat! Finish with ${prefix}rpghunt.`)
 
-        if (p.stage === 'origin_selection') return void M.reply('Choose your origin first: *!rpgchoose <number>*')
+        if (p.stage === 'origin_selection') return void M.reply(`Choose your origin first: ${prefix}*rpgchoose <number>*`)
 
         if (p.stage === 'personality_test') {
             const evts = ['first_awakening', 'starving_child']
@@ -37,13 +38,19 @@ export default class Command extends CommandModule {
                     await RPGDataStore.savePlayer(p)
                     const choices = evt.choices.map((c: EventChoice, i: number) => `${i + 1}. ${c.text}`).join('\n\n')
                     return void M.reply(
-                        `━━━━━━━━━━━━━━━━━━━━━━━\n*${evt.title}*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n${evt.narrative}\n\n━━━ CHOICES ━━━\n\n${choices}\n\nReply: *!rpgpick <number>*`
+                        `━━━━━━━━━━━━━━━━━━━━━\n📜 *${evt.title}*\n━━━━━━━━━━━━━━━━━━━━━\n\n${evt.narrative}\n\n━━━━━ CHOICES ━━━━━\n\n${choices}\n\n📌 Reply: *${prefix}rpgpick <number>*`
                     )
                 }
             }
             p.stage = 'awakening'
             await RPGDataStore.savePlayer(p)
-            return void M.reply('*The Tutorial Ends...*\n\nYou are now AWAKE.\n\nUse *!rpgstatus* | *!rpgquest* | *!rpghunt*')
+            return void M.reply(
+                '⚡ *THE TUTORIAL ENDS...*\n\n' +
+                'You are now AWAKE. The System watches your every move.\n\n' +
+                `📊 *${prefix}rpgstatus* — View your stats\n` +
+                `📜 *${prefix}rpgquest* — New events\n` +
+                `⚔️ *${prefix}rpghunt* — Begin combat`
+            )
         }
 
         const available = EVENTS.filter((e: GameEvent) =>
@@ -55,7 +62,7 @@ export default class Command extends CommandModule {
         if (available.length === 0) {
             p.stage = 'awakened'
             await RPGDataStore.savePlayer(p)
-            return void M.reply('No new events here. Try *!rpghunt* to grow stronger. Higher levels unlock more events.')
+            return void M.reply(`📭 No new events here.\n\n⚔️ Try *${prefix}rpghunt* to grow stronger. Higher levels unlock more events.`)
         }
 
         available.sort((a: GameEvent, b: GameEvent) => (a.isDangerous ? 1 : 0) - (b.isDangerous ? 1 : 0))
@@ -64,7 +71,7 @@ export default class Command extends CommandModule {
         const choices = event.choices.map((c: EventChoice, i: number) => `${i + 1}. ${c.text}`).join('\n\n')
 
         return void M.reply(
-            `━━━━━━━━━━━━━━━━━━━━━━━\n${event.isDangerous ? '⚠️' : '📜'} *${event.title}*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n${event.narrative}\n\n━━━ CHOICES ━━━\n\n${choices}\n\nReply: *!rpgpick <number>*`
+            `━━━━━━━━━━━━━━━━━━━━━━━\n${event.isDangerous ? '⚠️' : '📜'} *${event.title}*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n${event.narrative}\n\n━━━━━━━━ CHOICES ━━━━━━━━\n\n${choices}\n\n📌 Reply: *${prefix}rpgpick <number>*`
         )
     }
 }

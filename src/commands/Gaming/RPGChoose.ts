@@ -20,9 +20,10 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage, { args }: IParsedArgs): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         let p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Use *!rpgstart* first!')
-        if (p.stage !== 'origin_selection') return void M.reply('Origin already chosen.')
+        if (!p) return void M.reply(`🚫 No profile found.\n\n📌 Use *${prefix}rpgstart* first!`)
+        if (p.stage !== 'origin_selection') return void M.reply('⚡ Origin already chosen. Continue with *rpgquest*!')
 
         const choice = parseInt(args[0] || '0', 10)
         if (isNaN(choice) || choice < 1 || choice > 8) return void M.reply('Choose 1-8.')
@@ -36,10 +37,10 @@ export default class Command extends CommandModule {
         const ti = p.traits.map((t) => TRAITS[t as TraitId]?.name).filter(Boolean).join(', ')
 
         return void M.reply(
-            '━━━━━━━━━━━━━━━━━━━━━━━\n💠 *ORIGIN SELECTED* 💠\n━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+            '━━━━━━━━━━━━━━━━━━━━━\n💠 *ORIGIN SELECTED* 💠\n━━━━━━━━━━━━━━━━━━━━━\n\n' +
             `You are: *${origin.name}*\n\n${origin.description}\n\n` +
-            `*Stats:* STR:${p.stats.strength} AGI:${p.stats.agility} END:${p.stats.endurance} INT:${p.stats.intelligence} MANA:${p.stats.mana}\n\n` +
-            `*Trait:* ${ti}\n\nUse *!rpgquest* for your first trial!`
+            `*Stats:* 🏋🏽STR:${p.stats.strength}\n🧘🏽AGI:${p.stats.agility}\n🏃🏽END:${p.stats.endurance}\n🧠INT:${p.stats.intelligence}\n🪬MANA:${p.stats.mana}\n\n` +
+            `🔮*Trait:* ${ti}\n\n💡Use ${prefix}*rpgquest* for your first trial!`
         )
     }
 }

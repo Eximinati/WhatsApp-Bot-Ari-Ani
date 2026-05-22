@@ -20,15 +20,16 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage, { args }: IParsedArgs): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         let p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
         const currentEvent = EVENTS.find((e: GameEvent) => !p!.eventsSeen.includes(e.id))
-        if (!currentEvent) return void M.reply('No active event. Use *!rpgquest* to find one.')
+        if (!currentEvent) return void M.reply(`📜 No active event.\n\nUse *${prefix}rpgquest* to find one.`)
 
         const choiceNum = parseInt(args[0] || '0', 10)
         if (isNaN(choiceNum) || choiceNum < 1 || choiceNum > currentEvent.choices.length) {
-            return void M.reply(`Pick 1-${currentEvent.choices.length}.`)
+            return void M.reply(`❌ Pick 1-${currentEvent.choices.length}.`)
         }
 
         const choice = currentEvent.choices[choiceNum - 1]
@@ -44,6 +45,10 @@ export default class Command extends CommandModule {
             result.narrative += '\n\n🔮 *SECRET DISCOVERED!*\n' + result.unlockedSecrets.join('\n')
         }
 
-        return void M.reply(result.narrative)
+        return void M.reply(
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
+            result.narrative +
+            `\n━━━━━━━━━━━━━━━━━━━━━\n\n💡 Use *${prefix}rpgquest* for more events.`
+        )
     }
 }

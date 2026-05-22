@@ -20,25 +20,26 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
         const affStr = p.affinities
             .filter((a: { level: number }) => a.level > 0)
             .map((a: { type: string; level: number; xp: number; maxXp: number }) =>
-                `- ${a.type.toUpperCase()} Lv.${a.level} (${a.xp}/${a.maxXp})`)
+                `🔹 ${a.type.toUpperCase()} Lv.${a.level} (${a.xp}/${a.maxXp})`)
             .join('\n') || 'None'
 
         const traitStr = p.traits
-            .map((t: string) => `- ${TRAITS[t as TraitId]?.name || t}: ${TRAITS[t as TraitId]?.description || ''}`)
+            .map((t: string) => `🔸 ${TRAITS[t as TraitId]?.name || t}: ${TRAITS[t as TraitId]?.description || ''}`)
             .join('\n')
 
         return void M.reply(
             '📜 *SKILLS & AFFINITIES* 📜\n\n' +
-            '━━━ AFFINITIES ━━━\n' + affStr + '\n\n' +
-            '━━━ TRAITS ━━━\n' + traitStr + '\n\n' +
-            (p.evolutionPath ? `━━━ EVOLUTION ━━━\n🌀 ${EVOLUTIONS[p.evolutionPath]?.name}\n${EVOLUTIONS[p.evolutionPath]?.bonuses.specialAbility}\n` : '') +
-            '\nYour actions shape your path.'
+            '━━━━━ AFFINITIES ━━━━━\n' + affStr + '\n\n' +
+            '━━━━━ TRAITS ━━━━━\n' + traitStr + '\n\n' +
+            (p.evolutionPath ? `━━━━━ EVOLUTION ━━━━━\n🌀 ${EVOLUTIONS[p.evolutionPath]?.name}\n✨ ${EVOLUTIONS[p.evolutionPath]?.bonuses.specialAbility}\n` : '') +
+            '\n💠 Your actions shape your path.'
         )
     }
 }

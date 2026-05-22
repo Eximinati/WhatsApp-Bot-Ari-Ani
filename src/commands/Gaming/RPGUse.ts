@@ -20,8 +20,9 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage, { args, joined }: IParsedArgs): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
         const search = joined.toLowerCase()
         const invEntry = p.inventory.find((i: { itemId: string; quantity: number }) => {
@@ -29,10 +30,10 @@ export default class Command extends CommandModule {
             return item && (i.itemId === search || item.name.toLowerCase().includes(search))
         })
 
-        if (!invEntry || invEntry.quantity <= 0) return void M.reply('Item not found. Use *!rpginventory* to check.')
+        if (!invEntry || invEntry.quantity <= 0) return void M.reply(`❌ Item not found.\n\n🎒 Use *${prefix}rpginventory* to check.`)
 
         const item = ITEMS[invEntry.itemId as ItemId]
-        if (!item || item.type !== 'consumable') return void M.reply('Not consumable. Use *!rpgequip <item>* for gear.')
+        if (!item || item.type !== 'consumable') return void M.reply(`❌ Not consumable.\n\n🛡️ Use *${prefix}rpgequip <item>* for gear.`)
 
         if (item.id === 'expired_ration') {
             if (Math.random() < 0.2) {
@@ -60,9 +61,10 @@ export default class Command extends CommandModule {
         await RPGDataStore.savePlayer(p)
 
         return void M.reply(
+            '💉 *ITEM USED*\n\n' +
             `✅ Used: ${item.name}\n` +
             `❤️ HP: ${p.gauges.hp}/${p.gauges.maxHp} | 💙 MP: ${p.gauges.mp}/${p.gauges.maxMp}\n` +
-            `Remaining: ${invEntry.quantity}`
+            `📦 Remaining: ${invEntry.quantity}`
         )
     }
 }

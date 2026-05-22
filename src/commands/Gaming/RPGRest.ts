@@ -18,8 +18,9 @@ export default class Command extends CommandModule {
 
     run = async (M: ISimplifiedMessage): Promise<void> => {
         const jid = M.sender.jid
+        const prefix = this.client.config.prefix
         const p = await RPGDataStore.getPlayer(jid)
-        if (!p) return void M.reply('Start first: *!rpgstart*')
+        if (!p) return void M.reply(`🚫 You haven't started your journey yet!\n\n📌 Use *${prefix}rpgstart* to begin.`)
 
         p.gauges.hp = p.gauges.maxHp
         p.gauges.mp = p.gauges.maxMp
@@ -27,11 +28,13 @@ export default class Command extends CommandModule {
         await RPGDataStore.savePlayer(p)
 
         return void M.reply(
-            '😴 *You rest...*\n\n' +
+            '😴 *REST COMPLETE*\n\n' +
+            '━━━━━ RECOVERED ━━━━━\n' +
             `❤️ HP: ${p.gauges.hp}/${p.gauges.maxHp}\n` +
             `💙 MP: ${p.gauges.mp}/${p.gauges.maxMp}\n` +
             `⚡ Stamina: ${p.gauges.stamina}/${p.gauges.maxStamina}\n\n` +
-            'You feel refreshed and ready.'
+            '✨ You feel refreshed and ready.\n' +
+            `⚔️ Continue your journey: *${prefix}rpghunt* | *${prefix}rpgquest*`
         )
     }
 }
