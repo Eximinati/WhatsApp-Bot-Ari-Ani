@@ -5,12 +5,12 @@ import { ORIGINS, TRAITS, TITLES, EVOLUTIONS, ITEMS } from './data.js'
 let cachedImage: { url: string; img: Image } | null = null
 
 export async function createCharacterCanvas(p: PlayerProfile): Promise<Buffer> {
-    const W = 720
-    const H = 520
+    const W = 1200
+    const H = 800
     const canvas = createCanvas(W, H)
     const ctx = canvas.getContext('2d')
 
-    // Background
+    // ═══ BACKGROUND ═══
     const bgGrad = ctx.createLinearGradient(0, 0, 0, H)
     bgGrad.addColorStop(0, '#0a0a0f')
     bgGrad.addColorStop(0.5, '#12121f')
@@ -18,19 +18,35 @@ export async function createCharacterCanvas(p: PlayerProfile): Promise<Buffer> {
     ctx.fillStyle = bgGrad
     ctx.fillRect(0, 0, W, H)
 
+    // ═══ BORDER FRAME ═══
     ctx.strokeStyle = '#8b5cf6'
-    ctx.lineWidth = 3
-    ctx.strokeRect(6, 6, W - 12, H - 12)
+    ctx.lineWidth = 6
+    ctx.strokeRect(12, 12, W - 24, H - 24)
     ctx.strokeStyle = '#4c1d95'
-    ctx.lineWidth = 1
-    ctx.strokeRect(16, 16, W - 32, H - 32)
+    ctx.lineWidth = 2
+    ctx.strokeRect(28, 28, W - 56, H - 56)
+
+    // ═══ HEADER BAR ═══
+    const headerGrad = ctx.createLinearGradient(0, 40, W, 40)
+    headerGrad.addColorStop(0, '#4c1d95')
+    headerGrad.addColorStop(0.5, '#7c3aed')
+    headerGrad.addColorStop(1, '#4c1d95')
+    ctx.fillStyle = headerGrad
+    ctx.beginPath()
+    ctx.roundRect(40, 44, W - 80, 52, 12)
+    ctx.fill()
+    ctx.fillStyle = '#f5f3ff'
+    ctx.font = 'bold 28px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('📊 SYSTEM STATUS CARD', W / 2, 78)
+    ctx.textAlign = 'left'
 
     const origin = ORIGINS[p.origin]
     const originLabel = origin?.name?.replace(/[^\w\s]/g, '').trim() || 'Unknown'
 
-    // Character visual area
-    const cx = 160
-    const cy = 220
+    // ═══ CHARACTER PORTRAIT AREA ═══
+    const cx = 220
+    const cy = 260
 
     let mainColor = '#6d28d9'
     if (p.evolutionPath) {
@@ -47,20 +63,20 @@ export async function createCharacterCanvas(p: PlayerProfile): Promise<Buffer> {
     }
     if (p.hiddenStats.corruption > 30) mainColor = '#7e22ce'
 
-    // Aura glow
-    const auraGrad = ctx.createRadialGradient(cx, cy, 20, cx, cy, 120)
-    auraGrad.addColorStop(0, mainColor + '44')
+    // ═══ AURA GLOW (larger) ═══
+    const auraGrad = ctx.createRadialGradient(cx, cy, 40, cx, cy, 180)
+    auraGrad.addColorStop(0, mainColor + '55')
+    auraGrad.addColorStop(0.5, mainColor + '22')
     auraGrad.addColorStop(1, '#00000000')
     ctx.fillStyle = auraGrad
     ctx.beginPath()
-    ctx.arc(cx, cy, 120, 0, Math.PI * 2)
+    ctx.arc(cx, cy, 180, 0, Math.PI * 2)
     ctx.fill()
 
-    // Try to load external character image
+    // ═══ TRY LOAD EXTERNAL IMAGE ═══
     let drewImage = false
     if (p.characterImageUrl) {
         try {
-            // Use cache to avoid re-downloading on every status check
             if (!cachedImage || cachedImage.url !== p.characterImageUrl) {
                 const response = await fetch(p.characterImageUrl)
                 if (response.ok) {
@@ -73,177 +89,250 @@ export async function createCharacterCanvas(p: PlayerProfile): Promise<Buffer> {
                 }
             }
             if (cachedImage && cachedImage.url === p.characterImageUrl) {
-                // Draw the external image as circular portrait
                 ctx.save()
                 ctx.beginPath()
-                ctx.arc(cx, cy - 10, 56, 0, Math.PI * 2)
+                ctx.arc(cx, cy - 10, 80, 0, Math.PI * 2)
                 ctx.clip()
-                ctx.drawImage(cachedImage.img, cx - 56, cy - 66, 112, 112)
+                ctx.drawImage(cachedImage.img, cx - 80, cy - 90, 160, 160)
                 ctx.restore()
                 ctx.strokeStyle = mainColor
-                ctx.lineWidth = 3
+                ctx.lineWidth = 5
                 ctx.beginPath()
-                ctx.arc(cx, cy - 10, 56, 0, Math.PI * 2)
+                ctx.arc(cx, cy - 10, 80, 0, Math.PI * 2)
                 ctx.stroke()
                 drewImage = true
             }
         } catch {
-            // Fall through to silhouette
+            // fall through to silhouette
         }
     }
 
-    // Fallback: draw character silhouette
+    // ═══ FALLBACK: CHARACTER SILHOUETTE (larger) ═══
     if (!drewImage) {
+        // Head
         ctx.fillStyle = '#2d1b69'
         ctx.beginPath()
-        ctx.arc(cx, cy - 50, 28, 0, Math.PI * 2)
+        ctx.arc(cx, cy - 60, 40, 0, Math.PI * 2)
         ctx.fill()
         ctx.strokeStyle = mainColor
-        ctx.lineWidth = 2
+        ctx.lineWidth = 3
         ctx.stroke()
 
+        // Body
         ctx.fillStyle = '#3b1f7e'
         ctx.beginPath()
-        ctx.roundRect(cx - 22, cy - 18, 44, 70, 8)
+        ctx.roundRect(cx - 30, cy - 15, 60, 100, 12)
         ctx.fill()
         ctx.stroke()
 
+        // Shoulders/arms
         ctx.fillStyle = '#4c2a9e'
         ctx.beginPath()
-        ctx.roundRect(cx - 35, cy - 15, 70, 20, 6)
+        ctx.roundRect(cx - 50, cy - 12, 100, 28, 10)
         ctx.fill()
         ctx.stroke()
 
+        // Eyes
         ctx.fillStyle = mainColor
         ctx.shadowColor = mainColor
-        ctx.shadowBlur = 8
+        ctx.shadowBlur = 12
         ctx.beginPath()
-        ctx.arc(cx - 10, cy - 52, 4, 0, Math.PI * 2)
-        ctx.arc(cx + 10, cy - 52, 4, 0, Math.PI * 2)
+        ctx.arc(cx - 14, cy - 65, 6, 0, Math.PI * 2)
+        ctx.arc(cx + 14, cy - 65, 6, 0, Math.PI * 2)
         ctx.fill()
         ctx.shadowBlur = 0
 
+        // Weapon if equipped
         if (p.equipment.weapon) {
             ctx.strokeStyle = p.equipment.weapon === 'cursed_blade_hunger' ? '#ef4444' : '#94a3b8'
-            ctx.lineWidth = 3
+            ctx.lineWidth = 4
             ctx.beginPath()
-            ctx.moveTo(cx - 15, cy + 20)
-            ctx.lineTo(cx - 15, cy + 55)
+            ctx.moveTo(cx - 20, cy + 30)
+            ctx.lineTo(cx - 20, cy + 80)
             ctx.stroke()
             ctx.beginPath()
-            ctx.moveTo(cx - 25, cy + 22)
-            ctx.lineTo(cx - 5, cy + 22)
+            ctx.moveTo(cx - 36, cy + 32)
+            ctx.lineTo(cx - 4, cy + 32)
             ctx.stroke()
         }
     }
 
-    // Stats panel
-    const panelX = 320
-    const panelY = 40
+    // ═══ NAME & INFO PANEL ═══
+    const panelX = 440
+    const panelY = 120
 
+    // ═══ NAME ═══
     ctx.fillStyle = '#f5f3ff'
-    ctx.font = 'bold 28px sans-serif'
-    ctx.fillText(p.name, panelX, panelY + 20)
+    ctx.font = 'bold 42px sans-serif'
+    ctx.fillText(p.name, panelX, panelY + 30)
 
+    // ═══ ORIGIN ═══
     ctx.fillStyle = '#a78bfa'
-    ctx.font = '16px sans-serif'
-    ctx.fillText(originLabel, panelX, panelY + 45)
+    ctx.font = '22px sans-serif'
+    ctx.fillText(`💠 ${originLabel}`, panelX, panelY + 62)
 
+    // ═══ LEVEL & XP ═══
     ctx.fillStyle = '#c4b5fd'
-    ctx.font = '14px sans-serif'
-    const xpForLvl = Math.floor(100 * Math.pow(p.level, 1.6))
-    ctx.fillText(`Lv. ${p.level}  |  XP: ${p.xp}/${xpForLvl}`, panelX, panelY + 68)
+    ctx.font = '18px sans-serif'
+    const xpForLvl = Math.floor(50 * Math.pow(p.level, 1.4))
+    ctx.fillText(`🎖️ Lv. ${p.level}  |  ⭐ XP: ${p.xp}/${xpForLvl}  |  ⚔️ Power: ${Math.floor(p.stats.strength * 3 + p.stats.agility * 2 + p.stats.endurance * 2 + p.stats.intelligence + p.stats.mana * 1.5)}`, panelX, panelY + 92)
 
+    // ═══ DIVIDER ═══
     ctx.strokeStyle = '#4c1d95'
-    ctx.lineWidth = 1
+    ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.moveTo(panelX, panelY + 80)
-    ctx.lineTo(W - 30, panelY + 80)
+    ctx.moveTo(panelX, panelY + 108)
+    ctx.lineTo(W - 60, panelY + 108)
     ctx.stroke()
 
-    const statsStart = panelY + 105
-    const statData: Array<[string, number, string]> = [
-        ['STR', p.stats.strength, '#ef4444'],
-        ['AGI', p.stats.agility, '#22c55e'],
-        ['END', p.stats.endurance, '#3b82f6'],
-        ['INT', p.stats.intelligence, '#a855f7'],
-        ['MANA', p.stats.mana, '#06b6d4']
+    // ═══ STATS ═══
+    const statsStart = panelY + 140
+    const statData: Array<[string, number, string, string]> = [
+        ['💪 STR', p.stats.strength, '#ef4444', '#dc2626'],
+        ['🏃 AGI', p.stats.agility, '#22c55e', '#16a34a'],
+        ['🛡️ END', p.stats.endurance, '#3b82f6', '#2563eb'],
+        ['🧠 INT', p.stats.intelligence, '#a855f7', '#9333ea'],
+        ['🔮 MANA', p.stats.mana, '#06b6d4', '#0891b2'],
     ]
 
     for (let i = 0; i < statData.length; i++) {
-        const [label, val, color] = statData[i]
-        const x = panelX + (i >= 3 ? 200 : 0)
-        const yOff = i >= 3 ? i - 3 : i
+        const [label, val, color, darkColor] = statData[i]
+        const x = i < 3 ? panelX : panelX + 370
+        const y = statsStart + (i % 3) * 46
 
+        // Background
         ctx.fillStyle = '#1e1b4b'
-        ctx.fillRect(x, statsStart + yOff * 28, 160, 18)
-        const fillWidth = Math.min(160, (val / 30) * 160)
-        ctx.fillStyle = color + '88'
-        ctx.fillRect(x, statsStart + yOff * 28, fillWidth, 18)
+        ctx.beginPath()
+        ctx.roundRect(x, y, 320, 32, 8)
+        ctx.fill()
 
-        ctx.fillStyle = color
-        ctx.font = 'bold 12px sans-serif'
-        ctx.fillText(`${label}: ${val}`, x + 6, statsStart + yOff * 28 + 14)
+        // Fill bar
+        const fillWidth = Math.min(320, (val / 50) * 320)
+        const statGrad = ctx.createLinearGradient(x, 0, x + 320, 0)
+        statGrad.addColorStop(0, color)
+        statGrad.addColorStop(1, darkColor)
+        ctx.fillStyle = statGrad
+        ctx.beginPath()
+        ctx.roundRect(x, y, fillWidth, 32, 8)
+        ctx.fill()
+
+        // Label and value
+        ctx.fillStyle = '#ffffff'
+        ctx.font = 'bold 18px sans-serif'
+        ctx.fillText(`${label}: ${val}`, x + 12, y + 24)
     }
 
-    const gaugeY = statsStart + 120
-    ctx.fillStyle = '#1e1b4b'
-    ctx.fillRect(panelX, gaugeY, 350, 12)
-    const hpFrac = Math.min(1, p.gauges.hp / p.gauges.maxHp)
-    const hpGrad = ctx.createLinearGradient(panelX, 0, panelX + 350, 0)
-    hpGrad.addColorStop(0, '#ef4444')
-    hpGrad.addColorStop(1, '#dc2626')
-    ctx.fillStyle = hpGrad
-    ctx.fillRect(panelX, gaugeY, 350 * hpFrac, 12)
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.fillText(`HP: ${p.gauges.hp}/${p.gauges.maxHp}`, panelX + 8, gaugeY + 10)
+    // ═══ GAUGE BARS ═══
+    const gaugeY = statsStart + 160
 
-    const mpY = gaugeY + 20
+    // HP Bar
     ctx.fillStyle = '#1e1b4b'
-    ctx.fillRect(panelX, mpY, 350, 12)
-    const mpFrac = Math.min(1, p.gauges.mp / p.gauges.maxMp)
-    const mpGrad = ctx.createLinearGradient(panelX, 0, panelX + 350, 0)
+    ctx.beginPath()
+    ctx.roundRect(panelX, gaugeY, 700, 24, 12)
+    ctx.fill()
+    const hpFrac = Math.max(0.02, Math.min(1, p.gauges.hp / p.gauges.maxHp))
+    const hpGrad = ctx.createLinearGradient(panelX, 0, panelX + 700, 0)
+    hpGrad.addColorStop(0, '#ef4444')
+    hpGrad.addColorStop(1, '#b91c1c')
+    ctx.fillStyle = hpGrad
+    ctx.beginPath()
+    ctx.roundRect(panelX, gaugeY, 700 * hpFrac, 24, 12)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 16px sans-serif'
+    ctx.fillText(`❤️ HP: ${p.gauges.hp}/${p.gauges.maxHp}`, panelX + 16, gaugeY + 18)
+
+    // MP Bar
+    const mpY = gaugeY + 36
+    ctx.fillStyle = '#1e1b4b'
+    ctx.beginPath()
+    ctx.roundRect(panelX, mpY, 700, 24, 12)
+    ctx.fill()
+    const mpFrac = Math.max(0.02, Math.min(1, p.gauges.mp / p.gauges.maxMp))
+    const mpGrad = ctx.createLinearGradient(panelX, 0, panelX + 700, 0)
     mpGrad.addColorStop(0, '#3b82f6')
     mpGrad.addColorStop(1, '#1d4ed8')
     ctx.fillStyle = mpGrad
-    ctx.fillRect(panelX, mpY, 350 * mpFrac, 12)
+    ctx.beginPath()
+    ctx.roundRect(panelX, mpY, 700 * mpFrac, 24, 12)
+    ctx.fill()
     ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.fillText(`MP: ${p.gauges.mp}/${p.gauges.maxMp}`, panelX + 8, mpY + 10)
+    ctx.font = 'bold 16px sans-serif'
+    ctx.fillText(`💙 MP: ${p.gauges.mp}/${p.gauges.maxMp}`, panelX + 16, mpY + 18)
 
-    const bottomY = gaugeY + 55
+    // Stamina Bar
+    const staY = mpY + 36
+    ctx.fillStyle = '#1e1b4b'
+    ctx.beginPath()
+    ctx.roundRect(panelX, staY, 700, 24, 12)
+    ctx.fill()
+    const staFrac = Math.max(0.02, Math.min(1, p.gauges.stamina / p.gauges.maxStamina))
+    const staGrad = ctx.createLinearGradient(panelX, 0, panelX + 700, 0)
+    staGrad.addColorStop(0, '#22c55e')
+    staGrad.addColorStop(1, '#15803d')
+    ctx.fillStyle = staGrad
+    ctx.beginPath()
+    ctx.roundRect(panelX, staY, 700 * staFrac, 24, 12)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 16px sans-serif'
+    ctx.fillText(`⚡ STA: ${p.gauges.stamina}/${p.gauges.maxStamina}`, panelX + 16, staY + 18)
+
+    // ═══ EVOLUTION BANNER ═══
+    const bottomY = staY + 50
     if (p.evolutionPath) {
         const evo = EVOLUTIONS[p.evolutionPath]
-        ctx.fillStyle = mainColor + '44'
+        const evoGrad = ctx.createLinearGradient(panelX, 0, panelX + 700, 0)
+        evoGrad.addColorStop(0, mainColor + '66')
+        evoGrad.addColorStop(0.5, mainColor + '88')
+        evoGrad.addColorStop(1, mainColor + '66')
+        ctx.fillStyle = evoGrad
         ctx.beginPath()
-        ctx.roundRect(panelX, bottomY, 350, 30, 6)
+        ctx.roundRect(panelX, bottomY, 700, 40, 10)
         ctx.fill()
-        ctx.fillStyle = mainColor
-        ctx.font = 'bold 12px sans-serif'
-        ctx.fillText(`${evo?.name || p.evolutionPath}`, panelX + 10, bottomY + 20)
+        ctx.strokeStyle = mainColor
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.roundRect(panelX, bottomY, 700, 40, 10)
+        ctx.stroke()
+        ctx.fillStyle = '#f5f3ff'
+        ctx.font = 'bold 20px sans-serif'
+        ctx.fillText(`🌀 ${evo?.name || p.evolutionPath}`, panelX + 16, bottomY + 28)
     }
 
-    const karmaY = p.evolutionPath ? bottomY + 40 : bottomY
-    const karmaIcon = p.karma > 20 ? 'Light' : p.karma < -20 ? 'Dark' : 'Neutral'
+    // ═══ KARMA + DEATHS ═══
+    const karmaY = p.evolutionPath ? bottomY + 60 : bottomY
+    const karmaIcon = p.karma > 20 ? '☀️ Light' : p.karma < -20 ? '🌑 Dark' : '⚖️ Neutral'
     ctx.fillStyle = '#a78bfa'
-    ctx.font = '12px sans-serif'
-    ctx.fillText(`Karma: ${karmaIcon}(${p.karma})`, panelX, karmaY + 14)
+    ctx.font = '17px sans-serif'
+    ctx.fillText(`⚖️ Karma: ${karmaIcon} (${p.karma})  |  🍀 Luck: ${p.luck}/10`, panelX, karmaY + 18)
 
-    const titleNames = p.titles.slice(0, 3).map(t => TITLES[t]?.name).filter(Boolean).join('  ')
+    // ═══ TITLES ═══
+    const titleNames = p.titles.slice(0, 5).map(t => TITLES[t]?.name).filter(Boolean).join('  •  ')
     if (titleNames) {
         ctx.fillStyle = '#c4b5fd'
-        ctx.font = '11px sans-serif'
-        ctx.fillText(`Titles: ${titleNames}`, panelX, karmaY + 34)
+        ctx.font = '15px sans-serif'
+        ctx.fillText(`🏅 Titles: ${titleNames}`, panelX, karmaY + 42)
     }
 
+    // ═══ DEATHS ═══
     ctx.fillStyle = '#71717a'
-    ctx.font = '11px sans-serif'
-    ctx.fillText(`Deaths: ${p.deaths}`, panelX + 280, karmaY + 14)
+    ctx.font = '16px sans-serif'
+    ctx.fillText(`💀 Deaths: ${p.deaths}  |  💰 Coins: ${p.currency}`, panelX + 450, karmaY + 18)
 
+    // ═══ MENTAL STATE ═══
+    if (p.mentalState.length > 0) {
+        ctx.fillStyle = '#a78bfa'
+        ctx.font = '15px sans-serif'
+        ctx.fillText(`🧠 Mental: ${p.mentalState.join(', ')}`, panelX + 450, karmaY + 42)
+    }
+
+    // ═══ FOOTER ═══
     ctx.fillStyle = '#27272a'
-    ctx.font = '10px sans-serif'
-    ctx.fillText('SYSTEM ERA RPG', W - 120, H - 12)
+    ctx.font = '14px sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillText('⚡ SYSTEM ERA RPG', W - 50, H - 22)
+    ctx.textAlign = 'left'
 
     return canvas.toBuffer('image/png')
 }

@@ -9,7 +9,7 @@ export const ZONES: Record<ZoneId, Zone> = {
         x: 400, y: 320,
         connections: ['ruined_city', 'dark_forest'],
         minLevel: 1,
-        enemies: ['starving_wolf'],
+        enemies: ['starving_wolf', 'rabid_dog', 'scavenger_rat'],
         events: ['starving_child', 'strange_merchant'],
         treasureMultiplier: 0.5,
         dangerLevel: 1,
