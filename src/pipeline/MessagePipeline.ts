@@ -165,6 +165,9 @@ export default class MessagePipeline {
                 const message = err instanceof Error ? err.message : String(err)
                 return void this.client.log(message, true)
             }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            this.client.log(`[PIPELINE_ERROR] ${message}`, true)
         } finally {
             const totalDuration = performance.now() - pipelineStart
             messageProcessDuration += totalDuration

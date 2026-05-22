@@ -13,6 +13,7 @@ import { ShutdownManager } from './runtime/ShutdownManager.js'
 import { StartupManager } from './runtime/StartupManager.js'
 import { ErrorBoundary, safeAsyncVoid } from './runtime/ErrorBoundary.js'
 import { LegacyRuntimeAdapter } from './adapters/legacy/LegacyRuntimeAdapter.js'
+import type { ISimplifiedMessage } from './typings/message.js'
 import { readdir, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
@@ -195,19 +196,11 @@ const start = async (): Promise<void> => {
             }, { category: 'handler', severity: 'high', source: 'client.on:incoming-call', phase: 'runtime' }))
 
             client.on('new-message', safeAsyncVoid(async (M: unknown) => {
-                const msgStart = performance.now()
-                const simplified = M as import('./typings/message.js').ISimplifiedMessage
-                const rawMessage = simplified?.WAMessage
-                const validated = rawMessage ? legacyAdapter.safeNormalize(rawMessage) : null
-                if (!validated) {
-                    client.log('Invalid message payload skipped')
+                const simplified = M as ISimplifiedMessage
+                if (!simplified.WAMessage || !legacyAdapter.safeNormalize(simplified.WAMessage)) {
                     return
                 }
-
-                const pipelineStart = performance.now()
-                await messagePipeline.handleMessage(M as any)
-                const pipelineEnd = performance.now()
-                client.log(`[TIMING] Message processed: total=${Math.round(performance.now() - msgStart)}ms, pipeline=${Math.round(pipelineEnd - pipelineStart)}ms`)
+                await messagePipeline.handleMessage(simplified)
             }, { category: 'handler', severity: 'high', source: 'client.on:new-message', phase: 'runtime' }))
 
             client.on('group-participants-update', safeAsyncVoid(async (event: unknown) => {
