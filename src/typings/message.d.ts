@@ -49,4 +49,9 @@ export interface ISimplifiedMessage {
     WAMessage: WAMessage
 
     urls: string[]
+
+    /** @internal Set by MessagePipeline to prevent duplicate processing. */
+    _pipelineProcessed?: boolean
+    /** @internal Set by media commands to persist context across menu selections. */
+    _session?: { commandName: string }
 }

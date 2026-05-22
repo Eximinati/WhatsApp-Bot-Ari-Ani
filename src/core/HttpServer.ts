@@ -31,21 +31,9 @@ export default class HttpServer extends EventEmitter {
             const mongoState = mongoose.connection.readyState
             const uptime = process.uptime()
 
-            let reconnectState = 'unknown'
-            let reconnectAttempts = 0
-            try {
-                const backoff = (this.client as any).reconnectBackoff
-                if (backoff && typeof backoff.getState === 'function') {
-                    const state = backoff.getState()
-                    reconnectAttempts = state.attempt
-                    reconnectState = `attempt=${state.attempt} delay=${state.delay}ms active=${state.isActive}`
-                }
-            } catch { /* ignore */ }
-
-            const mediaDiag = (this.client.mediaMenu as any)?.getDiagnostics?.() ?? null
-            const menuDiag = (this.client.menus as any)?.getDiagnostics?.() ?? null
-            const timerDiag = ((this.client as any).timerRegistry?.getDiagnostics?.() ?? null) ?? {}
-
+            const runtimeDiag = this.client.getRuntimeDiagnostics()
+            const mediaDiag = this.client.mediaMenu?.getDiagnostics?.() ?? null
+            const menuDiag = this.client.menus?.getDiagnostics?.() ?? null
             const isHealthy = this.client.state === 'open' && mongoState === 1
 
             res.json({
@@ -56,8 +44,8 @@ export default class HttpServer extends EventEmitter {
                 rssMB: Math.round(mem.rss / 1024 / 1024),
                 mongoConnected: mongoState === 1,
                 connectionState: this.client.state,
-                reconnectState,
-                reconnectAttempts,
+                reconnectState: `attempt=${runtimeDiag.reconnectAttempts} delay=${runtimeDiag.reconnectDelay}ms active=${runtimeDiag.reconnectActive}`,
+                reconnectAttempts: runtimeDiag.reconnectAttempts,
                 pid: process.pid,
                 diagnostics: {
                     pendingBuffers: mediaDiag?.pendingBuffers ?? 0,
@@ -67,9 +55,9 @@ export default class HttpServer extends EventEmitter {
                     contacts: this.client.contacts.size,
                     chats: this.client.chats.size,
                     timers: {
-                        total: timerDiag.total ?? 0,
-                        timeouts: timerDiag.timeouts ?? 0,
-                        intervals: timerDiag.intervals ?? 0
+                        total: runtimeDiag.timers.total,
+                        timeouts: runtimeDiag.timers.timeouts,
+                        intervals: runtimeDiag.timers.intervals
                     },
                     listenerCount: this.client.listenerCount('new-message')
                 }

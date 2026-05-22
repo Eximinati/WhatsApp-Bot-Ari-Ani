@@ -155,12 +155,12 @@ export default class MenuManager {
                 return true
             }
 
-            const pipeline = (this.client as any).pipeline
+            const pipeline = this.client.pipeline
             const command = pipeline?.commands.get(session.commandName) || 
                             pipeline?.aliases.get(session.commandName)
             
-            if (command && (command as any).handleMenuSelection) {
-                await (command as any).handleMenuSelection(M, session, index)
+            if (command && typeof (command as unknown as Record<string, unknown>).handleMenuSelection === 'function') {
+                await (command as unknown as { handleMenuSelection: Function }).handleMenuSelection(M, session, index)
                 return true
             }
 

@@ -22,14 +22,31 @@ export default class MessagePipeline {
     commands = new Map<string, ICommand>()
     aliases = new Map<string, ICommand>()
     private disabledCommandsCache = new Map<string, { disabled: boolean; reason?: string }>()
+
+    /** Commands exceeding this wall-clock duration are timed out so the
+     *  pipeline doesn't hang forever. The underlying promise is NOT aborted
+     *  (JS can't cancel promises) — this only prevents the pipeline from
+     *  waiting. */
+    private static readonly COMMAND_TIMEOUT_MS = 120_000
+
+    /** Wrap a promise to reject if it doesn't settle within `ms`.
+     *  Timer cleaned up when either side settles first. */
+    private static withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const timeout = new Promise<T>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`Command "${label}" timed out after ${ms}ms`)), ms)
+        })
+        return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+    }
+
     constructor(public client: RuntimeClient) {}
 
     handleMessage = async (M: ISimplifiedMessage): Promise<void> => {
         const pipelineStart = performance.now()
         let timing: Record<string, number> = {}
         try {
-            if ((M as any)._pipelineProcessed) return
-            ;(M as any)._pipelineProcessed = true
+            if (M._pipelineProcessed) return
+            M._pipelineProcessed = true
 
             const t0 = performance.now()
             // For messages sent from the bot's own phone, override the displayed
@@ -154,7 +171,11 @@ export default class MessagePipeline {
                 return void M.reply(`Only admins are allowed to use this command`)
             const cmdRunStart = performance.now()
             try {
-                await command.run(M, this.parseArgs(args))
+                await MessagePipeline.withTimeout(
+                    Promise.resolve(command.run(M, this.parseArgs(args))),
+                    MessagePipeline.COMMAND_TIMEOUT_MS,
+                    command.config.command
+                )
                 timing.commandRun = performance.now() - cmdRunStart
                 if (command.config.baseXp) {
                     const xpStart = performance.now()
@@ -239,7 +260,7 @@ export default class MessagePipeline {
             return
         }
 
-        const command = (M as any)._session?.commandName || 'media'
+        const command = M._session?.commandName || 'media'
 
         try {
             this.client.log(`[Media] Selection: ${mode} for ${mediaInfo.title} (URL: ${mediaInfo.url})`)
@@ -299,6 +320,8 @@ export default class MessagePipeline {
         }
     }
 
+    private static readonly MAX_PLAYLIST_TRACKS = 30
+
     sendPlaylistFromReply = async (M: ISimplifiedMessage, selection: string, data: any): Promise<void> => {
         const { tracks, name } = data
         if (!tracks || !tracks.length) {
@@ -306,13 +329,23 @@ export default class MessagePipeline {
             return void M.reply('❌ No tracks found in playlist.')
         }
 
-        const total = tracks.length
+        let total = tracks.length
+        const capped = total > MessagePipeline.MAX_PLAYLIST_TRACKS
+        if (capped) {
+            total = MessagePipeline.MAX_PLAYLIST_TRACKS
+            this.client.log(
+                `[Spotify] Playlist capped from ${tracks.length} to ${MessagePipeline.MAX_PLAYLIST_TRACKS} tracks to prevent OOM`,
+                true
+            )
+        }
+
+        const capNote = capped ? `\n⚠️ Capped to ${total} tracks to prevent OOM` : ''
 
         if (selection === '1') {
             console.log(`[Spotify] START Stream - Playlist: "${name}" (${total} tracks) - User: ${M.sender.jid}`)
             
             // Build the full track list text
-            let trackListText = `📥 *Stream Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:\n\n`
+            let trackListText = `📥 *Stream Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:${capNote}\n\n`
             for (let i = 0; i < total; i++) {
                 const t = tracks[i]
                 trackListText += `${i + 1}. *${t.name}* - ${t.artists[0]}\n`
@@ -358,7 +391,7 @@ export default class MessagePipeline {
             console.log(`[Spotify ZIP] START - Playlist: "${name}" (${total} tracks) - User: ${M.sender.jid}`)
             
             // Build the full track list text - this is the ONLY group message until ZIP is ready
-            let trackListText = `📦 *ZIP Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:\n\n`
+            let trackListText = `📦 *ZIP Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:${capNote}\n\n`
             for (let i = 0; i < total; i++) {
                 const t = tracks[i]
                 trackListText += `${i + 1}. *${t.name}* - ${t.artists[0]}\n`
@@ -490,11 +523,10 @@ export default class MessagePipeline {
         this.client.log(`Successfully loaded ${this.commands.size} commands`)
     }
 
-    loadFeatures = (): void => {
+    loadFeatures = async (): Promise<void> => {
         this.client.log('Loading features...')
-        this.client.setFeatures().then(() => {
-            this.client.log(`Loaded ${this.client.features.size} features`)
-        })
+        await this.client.setFeatures()
+        this.client.log(`Loaded ${this.client.features.size} features`)
     }
 
     loadDisabledCommandsCache = async (): Promise<void> => {

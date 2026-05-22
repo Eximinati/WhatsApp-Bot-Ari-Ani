@@ -26,10 +26,10 @@ const DIAGNOSTICS_INTERVAL_MS = 5 * 60 * 1000
 
 function getDiagnostics(): Record<string, unknown> {
     const mem = process.memoryUsage()
-    const mediaDiag = (client as any).mediaMenu?.getDiagnostics?.() ?? {}
-    const menuDiag = (client as any).menus?.getDiagnostics?.() ?? {}
-    const timerDiag = ((client as any).timerRegistry?.getDiagnostics?.() ?? null) ?? {}
-    const chatAi = (client as any).chatAI
+    const mediaDiag = client.mediaMenu?.getDiagnostics?.() ?? {}
+    const menuDiag = client.menus?.getDiagnostics?.() ?? {}
+    const runtimeDiag = client.getRuntimeDiagnostics()
+    const chatAi = client.chatAI
     return {
         timestamp: Date.now(),
         heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
@@ -40,10 +40,10 @@ function getDiagnostics(): Record<string, unknown> {
         pendingCache: mediaDiag.pendingCache ?? 0,
         cacheEvictions: mediaDiag.cacheEvictions ?? 0,
         menuSessions: menuDiag.cachedUsers ?? 0,
-        chatStates: chatAi?.store?.size ?? 0,
+        chatStates: chatAi?.storeSize ?? 0,
         contacts: client.contacts.size,
         chats: client.chats.size,
-        timers: timerDiag.total ?? 0,
+        timers: runtimeDiag.timers.total,
         listenerCount: client.listenerCount('new-message')
     }
 }
@@ -126,7 +126,7 @@ const shutdownManager = ShutdownManager.getInstance()
 const startupManager = StartupManager.getInstance()
 const errorBoundary = ErrorBoundary.getInstance()
 
-const legacyAdapter = new LegacyRuntimeAdapter(client)
+const legacyAdapter = new LegacyRuntimeAdapter()
 
 shutdownManager.registerOwner({
     client,

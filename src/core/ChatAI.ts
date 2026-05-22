@@ -34,9 +34,22 @@ export default class ChatAI {
     private store = new Map<string, ChatState>()
     private gcTimer: NodeJS.Timeout | null = null
 
+    /** Exposed for diagnostics only — returns count of active chat sessions. */
+    get storeSize(): number {
+        return this.store.size
+    }
+
     constructor(private client: RuntimeClient) {
         this.gcTimer = setInterval(() => this.gc(), 10 * 60 * 1000)
         if (this.gcTimer.unref) this.gcTimer.unref()
+    }
+
+    /** Idempotent cleanup — safe to call multiple times. */
+    dispose(): void {
+        if (this.gcTimer) {
+            clearInterval(this.gcTimer)
+            this.gcTimer = null
+        }
     }
 
     chat = async (input: ChatInput): Promise<ChatResult> => {

@@ -74,9 +74,14 @@ export class ShutdownManager {
                 log(`Client listeners cleared (new-message count before clear: ${listenerCount})`)
             }
 
-            if ((this.owners.client as any).mediaMenu?.dispose) {
-                ;(this.owners.client as any).mediaMenu.dispose()
+            if (this.owners.client?.mediaMenu?.dispose) {
+                this.owners.client.mediaMenu.dispose()
                 log('MediaMenu resources disposed')
+            }
+
+            if (this.owners.client?.chatAI?.dispose) {
+                this.owners.client.chatAI.dispose()
+                log('ChatAI GC timer cleared')
             }
 
             log(`Clearing ${this.cronJobs.length} cron job(s)...`)

@@ -41,6 +41,7 @@ import MediaMenu from './MediaMenu.js'
 import MenuManager from './MenuManager.js'
 import { ExponentialBackoff } from '../runtime/ExponentialBackoff.js'
 import { TimerRegistry } from '../runtime/TimerRegistry.js'
+import type MessagePipeline from '../pipeline/MessagePipeline.js'
 import {
     IConfig,
     IContactInfo,
@@ -130,7 +131,7 @@ export default class RuntimeClient extends EventEmitter {
     chatAI: ChatAI = new ChatAI(this)
     mediaMenu = new MediaMenu(this)
     menus = new MenuManager(this)
-    pipeline: any
+    pipeline!: MessagePipeline
     assets = new Map<string, Buffer>()
     features = new Map<string, boolean>()
     contacts = new Map<string, IContactInfo>()
@@ -151,8 +152,8 @@ export default class RuntimeClient extends EventEmitter {
     /** Message IDs the bot itself sent. We skip these when they echo back via
      * `messages.upsert` (otherwise commands run by the bot's own number would
      * trigger their own replies in an infinite loop). 2-minute TTL covers any
-     * realistic echo-arrival delay. */
-    private sentByBot = new NodeCache({ stdTTL: 120, useClones: false })
+     * realistic echo-arrival delay. maxKeys bounds memory if TTL guard fails. */
+    private sentByBot = new NodeCache({ stdTTL: 120, useClones: false, maxKeys: 5000 })
 
     /** Per-JID burst counter — last-resort circuit breaker if the primary
      * defenses fail (e.g., bot crash between send and echo, or a bot reply
@@ -1072,6 +1073,23 @@ export default class RuntimeClient extends EventEmitter {
 
     setFeature = (feature: string, value: boolean): void => {
         this.features.set(feature, value)
+    }
+
+    /** Public diagnostics for health endpoints — avoids unsafe private access. */
+    getRuntimeDiagnostics(): {
+        reconnectAttempts: number
+        reconnectDelay: number
+        reconnectActive: boolean
+        timers: { total: number; timeouts: number; intervals: number }
+    } {
+        const state = this.reconnectBackoff.getState()
+        const timerDiag = this.timerRegistry.getDiagnostics()
+        return {
+            reconnectAttempts: state.attempt,
+            reconnectDelay: state.delay,
+            reconnectActive: state.isActive,
+            timers: { total: timerDiag.total, timeouts: timerDiag.timeouts, intervals: timerDiag.intervals }
+        }
     }
 }
 
