@@ -149,8 +149,7 @@ export default class YT {
                       format: 'bestaudio/best',
                       extractAudio: true,
                       audioFormat: 'mp3',
-                      audioQuality: 0,
-                      preferFFmpeg: true
+                      audioQuality: 0
                   }
                 : { ...common, format: 'best[ext=mp4][height<=720]/best[height<=720]/best' }
 
