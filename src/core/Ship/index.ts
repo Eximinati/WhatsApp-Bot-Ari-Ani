@@ -12,7 +12,7 @@
  */
 import crypto from 'crypto'
 import { jidNormalizedUser } from 'baileys'
-import RuntimeClient from '../RuntimeClient.js'
+import { ICommandContext } from '../../typings/index.js'
 import { IBondModel, IUserRizzModel } from '../../typings/index.js'
 import { PER_SENDER_CAP, REACTION_DELTAS } from './deltas.js'
 
@@ -220,7 +220,7 @@ const buildRizzCreditOps = (sortedMembers: string[], senderJid: string) =>
  * `contributions` is intentionally omitted from $setOnInsert so the schema's
  * `default: () => new Map()` gets used. */
 export const ensureBond = async (
-    client: RuntimeClient,
+    client: ICommandContext,
     members: string[]
 ): Promise<IBondModel> => {
     const sortedMembers = members.slice().sort()
@@ -238,7 +238,7 @@ export const ensureBond = async (
  * fired in parallel, so wall-clock cost is one round-trip regardless of bond
  * size. Returns the post-update bond doc for rendering. */
 export const shipBond = async (
-    client: RuntimeClient,
+    client: ICommandContext,
     senderJid: string,
     members: string[]
 ): Promise<IBondModel> => {
@@ -267,7 +267,7 @@ export const shipBond = async (
  * round-trip. Idempotent on `(sender, action)` — spamming the same action
  * does nothing extra. */
 export const reactBond = async (
-    client: RuntimeClient,
+    client: ICommandContext,
     senderJid: string,
     members: string[],
     action: string
@@ -289,7 +289,7 @@ export const reactBond = async (
 
 /** Fetch (or create) the rizz doc for a user. */
 export const ensureRizz = async (
-    client: RuntimeClient,
+    client: ICommandContext,
     jid: string
 ): Promise<IUserRizzModel> => {
     const baseRizz = baseRizzFor(jid)
@@ -359,7 +359,7 @@ export const computeRizzScore = (
 
 /** Self-rizz score with the components broken out so !shiprank can show them. */
 export const computeRizz = async (
-    client: RuntimeClient,
+    client: ICommandContext,
     jid: string
 ): Promise<RizzBreakdown> => {
     const rizz = await ensureRizz(client, jid)

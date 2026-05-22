@@ -6,6 +6,7 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 720
 const H = 340
@@ -19,24 +20,7 @@ const TEXT_PRIMARY = '#ffffff'
 const TEXT_SECONDARY = 'rgba(255,255,255,0.7)'
 const TEXT_ACCENT = '#f9d423'
 
-const roundRect = (
-    ctx: import('@napi-rs/canvas').SKRSContext2D,
-    x: number, y: number, w: number, h: number, r: number,
-): void => {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.lineTo(x + w - r, y)
-    ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r)
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.lineTo(x, y + r)
-    ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
-}
-
-const ECONOMY = new EconomyService()
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -54,7 +38,7 @@ export default class Command extends CommandModule {
         const jid = M.sender.jid
 
         try {
-            const result = await ECONOMY.claimDailyCash(jid)
+            const result = await economy.claimDailyCash(jid)
 
             const canvas = createCanvas(W, H)
             const ctx = canvas.getContext('2d')
@@ -81,12 +65,12 @@ export default class Command extends CommandModule {
                 // Success card
                 const cx = W / 2 - 180, cy = 100, cw = 360, ch = 200
                 ctx.fillStyle = CARD_BG
-                roundRect(ctx, cx, cy, cw, ch, RADIUS)
+                rr(ctx, cx, cy, cw, ch, RADIUS)
                 ctx.fill()
 
                 ctx.strokeStyle = 'rgba(249,212,35,0.3)'
                 ctx.lineWidth = 2
-                roundRect(ctx, cx, cy, cw, ch, RADIUS)
+                rr(ctx, cx, cy, cw, ch, RADIUS)
                 ctx.stroke()
 
                 // Reward amount
@@ -105,7 +89,7 @@ export default class Command extends CommandModule {
             } else {
                 // Already claimed
                 ctx.fillStyle = 'rgba(255,107,107,0.15)'
-                roundRect(ctx, W / 2 - 180, 100, 360, 200, RADIUS)
+                rr(ctx, W / 2 - 180, 100, 360, 200, RADIUS)
                 ctx.fill()
 
                 ctx.fillStyle = '#ff6b6b'

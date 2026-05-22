@@ -6,6 +6,7 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 720
 const H = 520
@@ -18,24 +19,7 @@ const CARD_BG = 'rgba(255,255,255,0.06)'
 const TEXT_PRIMARY = '#ffffff'
 const TEXT_SECONDARY = 'rgba(255,255,255,0.7)'
 
-const roundRect = (
-    ctx: import('@napi-rs/canvas').SKRSContext2D,
-    x: number, y: number, w: number, h: number, r: number,
-): void => {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.lineTo(x + w - r, y)
-    ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r)
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.lineTo(x, y + r)
-    ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
-}
-
-const ECONOMY = new EconomyService()
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -57,8 +41,8 @@ export default class Command extends CommandModule {
 
         try {
             const [balance, rank] = await Promise.all([
-                ECONOMY.getBalance(jid),
-                ECONOMY.getWealthRank(jid),
+                economy.getBalance(jid),
+                economy.getWealthRank(jid),
             ])
 
             const canvas = createCanvas(W, H)
@@ -84,7 +68,7 @@ export default class Command extends CommandModule {
 
             // Rank badge
             ctx.fillStyle = 'rgba(0,210,255,0.12)'
-            roundRect(ctx, W / 2 - 100, 72, 200, 36, 18)
+            rr(ctx, W / 2 - 100, 72, 200, 36, 18)
             ctx.fill()
             ctx.fillStyle = ACCENT
             ctx.font = '16px "Segoe UI", sans-serif'
@@ -97,11 +81,11 @@ export default class Command extends CommandModule {
 
             // Wallet card
             ctx.fillStyle = CARD_BG
-            roundRect(ctx, 60, cardY, cardW, cardH, RADIUS)
+            rr(ctx, 60, cardY, cardW, cardH, RADIUS)
             ctx.fill()
             ctx.strokeStyle = 'rgba(0,210,255,0.25)'
             ctx.lineWidth = 1.5
-            roundRect(ctx, 60, cardY, cardW, cardH, RADIUS)
+            rr(ctx, 60, cardY, cardW, cardH, RADIUS)
             ctx.stroke()
 
             ctx.fillStyle = 'rgba(0,210,255,0.8)'
@@ -117,11 +101,11 @@ export default class Command extends CommandModule {
 
             // Bank card
             ctx.fillStyle = CARD_BG
-            roundRect(ctx, 380, cardY, cardW, cardH, RADIUS)
+            rr(ctx, 380, cardY, cardW, cardH, RADIUS)
             ctx.fill()
             ctx.strokeStyle = 'rgba(0,210,255,0.25)'
             ctx.lineWidth = 1.5
-            roundRect(ctx, 380, cardY, cardW, cardH, RADIUS)
+            rr(ctx, 380, cardY, cardW, cardH, RADIUS)
             ctx.stroke()
 
             ctx.fillStyle = 'rgba(0,210,255,0.8)'
@@ -150,7 +134,7 @@ export default class Command extends CommandModule {
             const barW = 500
             const barX = (W - barW) / 2
             ctx.fillStyle = 'rgba(255,255,255,0.1)'
-            roundRect(ctx, barX, barY + 12, barW, 16, 8)
+            rr(ctx, barX, barY + 12, barW, 16, 8)
             ctx.fill()
 
             if (walletPct > 0) {
@@ -159,7 +143,7 @@ export default class Command extends CommandModule {
                 walletGrad.addColorStop(0, '#00d2ff')
                 walletGrad.addColorStop(1, '#00a3cc')
                 ctx.fillStyle = walletGrad
-                roundRect(ctx, barX, barY + 12, walletW, 16, 8)
+                rr(ctx, barX, barY + 12, walletW, 16, 8)
                 ctx.fill()
             }
 
@@ -178,7 +162,7 @@ export default class Command extends CommandModule {
             stats.forEach((s, i) => {
                 const sx = statStartX + i * (statW + statGap)
                 ctx.fillStyle = CARD_BG
-                roundRect(ctx, sx, statsY, statW, statH, 16)
+                rr(ctx, sx, statsY, statW, statH, 16)
                 ctx.fill()
 
                 ctx.fillStyle = ACCENT

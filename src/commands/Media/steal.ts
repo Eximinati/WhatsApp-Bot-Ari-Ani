@@ -8,7 +8,8 @@ import MessagePipeline from "../../pipeline/MessagePipeline.js";
 import CommandModule from "../../core/CommandModule.js";
 import RuntimeClient from "../../core/RuntimeClient.js";
 import { IParsedArgs, ISimplifiedMessage } from "../../typings/index.js";
-import { readFile, unlink, writeFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
+import { safeUnlink } from "../../utils/async.js";
 import { tmpdir } from "os";
 
 export default class Command extends CommandModule {
@@ -24,10 +25,6 @@ export default class Command extends CommandModule {
 			usage: `${client.config.prefix}steal[tag_sticker]|pack|author`,
 			baseXp: 30,
 		});
-	}
-
-	private cleanup = async (path: string): Promise<void> => {
-		try { await unlink(path) } catch { /* ignore */ }
 	}
 
 	run = async (
@@ -118,7 +115,7 @@ export default class Command extends CommandModule {
 			const stickerbuffer = await readFile(webpPath);
 			await M.reply(stickerbuffer, MessageType.sticker, Mimetype.webp);
 		} finally {
-			this.cleanup(webpPath).catch(() => undefined)
+			void safeUnlink(webpPath)
 		}
 	};
 }

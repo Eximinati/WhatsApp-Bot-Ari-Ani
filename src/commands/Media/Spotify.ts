@@ -29,14 +29,6 @@ function parseTrackRange(args: string[]): { start: number; end: number } | null 
     return null
 }
 
-function splitBatches<T>(items: T[], batchSize: number): T[][] {
-    const batches: T[][] = []
-    for (let i = 0; i < items.length; i += batchSize) {
-        batches.push(items.slice(i, i + batchSize))
-    }
-    return batches
-}
-
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, {

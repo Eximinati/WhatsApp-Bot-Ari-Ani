@@ -35,7 +35,7 @@ const SYMS: Sym[] = [
 ]
 
 const BG_URL = 'https://i.ibb.co/Kx1Z4PMP/well.jpg'
-const ECO = new EconomyService()
+const economy = new EconomyService()
 
 function wPick(): Sym {
     const sum = SYMS.reduce((a, s) => a + s.weight, 0)
@@ -127,7 +127,7 @@ export default class Command extends CommandModule {
         const jid = M.sender.jid
         const inp = joined.trim() || '50'
         try {
-            const bal = await ECO.getBalance(jid)
+            const bal = await economy.getBalance(jid)
             const bet = parseAmountInput(inp, bal.wallet)
             if (bet <= 0) return void M.reply('❌ Provide a valid bet amount.')
             if (bet > 10_000_000) return void M.reply('❌ Max bet is 10,000,000.')
@@ -165,8 +165,8 @@ export default class Command extends CommandModule {
                 winnings = 0
             }
 
-            await ECO.addWallet(jid, winnings - bet)
-            const bal2 = await ECO.getBalance(jid)
+            await economy.addWallet(jid, winnings - bet)
+            const bal2 = await economy.getBalance(jid)
 
             // ── Rich caption ───────────────────────────────────────────────
             const resultStr = winnings > 0

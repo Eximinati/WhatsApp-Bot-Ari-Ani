@@ -6,6 +6,7 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney, parseAmountInput } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 680
 const H = 440
@@ -19,24 +20,7 @@ const CARD_BG = 'rgba(255,255,255,0.05)'
 const TEXT_PRIMARY = '#ffffff'
 const TEXT_SECONDARY = 'rgba(255,255,255,0.65)'
 
-const roundRect = (
-    ctx: import('@napi-rs/canvas').SKRSContext2D,
-    x: number, y: number, w: number, h: number, r: number,
-): void => {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.lineTo(x + w - r, y)
-    ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r)
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.lineTo(x, y + r)
-    ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
-}
-
-const ECONOMY = new EconomyService()
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -78,7 +62,7 @@ export default class Command extends CommandModule {
             let caption = ''
 
             if (action === 'deposit' || action === 'dep') {
-                const account = await ECONOMY.getBalance(jid)
+                const account = await economy.getBalance(jid)
                 const amountInput = args.slice(1).join(' ') || 'all'
                 const amount = parseAmountInput(amountInput, account.wallet)
 
@@ -86,15 +70,15 @@ export default class Command extends CommandModule {
                     return void M.reply('⚠️ Please specify a valid amount to deposit.')
                 }
 
-                const result = await ECONOMY.deposit(jid, amountInput)
+                const result = await economy.deposit(jid, amountInput)
 
                 // Success card
                 ctx.fillStyle = CARD_BG
-                roundRect(ctx, 80, 90, 520, 180, RADIUS)
+                rr(ctx, 80, 90, 520, 180, RADIUS)
                 ctx.fill()
                 ctx.strokeStyle = 'rgba(108,99,255,0.3)'
                 ctx.lineWidth = 2
-                roundRect(ctx, 80, 90, 520, 180, RADIUS)
+                rr(ctx, 80, 90, 520, 180, RADIUS)
                 ctx.stroke()
 
                 ctx.fillStyle = ACCENT
@@ -113,7 +97,7 @@ export default class Command extends CommandModule {
                 )
 
                 ctx.fillStyle = 'rgba(76,175,80,0.12)'
-                roundRect(ctx, W / 2 - 80, 255, 160, 30, 15)
+                rr(ctx, W / 2 - 80, 255, 160, 30, 15)
                 ctx.fill()
                 ctx.fillStyle = '#4caf50'
                 ctx.font = '13px "Segoe UI", sans-serif'
@@ -130,7 +114,7 @@ export default class Command extends CommandModule {
                     `💎 Total  : ${formatMoney(result.account.totalWealth)}`,
                 ].join('\n')
             } else if (action === 'withdraw' || action === 'with') {
-                const account = await ECONOMY.getBalance(jid)
+                const account = await economy.getBalance(jid)
                 const amountInput = args.slice(1).join(' ') || 'all'
                 const amount = parseAmountInput(amountInput, account.bank)
 
@@ -138,14 +122,14 @@ export default class Command extends CommandModule {
                     return void M.reply('⚠️ Please specify a valid amount to withdraw.')
                 }
 
-                const result = await ECONOMY.withdraw(jid, amountInput)
+                const result = await economy.withdraw(jid, amountInput)
 
                 ctx.fillStyle = CARD_BG
-                roundRect(ctx, 80, 90, 520, 180, RADIUS)
+                rr(ctx, 80, 90, 520, 180, RADIUS)
                 ctx.fill()
                 ctx.strokeStyle = 'rgba(228,63,90,0.3)'
                 ctx.lineWidth = 2
-                roundRect(ctx, 80, 90, 520, 180, RADIUS)
+                rr(ctx, 80, 90, 520, 180, RADIUS)
                 ctx.stroke()
 
                 ctx.fillStyle = ACCENT_ALT
@@ -164,7 +148,7 @@ export default class Command extends CommandModule {
                 )
 
                 ctx.fillStyle = 'rgba(228,63,90,0.12)'
-                roundRect(ctx, W / 2 - 100, 255, 200, 30, 15)
+                rr(ctx, W / 2 - 100, 255, 200, 30, 15)
                 ctx.fill()
                 ctx.fillStyle = ACCENT_ALT
                 ctx.font = '13px "Segoe UI", sans-serif'
@@ -181,15 +165,15 @@ export default class Command extends CommandModule {
                     `💎 Total  : ${formatMoney(result.account.totalWealth)}`,
                 ].join('\n')
             } else {
-                const balance = await ECONOMY.getBalance(jid)
+                const balance = await economy.getBalance(jid)
 
                 // Bank card
                 ctx.fillStyle = CARD_BG
-                roundRect(ctx, 60, 90, 560, 130, RADIUS)
+                rr(ctx, 60, 90, 560, 130, RADIUS)
                 ctx.fill()
                 ctx.strokeStyle = 'rgba(108,99,255,0.25)'
                 ctx.lineWidth = 1.5
-                roundRect(ctx, 60, 90, 560, 130, RADIUS)
+                rr(ctx, 60, 90, 560, 130, RADIUS)
                 ctx.stroke()
 
                 ctx.fillStyle = 'rgba(108,99,255,0.7)'
@@ -206,11 +190,11 @@ export default class Command extends CommandModule {
 
                 // Commands card
                 ctx.fillStyle = CARD_BG
-                roundRect(ctx, 60, 240, 560, 90, RADIUS)
+                rr(ctx, 60, 240, 560, 90, RADIUS)
                 ctx.fill()
                 ctx.strokeStyle = 'rgba(108,99,255,0.15)'
                 ctx.lineWidth = 1
-                roundRect(ctx, 60, 240, 560, 90, RADIUS)
+                rr(ctx, 60, 240, 560, 90, RADIUS)
                 ctx.stroke()
 
                 ctx.fillStyle = ACCENT

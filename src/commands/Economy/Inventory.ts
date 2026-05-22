@@ -6,12 +6,12 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 const W = 680, R = 22, BG1 = '#0d1f1a', BG2 = '#0a1510', AC = '#4db6ac'
-function rr(ctx: import('@napi-rs/canvas').SKRSContext2D, x: number, y: number, w: number, h: number, r: number) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath() }
-const ECO = new EconomyService()
+const economy = new EconomyService()
 export default class Command extends CommandModule { constructor(c: RuntimeClient, h: MessagePipeline) { super(c, h, { command: 'inventory', description: 'View your inventory', category: 'economy', usage: `${c.config.prefix}inventory`, aliases: ['inv', 'backpack'], baseXp: 5 }) }
     run = async (M: ISimplifiedMessage, _: IParsedArgs): Promise<void> => {
-        try { const res = await ECO.getInventory(M.sender.jid)
+        try { const res = await economy.getInventory(M.sender.jid)
         const itemCount = res.items.length; const Hr = Math.max(300, 120 + itemCount * 36)
         const cv = createCanvas(W, Hr), ctx = cv.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, Hr); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hr)
         ctx.fillStyle = AC; ctx.font = 'bold 28px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎒 INVENTORY', W / 2, 48)

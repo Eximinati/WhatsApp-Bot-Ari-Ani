@@ -5,6 +5,7 @@ import request from '../../core/request.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
 import YT from '../../core/YT.js'
 import { ISimplifiedMessage } from '../../typings/index.js'
+import { handleFormatSelection } from '../../utils/media.js'
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -70,20 +71,9 @@ export default class Command extends CommandModule {
     }
 
     handleMenuSelection = async (M: ISimplifiedMessage, session: any, index: number): Promise<void> => {
-        const { data } = session
-        const actions = this.client.mediaMenu.createFormatActions('ytaudio')
-        const action = actions[String(index)]
-
-        if (!action) {
-            return void M.reply('Reply with a valid number from the media format menu.')
-        }
-
-        if (action.remember) {
-            await this.client.mediaMenu.setPreference(M.sender.jid, 'ytaudio', action.mode)
-        }
-
-        this.client.menus.clear(M.sender.jid, 'ytaudio')
-        await M.reply('⏳ Downloading & sending media...')
-        return this.handler.sendMediaFromReply(M, action.mode, data)
+        return handleFormatSelection(M, session, index, 'ytaudio', this.client.mediaMenu,
+            (jid, cmd) => this.client.menus.clear(jid, cmd),
+            (M, mode, data) => this.handler.sendMediaFromReply(M, mode, data),
+            '⏳ Downloading & sending media...')
     }
 }

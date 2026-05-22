@@ -9,6 +9,8 @@ import yts from 'yt-search'
 import archiver from 'archiver'
 import { createWriteStream, promises as fsPromises, unlink } from 'fs'
 import { tmpdir } from 'os'
+import { buildTrackListText } from '../utils/playlist.js'
+import { fireAndForget } from '../utils/async.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -346,14 +348,9 @@ export default class MessagePipeline {
         if (selection === '1') {
             console.log(`[Spotify] START Stream - Playlist: "${name}" (${total} tracks) - User: ${M.sender.jid}`)
             
-            // Build the full track list text
-            let trackListText = `📥 *Stream Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:${capNote}\n\n`
-            for (let i = 0; i < total; i++) {
-                const t = tracks[i]
-                trackListText += `${i + 1}. *${t.name}* - ${t.artists[0]}\n`
-            }
-            trackListText += `\n⬇️ Starting downloads...`
-            await M.reply(trackListText)
+            await M.reply(buildTrackListText(tracks, total,
+                `📥 *Stream Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:${capNote}`,
+                `⬇️ Starting downloads...`))
 
             for (let i = 0; i < total; i++) {
                 const track = tracks[i]
@@ -392,14 +389,9 @@ export default class MessagePipeline {
         } else if (selection === '2') {
             console.log(`[Spotify ZIP] START - Playlist: "${name}" (${total} tracks) - User: ${M.sender.jid}`)
             
-            // Build the full track list text - this is the ONLY group message until ZIP is ready
-            let trackListText = `📦 *ZIP Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:${capNote}\n\n`
-            for (let i = 0; i < total; i++) {
-                const t = tracks[i]
-                trackListText += `${i + 1}. *${t.name}* - ${t.artists[0]}\n`
-            }
-            trackListText += `\n⬇️ Downloading all tracks... (progress in logs only)`
-            await M.reply(trackListText)
+            await M.reply(buildTrackListText(tracks, total,
+                `📦 *ZIP Mode* - Playlist: *${name}*\n📋 *${total}* tracks to download:${capNote}`,
+                `⬇️ Downloading all tracks... (progress in logs only)`))
             
             const archive = archiver('zip', { zlib: { level: 9 } })
             const tmpPath = join(tmpdir(), `spotify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.zip`)
@@ -491,7 +483,7 @@ export default class MessagePipeline {
             this.client.log(
                 `SEC Group Invite by ${M.sender.username} in ${M.groupMetadata?.subject || 'Group'}`
             )
-            await this.client.groupRemove(M.from, [M.sender.jid]).catch(() => undefined)
+            fireAndForget(this.client.groupRemove(M.from, [M.sender.jid]))
             return
         }
     }

@@ -6,6 +6,7 @@ import qrcode from 'qrcode'
 import axios from 'axios'
 import pino from 'pino'
 import NodeCache from 'node-cache'
+import { fireAndForget } from '../utils/async.js'
 import {
     makeWASocket,
     fetchLatestBaileysVersion,
@@ -55,8 +56,14 @@ import { MessageType, Mimetype } from './types.js'
 import QuotaService from '../services/QuotaService.js'
 import XpService from '../services/XpService.js'
 import ViewOnceService from '../services/ViewOnceService.js'
+import GroupService from '../services/GroupService.js'
+import UserDataService from '../services/UserDataService.js'
 
 type ConnectionStatus = 'open' | 'connecting' | 'close'
+
+// =========================================================================
+// BUILDMESSAGECONTENT — translate legacy MessageType/Mimetype to Baileys v7
+// =========================================================================
 
 // Translate the legacy MessageType / Mimetype calling style into a v7
 // AnyMessageContent payload.
@@ -127,6 +134,11 @@ const buildMessageContent = (
 }
 
 export default class RuntimeClient extends EventEmitter implements ICommandContext {
+
+    // =========================================================================
+    // STATE
+    // =========================================================================
+
     private sock!: WASocket
     DB = new DatabaseHandler()
     util = new Toolkit()
@@ -140,23 +152,15 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
     private contacts = new Map<string, IContactInfo>()
     private chats = new Set<string>()
 
-    /** LRU cache of recent messages keyed by message id, used by getMessage for poll decryption + retries. */
-    private messageCache = new NodeCache({ stdTTL: 60 * 60, useClones: false, maxKeys: 1000 })
+    // --- Caches (NodeCache) ---
+    private static nc = (ttl: number, maxKeys?: number): NodeCache =>
+        new NodeCache({ stdTTL: ttl, useClones: false, ...(maxKeys ? { maxKeys } : {}) })
 
-    /** Group metadata cache to avoid hammering WA's metadata endpoint. */
-    private groupMetadataCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
-
-    /** Retry counter cache used by Baileys for failed-decrypt retries. */
-    private msgRetryCounterCache = new NodeCache({ stdTTL: 60, useClones: false })
-
-    /** User device cache. */
-    private userDevicesCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
-
-    /** Message IDs the bot itself sent. We skip these when they echo back via
-     * `messages.upsert` (otherwise commands run by the bot's own number would
-     * trigger their own replies in an infinite loop). 2-minute TTL covers any
-     * realistic echo-arrival delay. maxKeys bounds memory if TTL guard fails. */
-    private sentByBot = new NodeCache({ stdTTL: 120, useClones: false, maxKeys: 5000 })
+    private messageCache = RuntimeClient.nc(3600, 1000)
+    private groupMetadataCache = RuntimeClient.nc(300)
+    private msgRetryCounterCache = RuntimeClient.nc(60)
+    private userDevicesCache = RuntimeClient.nc(300)
+    private sentByBot = RuntimeClient.nc(120, 5000)
 
     /** Per-JID burst counter — last-resort circuit breaker if the primary
      * defenses fail (e.g., bot crash between send and echo, or a bot reply
@@ -172,6 +176,8 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
     private logger = pino({
         level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'warn')
     })
+
+    // --- Reconnect State ---
     /** Guards against multiple concurrent reconnect attempts when WA fires
      * `connection.update {connection: 'close'}` twice in quick succession. */
     private isReconnecting = false
@@ -192,6 +198,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         super.removeAllListeners()
         return this
     }
+
+    // =========================================================================
+    // IDENTITY & AUTH
+    // =========================================================================
 
     log = (text: string, error?: boolean): void => {
         const timestamp = new Date().toLocaleString('en-GB', {
@@ -286,6 +296,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
 
     private authSession: Awaited<ReturnType<MongoAuthStore['getAuthState']>> | null = null
 
+    // =========================================================================
+    // CONNECTION LIFECYCLE
+    // =========================================================================
+
     connect = async (): Promise<void> => {
         if (this.sock) {
             this.disposeSocket()
@@ -329,118 +343,22 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
             maxMsgRetryCount: 5
         })
 
+        this.groups = new GroupService(this.sock, this.groupMetadataCache)
+
         this.sock.ev.on('creds.update', saveCreds)
-
         this.sock.ev.on('connection.update', (update) => this.handleConnectionUpdate(update))
-
-        this.sock.ev.on('messages.upsert', ({ messages, type }) => {
-            if (type !== 'notify' && type !== 'append') return
-            for (const m of messages) {
-                if (!m.message || !m.key) continue
-
-                // --- Loop-prevention layer 1: skip echoes of bot-sent messages.
-                if (m.key.id && this.sentByBot.has(m.key.id)) {
-                    this.sentByBot.del(m.key.id)
-                    continue
-                }
-
-                // --- Loop-prevention layer 2: ignore fromMe messages older than
-                // 60 seconds. Catches stale echoes that arrive after a restart
-                // (when sentByBot has been wiped). Real user-typed commands have
-                // a fresh timestamp so they're unaffected.
-                if (m.key.fromMe) {
-                    const tsSec = Number(m.messageTimestamp || 0)
-                    if (tsSec > 0 && Date.now() / 1000 - tsSec > 60) continue
-                }
-
-                // --- Loop-prevention layer 3: per-chat burst circuit breaker.
-                // If a runaway loop somehow gets past the first two defenses,
-                // we cap fromMe-driven activity per chat in a short window.
-                if (m.key.fromMe && m.key.remoteJid) {
-                    const now = Date.now()
-                    const arr = (this.commandBurst.get(m.key.remoteJid) || []).filter(
-                        (t) => now - t < RuntimeClient.LOOP_BURST_WINDOW_MS
-                    )
-                    if (arr.length >= RuntimeClient.LOOP_BURST_LIMIT) {
-                        this.log(
-                            `Loop guard tripped for ${m.key.remoteJid} — dropping fromMe message`,
-                            true
-                        )
-                        this.commandBurst.set(m.key.remoteJid, arr)
-                        continue
-                    }
-                    arr.push(now)
-                    this.commandBurst.set(m.key.remoteJid, arr)
-                }
-
-                if (m.key.id) {
-                    const normalized = normalizeMessageContent(m.message)
-                    if (normalized) this.messageCache.set(m.key.id, normalized)
-                }
-                if (m.key.remoteJid) this.chats.add(m.key.remoteJid)
-                // Proactively snapshot view-once media on arrival — WhatsApp's
-                // CDN garbage-collects view-once media quickly, so a deferred
-                // !retrieve on an old message will fail without this cache.
-                this.captureViewOnce(m as WAMessage).catch(() => undefined)
-                const simplifyStart = performance.now()
-                this.emitNewMessage(this.simplifyMessage(m as WAMessage).then((simplified) => {
-                    const simplifyDuration = performance.now() - simplifyStart
-                    ;(simplified as any)._simplifyDuration = simplifyDuration
-                    return simplified
-                }))
-            }
-        })
-
-        this.sock.ev.on('contacts.upsert', (contacts) => {
-            for (const c of contacts) {
-                if (!c.id) continue
-                this.contacts.set(c.id, {
-                    notify: c.notify || c.name,
-                    name: c.name,
-                    vname: c.verifiedName
-                })
-            }
-        })
-
-        this.sock.ev.on('contacts.update', (contacts) => {
-            for (const c of contacts) {
-                if (!c.id) continue
-                const existing = this.contacts.get(c.id) || {}
-                this.contacts.set(c.id, {
-                    ...existing,
-                    notify: c.notify || c.name || existing.notify,
-                    name: c.name || existing.name,
-                    vname: c.verifiedName || existing.vname
-                })
-            }
-        })
-
-        this.sock.ev.on('chats.upsert', (chats) => {
-            for (const c of chats) if (c.id) this.chats.add(c.id)
-        })
-
-        this.sock.ev.on('groups.update', (updates) => {
-            for (const u of updates) {
-                if (u.id) this.groupMetadataCache.del(u.id)
-            }
-        })
-
-        this.sock.ev.on('group-participants.update', (event) => {
-            this.groupMetadataCache.del(event.id)
-            this.emit('group-participants-update', {
-                jid: event.id,
-                participants: event.participants,
-                action: event.action,
-                actor: event.author
-            })
-        })
-
-        this.sock.ev.on('call', (calls) => {
-            for (const c of calls) {
-                if (c.status === 'offer') this.emit('incoming-call', { id: c.id, from: c.from })
-            }
-        })
+        this.sock.ev.on('messages.upsert', (event) => this.handleMessagesUpsert(event))
+        this.sock.ev.on('contacts.upsert', (contacts) => this.handleContactsUpsert(contacts))
+        this.sock.ev.on('contacts.update', (contacts) => this.handleContactsUpdate(contacts))
+        this.sock.ev.on('chats.upsert', (chats) => { for (const c of chats) if (c.id) this.chats.add(c.id) })
+        this.sock.ev.on('groups.update', (updates) => this.handleGroupsUpdate(updates))
+        this.sock.ev.on('group-participants.update', (event) => this.handleGroupParticipantsUpdate(event))
+        this.sock.ev.on('call', (calls) => this.handleCall(calls))
     }
+
+    // =========================================================================
+    // EVENT HANDLERS
+    // =========================================================================
 
     private handleConnectionUpdate = async (update: Partial<ConnectionState>): Promise<void> => {
         const { connection, lastDisconnect, qr } = update
@@ -467,13 +385,13 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
             }
             this.QR = undefined
             // Pre-resolve mod LIDs so isMod() works on first group message.
-            this.resolveMods().catch(() => undefined)
+            fireAndForget(this.resolveMods())
             // Kick off background view-once cache pruner.
-            this.pruneViewOnce().catch(() => undefined)
+            fireAndForget(this.pruneViewOnce())
             if (!this.viewOncePruneTimer) {
                 this.viewOncePruneTimer = this.timerRegistry.registerInterval(
                     'RuntimeClient',
-                    () => this.pruneViewOnce().catch(() => undefined),
+                    () => { fireAndForget(this.pruneViewOnce()) },
                     6 * 60 * 60 * 1000,
                     'viewOncePrune'
                 )
@@ -532,13 +450,100 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         }
     }
 
+    private handleMessagesUpsert = ({ messages, type }: { messages: WAMessage[]; type: string }): void => {
+        if (type !== 'notify' && type !== 'append') return
+        for (const m of messages) {
+            if (!m.message || !m.key) continue
+
+            if (m.key.id && this.sentByBot.has(m.key.id)) {
+                this.sentByBot.del(m.key.id)
+                continue
+            }
+
+            if (m.key.fromMe) {
+                const tsSec = Number(m.messageTimestamp || 0)
+                if (tsSec > 0 && Date.now() / 1000 - tsSec > 60) continue
+            }
+
+            if (m.key.fromMe && m.key.remoteJid) {
+                const now = Date.now()
+                const arr = (this.commandBurst.get(m.key.remoteJid) || []).filter(
+                    (t) => now - t < RuntimeClient.LOOP_BURST_WINDOW_MS
+                )
+                if (arr.length >= RuntimeClient.LOOP_BURST_LIMIT) {
+                    this.log(`Loop guard tripped for ${m.key.remoteJid} — dropping fromMe message`, true)
+                    this.commandBurst.set(m.key.remoteJid, arr)
+                    continue
+                }
+                arr.push(now)
+                this.commandBurst.set(m.key.remoteJid, arr)
+            }
+
+            if (m.key.id) {
+                const normalized = normalizeMessageContent(m.message)
+                if (normalized) this.messageCache.set(m.key.id, normalized)
+            }
+            if (m.key.remoteJid) this.chats.add(m.key.remoteJid)
+            fireAndForget(this.captureViewOnce(m as WAMessage))
+            const simplifyStart = performance.now()
+            this.emitNewMessage(this.simplifyMessage(m as WAMessage).then((simplified) => {
+                ;(simplified as any)._simplifyDuration = performance.now() - simplifyStart
+                return simplified
+            }))
+        }
+    }
+
+    private handleContactsUpsert = (contacts: Array<{ id?: string; notify?: string; name?: string; verifiedName?: string }>): void => {
+        for (const c of contacts) {
+            if (!c.id) continue
+            this.contacts.set(c.id, { notify: c.notify || c.name, name: c.name, vname: c.verifiedName })
+        }
+    }
+
+    private handleContactsUpdate = (contacts: Array<{ id?: string; notify?: string; name?: string; verifiedName?: string }>): void => {
+        for (const c of contacts) {
+            if (!c.id) continue
+            const existing = this.contacts.get(c.id) || {}
+            this.contacts.set(c.id, {
+                ...existing,
+                notify: c.notify || c.name || existing.notify,
+                name: c.name || existing.name,
+                vname: c.verifiedName || existing.vname
+            })
+        }
+    }
+
+    private handleGroupsUpdate = (updates: Array<{ id?: string }>): void => {
+        for (const u of updates) { if (u.id) this.groupMetadataCache.del(u.id) }
+    }
+
+    private handleGroupParticipantsUpdate = (event: { id: string; participants: { id: string }[]; action: string; author?: string }): void => {
+        this.groupMetadataCache.del(event.id)
+        this.emit('group-participants-update', {
+            jid: event.id,
+            participants: event.participants,
+            action: event.action,
+            actor: event.author
+        })
+    }
+
+    private handleCall = (calls: Array<{ id: string; from: string; status?: string; [key: string]: unknown }>): void => {
+        for (const c of calls) { if (c.status === 'offer') this.emit('incoming-call', { id: c.id, from: c.from }) }
+    }
+
     /** Cache directory for proactively-snapshotted view-once media. */
     private viewOnceDir = join(process.cwd(), 'cache', 'viewonce')
     private viewOncePruneTimer: NodeJS.Timeout | null = null
 
+    // =========================================================================
+    // SERVICES
+    // =========================================================================
+
     private quotaService = new QuotaService(this.DB)
     private xpService = new XpService(this.DB)
     private viewOnceService = new ViewOnceService(this.viewOnceDir, (msg, isError) => this.log(msg, isError))
+    private groups!: GroupService
+    private userData = new UserDataService(this.DB)
 
     private captureViewOnce = (M: WAMessage): Promise<void> => this.viewOnceService.captureViewOnce(M)
     private pruneViewOnce = (): Promise<void> => this.viewOnceService.pruneViewOnce()
@@ -603,6 +608,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         if (id) this.sentByBot.set(id, true)
     }
 
+    // =========================================================================
+    // MESSAGING
+    // =========================================================================
+
     sendMessage = async (
         jid: string,
         content: string | Buffer,
@@ -636,67 +645,34 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         return buffer as Buffer
     }
 
-    groupMetadata = async (jid: string): Promise<GroupMetadata> => {
-        const cached = this.groupMetadataCache.get<GroupMetadata>(jid)
-        if (cached) return cached
-        const meta = await this.sock.groupMetadata(jid)
-        this.groupMetadataCache.set(jid, meta)
-        return meta
-    }
+    // =========================================================================
+    // GROUP OPERATIONS (delegated to GroupService)
+    // =========================================================================
 
-    fetchGroupMetadataFromWA = async (jid: string): Promise<GroupMetadata> => this.sock.groupMetadata(jid)
-
-    groupRemove = async (jid: string, users: string[]) =>
-        this.sock.groupParticipantsUpdate(jid, users, 'remove')
-
-    groupPromote = async (jid: string, users: string[]) =>
-        this.sock.groupParticipantsUpdate(jid, users, 'promote')
-
-    groupDemote = async (jid: string, users: string[]) =>
-        this.sock.groupParticipantsUpdate(jid, users, 'demote')
-
-    groupAdd = async (jid: string, users: string[]) =>
-        this.sock.groupParticipantsUpdate(jid, users, 'add')
-
-    groupInviteCode = async (jid: string): Promise<string | undefined> => this.sock.groupInviteCode(jid)
-
-    groupRevokeInvite = async (jid: string): Promise<string | undefined> => this.sock.groupRevokeInvite(jid)
-
-    groupUpdateSubject = async (jid: string, subject: string): Promise<void> =>
-        this.sock.groupUpdateSubject(jid, subject)
-
-    groupUpdateDescription = async (jid: string, description: string): Promise<void> => {
-        await this.sock.groupUpdateDescription(jid, description)
-    }
-
-    groupAcceptInvite = async (code: string): Promise<string | undefined> => this.sock.groupAcceptInvite(code)
-
-    groupLeave = async (jid: string): Promise<void> => {
-        await this.sock.groupLeave(jid)
-    }
-
-    /** Legacy aliases kept for command compat. */
-    groupMakeAdmin = async (jid: string, users: string[]) => this.groupPromote(jid, users)
-    groupDemoteAdmin = async (jid: string, users: string[]) => this.groupDemote(jid, users)
-
-    /** Translate legacy `groupSettingChange(jid, GroupSettingChange.messageSend, true|false)`.
-     * value=true → close (announcement), value=false → open (not_announcement). */
-    groupSettingChange = async (jid: string, _setting: string, value: boolean): Promise<void> => {
-        await this.sock.groupSettingUpdate(jid, value ? 'announcement' : 'not_announcement')
-    }
-
-    acceptInvite = async (code: string): Promise<{ status: number; gid?: string }> => {
-        try {
-            const gid = await this.sock.groupAcceptInvite(code)
-            return { status: 200, gid }
-        } catch {
-            return { status: 401 }
-        }
-    }
+    groupMetadata = async (jid: string): Promise<GroupMetadata> => this.groups.groupMetadata(jid)
+    fetchGroupMetadataFromWA = async (jid: string): Promise<GroupMetadata> => this.groups.fetchGroupMetadataFromWA(jid)
+    groupRemove = async (jid: string, users: string[]) => this.groups.groupRemove(jid, users)
+    groupPromote = async (jid: string, users: string[]) => this.groups.groupPromote(jid, users)
+    groupDemote = async (jid: string, users: string[]) => this.groups.groupDemote(jid, users)
+    groupAdd = async (jid: string, users: string[]) => this.groups.groupAdd(jid, users)
+    groupInviteCode = async (jid: string): Promise<string | undefined> => this.groups.groupInviteCode(jid)
+    groupRevokeInvite = async (jid: string): Promise<string | undefined> => this.groups.groupRevokeInvite(jid)
+    groupUpdateSubject = async (jid: string, subject: string): Promise<void> => this.groups.groupUpdateSubject(jid, subject)
+    groupUpdateDescription = async (jid: string, description: string): Promise<void> => this.groups.groupUpdateDescription(jid, description)
+    groupAcceptInvite = async (code: string): Promise<string | undefined> => this.groups.groupAcceptInvite(code)
+    groupLeave = async (jid: string): Promise<void> => this.groups.groupLeave(jid)
+    groupMakeAdmin = async (jid: string, users: string[]) => this.groups.groupPromote(jid, users)
+    groupDemoteAdmin = async (jid: string, users: string[]) => this.groups.groupDemote(jid, users)
+    groupSettingChange = async (jid: string, _setting: string, value: boolean): Promise<void> => this.groups.groupSettingChange(jid, _setting, value)
+    acceptInvite = async (code: string): Promise<{ status: number; gid?: string }> => this.groups.acceptInvite(code)
 
     sendPresenceUpdate = async (status: 'available' | 'composing' | 'recording' | 'paused'): Promise<void> => {
         await this.sock.sendPresenceUpdate(status)
     }
+
+    // =========================================================================
+    // CONTACTS & PROFILES
+    // =========================================================================
 
     getProfilePicture = async (jid: string): Promise<Buffer | undefined> => {
         try {
@@ -738,6 +714,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         const out = await this.sock.onWhatsApp(...jids)
         return (out || []).map((r) => ({ exists: !!r.exists, jid: r.jid }))
     }
+
+    // =========================================================================
+    // CHAT OPERATIONS
+    // =========================================================================
 
     /** Best-effort port of legacy modifyAllChats. v7 has no in-memory chat list, so this only acts on chats observed during this session. */
     modifyAllChats = async (
@@ -782,6 +762,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
     emitNewMessage = async (M: Promise<ISimplifiedMessage>): Promise<void> =>
         void this.emit('new-message', await M)
 
+    // =========================================================================
+    // JID UTILITIES
+    // =========================================================================
+
     /** Resolve a JID (possibly @lid) to its preferred (PN) form. */
     pnForm = (jid: string | null | undefined, fallback?: string | null): string => {
         if (!jid) return fallback || ''
@@ -792,12 +776,61 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
     /** Are two JIDs the same user (handles LID/PN, device suffixes, server differences)? */
     sameUser = (a: string | undefined, b: string | undefined): boolean => areJidsSameUser(a, b)
 
+    // =========================================================================
+    // MESSAGE PARSING (simplifyMessage + helpers)
+    // =========================================================================
+
+    /** Extract text content from a message based on its content type. */
+    private static extractContent = (
+        msgVal: Record<string, unknown>,
+        type: string
+    ): string | null => {
+        if (type === 'conversation') return (msgVal.conversation as string) || null
+        if (type === 'extendedTextMessage')
+            return (msgVal.extendedTextMessage as { text?: string })?.text || null
+        if (type === 'imageMessage' || type === 'videoMessage' || type === 'documentMessage')
+            return (msgVal[type] as { caption?: string })?.caption || ''
+        return null
+    }
+
+    /** Extract quoted message info from contextInfo. */
+    private extractQuoted = (
+        ctxInfo: proto.IContextInfo | undefined,
+        remoteJid: string
+    ): { message: WAMessage | null; sender: string | null } => {
+        const quotedMessage = ctxInfo?.quotedMessage
+        const quotedSender = ctxInfo?.participant ? jidNormalizedUser(ctxInfo.participant) : null
+        return {
+            message: quotedMessage
+                ? ({
+                      key: {
+                          remoteJid,
+                          id: ctxInfo?.stanzaId || undefined,
+                          participant: ctxInfo?.participant || undefined,
+                          fromMe: this.isMe(ctxInfo?.participant ?? undefined)
+                      } as WAMessageKey,
+                      message: quotedMessage
+                  } as WAMessage)
+                : null,
+            sender: quotedSender
+        }
+    }
+
+    /** Build a reply function bound to a specific chat. */
+    private buildReplyFn = (remoteJid: string, original: WAMessage): ISimplifiedMessage['reply'] => {
+        return async (replyContent, replyType = MessageType.text, mime, mention, caption, thumbnail) => {
+            const payload = buildMessageContent(replyContent, replyType, mime, mention, caption, thumbnail)
+            const sent = (await this.sock.sendMessage(remoteJid, payload, { quoted: original })) as
+                | WAMessage
+                | undefined
+            this.trackSent(sent)
+            return sent
+        }
+    }
+
     simplifyMessage = async (rawM: WAMessage): Promise<ISimplifiedMessage> => {
         const M = rawM
-        // Use baileys's helper to peel ephemeral / viewOnce / documentWithCaption / etc. wrappers.
         const innerMessage = extractMessageContent(M.message) || M.message || {}
-        // Use baileys's helper to identify the user-visible content type. This skips
-        // protocolMessage / senderKeyDistributionMessage / reactionMessage / etc.
         const type = (getContentType(innerMessage) as string) || ''
 
         const remoteJid = M.key.remoteJid || ''
@@ -805,12 +838,7 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         const chat: 'group' | 'dm' = fromGroup ? 'group' : 'dm'
         const isFromMe = M.key.fromMe === true
 
-        // Resolve sender. Keep whatever form WhatsApp gave us (LID or PN); the
-        // group's own admins/participants are in the same form, so direct
-        // comparisons work. We prefer key.participant even for fromMe in groups,
-        // because that's the bot's JID *in the group's native form* — which is
-        // what admins[] uses. Falling back to this.user.jid (always PN) would
-        // break the admin check in LID-addressed groups.
+        // Resolve sender in the group's native JID form so admin comparisons work.
         const senderRaw = fromGroup
             ? M.key.participant || (isFromMe ? this.user.jid : '')
             : isFromMe
@@ -828,9 +856,6 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
                 .map((p) => p.id)
         }
 
-        // Admin check: direct match against the group's admin list (same form),
-        // PLUS a cross-form match for the bot itself (since this.user.jid is
-        // PN-form but admins[] in a LID group are LID-form).
         const senderIsAdmin = !!groupMetadata?.admins?.some(
             (j) => j === sender || (isFromMe && this.isMe(j))
         )
@@ -848,55 +873,14 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
             isAdmin: senderIsAdmin
         }
 
-        // Pull textual content from whichever shape this type is in.
-        const msgVal = innerMessage as Record<string, { text?: string; caption?: string } | string | undefined>
-        let content: string | null = null
-        if (type === 'conversation') content = (msgVal.conversation as string) || null
-        else if (type === 'extendedTextMessage')
-            content = (msgVal.extendedTextMessage as { text?: string })?.text || null
-        else if (type === 'imageMessage' || type === 'videoMessage' || type === 'documentMessage')
-            content = (msgVal[type] as { caption?: string })?.caption || ''
-        else content = null
-
-        // Quoted message (works for both extendedTextMessage and media-with-caption).
+        const msgVal = innerMessage as Record<string, unknown>
+        const content = RuntimeClient.extractContent(msgVal, type)
         const ctxInfo = (msgVal[type] as { contextInfo?: proto.IContextInfo } | undefined)?.contextInfo
-        const quotedMessage = ctxInfo?.quotedMessage
-        const quotedSender = ctxInfo?.participant ? jidNormalizedUser(ctxInfo.participant) : null
-        const quoted = {
-            message: quotedMessage
-                ? ({
-                      key: {
-                          remoteJid,
-                          id: ctxInfo?.stanzaId || undefined,
-                          participant: ctxInfo?.participant || undefined,
-                          fromMe: this.isMe(ctxInfo?.participant ?? undefined)
-                      } as WAMessageKey,
-                      message: quotedMessage
-                  } as WAMessage)
-                : null,
-            sender: quotedSender
-        }
-
+        const quoted = this.extractQuoted(ctxInfo, remoteJid)
         const mentioned = (ctxInfo?.mentionedJid || []).filter((v): v is string => !!v)
 
         const args = (content || '').trim().split(/\s+/).filter(Boolean)
         const urls = this.util.getUrls(content || '')
-
-        const reply: ISimplifiedMessage['reply'] = async (
-            replyContent,
-            replyType = MessageType.text,
-            mime,
-            mention,
-            caption,
-            thumbnail
-        ) => {
-            const payload = buildMessageContent(replyContent, replyType, mime, mention, caption, thumbnail)
-            const sent = (await this.sock.sendMessage(remoteJid, payload, { quoted: M })) as
-                | WAMessage
-                | undefined
-            this.trackSent(sent)
-            return sent
-        }
 
         return {
             type,
@@ -905,7 +889,7 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
             sender: senderInfo,
             quoted,
             args,
-            reply,
+            reply: this.buildReplyFn(remoteJid, M),
             mentioned,
             from: remoteJid,
             groupMetadata,
@@ -916,42 +900,24 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
 
     getContact = (jid: string): IContactInfo => this.contacts.get(jid) || {}
 
-    /** Atomic upsert — eliminates the read-then-write race that throws E11000
-     * when two concurrent messages from the same new user/group arrive. */
-    getUser = async (jid: string): Promise<IUserModel> =>
-        (await this.DB.user.findOneAndUpdate(
-            { jid },
-            { $setOnInsert: { jid } },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        )) as IUserModel
+    // =========================================================================
+    // USER/GROUP DATA (delegated to UserDataService)
+    // =========================================================================
 
-    getMediaPreference = async (jid: string): Promise<'document' | 'audio' | 'video'> => {
-        const user = await this.getUser(jid)
-        return user.mediaPreference || 'video'
-    }
+    getUser = async (jid: string): Promise<IUserModel> => this.userData.getUser(jid)
+    getMediaPreference = async (jid: string): Promise<'document' | 'audio' | 'video'> => this.userData.getMediaPreference(jid)
 
     getBuffer = async (url: string): Promise<Buffer> =>
         (await axios.get<Buffer>(url, { responseType: 'arraybuffer', timeout: 15_000 })).data
 
     fetch = async <T>(url: string): Promise<T> => (await axios.get<T>(url, { timeout: 15_000 })).data
 
-    banUser = async (jid: string, reason?: string): Promise<void> => {
-        const $set: Record<string, unknown> = { ban: true }
-        if (reason) $set.banReason = reason
-        await this.DB.user.findOneAndUpdate(
-            { jid },
-            { $set, $setOnInsert: { jid } },
-            { upsert: true, setDefaultsOnInsert: true }
-        )
-    }
+    banUser = async (jid: string, reason?: string): Promise<void> => this.userData.banUser(jid, reason)
+    unbanUser = async (jid: string): Promise<void> => this.userData.unbanUser(jid)
 
-    unbanUser = async (jid: string): Promise<void> => {
-        await this.DB.user.findOneAndUpdate(
-            { jid },
-            { $set: { ban: false }, $unset: { banReason: 1 }, $setOnInsert: { jid } },
-            { upsert: true, setDefaultsOnInsert: true }
-        )
-    }
+    // =========================================================================
+    // FEATURES & COMMAND TOGGLES
+    // =========================================================================
 
     /** Combined DB write + in-memory cache update for feature toggles. */
     toggleFeature = async (feature: string, state: boolean): Promise<void> => {
@@ -979,35 +945,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
         await this.DB.disabledcommands.deleteOne({ command })
     }
 
-    /** Set a user's media send preference. */
-    setMediaPreference = async (jid: string, pref: 'document' | 'audio' | 'video'): Promise<void> => {
-        await this.DB.user.updateOne(
-            { jid },
-            { $set: { mediaPreference: pref } },
-            { upsert: true }
-        )
-    }
-
-    /** Reset a user's media send preference to default. */
-    resetMediaPreference = async (jid: string): Promise<void> => {
-        await this.DB.user.updateOne(
-            { jid },
-            { $unset: { mediaPreference: 1 } }
-        )
-    }
-
-    /** Return up to 50 banned users, most recently banned first. */
-    getBannedUsers = async (): Promise<Array<{ jid: string; banReason?: string }>> => {
-        const docs = await this.DB.user
-            .find({ ban: true })
-            .sort({ _id: -1 })
-            .limit(50)
-            .lean()
-        return docs.map((d: Record<string, unknown>) => ({
-            jid: d.jid as string,
-            banReason: d.banReason as string | undefined
-        }))
-    }
+    setMediaPreference = async (jid: string, pref: 'document' | 'audio' | 'video'): Promise<void> =>
+        this.userData.setMediaPreference(jid, pref)
+    resetMediaPreference = async (jid: string): Promise<void> => this.userData.resetMediaPreference(jid)
+    getBannedUsers = async (): Promise<Array<{ jid: string; banReason?: string }>> => this.userData.getBannedUsers()
 
     consumeChatQuota = (jid: string): Promise<{ allowed: boolean; remaining: number; limit: number }> =>
         this.quotaService.consumeChatQuota(jid)
@@ -1024,12 +965,7 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
     setXp = (jid: string, min: number, max: number): Promise<void> =>
         this.xpService.setXp(jid, min, max)
 
-    getGroupData = async (jid: string): Promise<IGroupModel> =>
-        (await this.DB.group.findOneAndUpdate(
-            { jid },
-            { $setOnInsert: { jid } },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        )) as IGroupModel
+    getGroupData = async (jid: string): Promise<IGroupModel> => this.userData.getGroupData(jid)
 
     getFeatures = async (feature: string): Promise<IFeatureModel> =>
         (await this.DB.feature.findOneAndUpdate(
@@ -1063,6 +999,10 @@ export default class RuntimeClient extends EventEmitter implements ICommandConte
             reason: d.reason as string
         }))
     }
+
+    // =========================================================================
+    // DIAGNOSTICS
+    // =========================================================================
 
     /** Public diagnostics for health endpoints — avoids unsafe private access. */
     getRuntimeDiagnostics(): {

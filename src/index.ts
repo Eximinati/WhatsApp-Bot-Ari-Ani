@@ -257,7 +257,6 @@ mongoose
     .connect(process.env.MONGO_URI as string)
     .then(async () => {
         client.log('Database connection established')
-        await dropLegacyIndexes()
         start().catch((err) => client.log(String(err), true))
     })
     .catch((err) => {

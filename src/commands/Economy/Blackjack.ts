@@ -6,12 +6,13 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 const W=680,H=420,R=22,BG1='#0d1f0d',BG2='#0a150a',AC='#4caf50'
-function rr(ctx:import('@napi-rs/canvas').SKRSContext2D,x:number,y:number,w:number,h:number,r:number){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath()}
-const ECO=new EconomyService()
+
+const economy=new EconomyService()
 export default class Command extends CommandModule{constructor(c:RuntimeClient,h:MessagePipeline){super(c,h,{command:'blackjack',description:'Play blackjack vs the dealer',category:'economy',usage:`${c.config.prefix}blackjack <bet>`,aliases:['bj','21'],baseXp:20})}
 run=async(M:ISimplifiedMessage,{joined}:IParsedArgs):Promise<void>=>{const bet=joined.trim()||'50'
-try{const res=await ECO.blackjack(M.sender.jid,bet);const cv=createCanvas(W,H),ctx=cv.getContext('2d');const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,BG1);g.addColorStop(1,BG2);ctx.fillStyle=g;ctx.fillRect(0,0,W,H)
+try{const res=await economy.blackjack(M.sender.jid,bet);const cv=createCanvas(W,H),ctx=cv.getContext('2d');const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,BG1);g.addColorStop(1,BG2);ctx.fillStyle=g;ctx.fillRect(0,0,W,H)
 ctx.fillStyle=AC;ctx.font='bold 30px "Segoe UI",sans-serif';ctx.textAlign='center';ctx.fillText('🃏 BLACKJACK',W/2,55)
 ctx.fillStyle='rgba(255,255,255,0.06)';rr(ctx,40,80,600,100,R);ctx.fill()
 ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='15px "Segoe UI",sans-serif';ctx.fillText(`Your hand: ${res.player.join('+')} = ${res.playerTotal}`,W/4,110)

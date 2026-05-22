@@ -6,17 +6,11 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney, formatDurationMs } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 680, H = 380, R = 22
 const BG1 = '#001a26', BG2 = '#002d40', AC = '#00bcd4'
-
-function rr(ctx: import('@napi-rs/canvas').SKRSContext2D, x: number, y: number, w: number, h: number, r: number) {
-    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath()
-}
-
-const ECO = new EconomyService()
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
@@ -24,7 +18,7 @@ export default class Command extends CommandModule {
     }
     run = async (M: ISimplifiedMessage, _: IParsedArgs): Promise<void> => {
         try {
-            const res = await ECO.fish(M.sender.jid)
+            const res = await economy.fish(M.sender.jid)
             const cv = createCanvas(W, H), ctx = cv.getContext('2d')
             const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
 

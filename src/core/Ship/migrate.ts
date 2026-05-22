@@ -23,7 +23,7 @@
  * (bases are already correct, JIDs already normalized).
  */
 import { jidNormalizedUser } from 'baileys'
-import RuntimeClient from '../RuntimeClient.js'
+import { ICommandContext } from '../../typings/index.js'
 import { IBondModel, IUserRizzModel } from '../../typings/index.js'
 import { baseRizzFor, baseScoreForBondKey } from './index.js'
 
@@ -86,7 +86,7 @@ const maxDate = (a: Date | string | undefined, b: Date | string | undefined): Da
 }
 
 export const migrateShipData = async (
-    client: RuntimeClient
+    client: ICommandContext
 ): Promise<ShipMigrationReport> => {
     const report: ShipMigrationReport = {
         bondsScanned: 0,

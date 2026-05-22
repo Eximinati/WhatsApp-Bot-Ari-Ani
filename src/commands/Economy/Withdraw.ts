@@ -6,15 +6,11 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney, parseAmountInput } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 680, H = 360, R = 22
 const BG1 = '#1a0a0a', BG2 = '#2d0000', AC = '#e43f5a'
-function rr(ctx: import('@napi-rs/canvas').SKRSContext2D, x: number, y: number, w: number, h: number, r: number) {
-    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath()
-}
-const ECO = new EconomyService()
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(c: RuntimeClient, h: MessagePipeline) {
@@ -23,10 +19,10 @@ export default class Command extends CommandModule {
     run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
         const amt = joined.trim() || 'all'
         try {
-            const bal = await ECO.getBalance(M.sender.jid)
+            const bal = await economy.getBalance(M.sender.jid)
             const check = parseAmountInput(amt, bal.bank)
             if (check <= 0) return void M.reply('⚠️ Specify a valid amount to withdraw.')
-            const res = await ECO.withdraw(M.sender.jid, amt)
+            const res = await economy.withdraw(M.sender.jid, amt)
             const cv = createCanvas(W, H), ctx = cv.getContext('2d')
             const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
             ctx.fillStyle = AC; ctx.font = 'bold 30px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('📤 WITHDRAW', W / 2, 55)

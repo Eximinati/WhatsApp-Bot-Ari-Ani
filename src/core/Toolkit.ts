@@ -2,7 +2,8 @@ import { readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import getUrls from 'get-urls'
 import { exec, ChildProcess } from 'child_process'
-import { readFile, unlink, writeFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
+import { safeUnlink } from '../utils/async.js'
 import { tmpdir } from 'os'
 import { promisify } from 'util'
 
@@ -27,9 +28,7 @@ async function execWithTimeout(cmd: string, timeoutMs: number): Promise<string> 
 
 async function cleanup(paths: string[]): Promise<void> {
     await Promise.all(
-        paths.map(async (p) => {
-            try { await unlink(p) } catch { /* ignore */ }
-        })
+        paths.map((p) => safeUnlink(p))
     )
 }
 

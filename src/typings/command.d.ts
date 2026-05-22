@@ -1,12 +1,8 @@
 import MessagePipeline from '../pipeline/MessagePipeline.js'
-import RuntimeClient from '../core/RuntimeClient.js'
-import type {
-    IParsedArgs,
-    ISimplifiedMessage
-} from './index.js'
+import type { ICommandContext, IParsedArgs, ISimplifiedMessage } from './index.js'
 
 export interface ICommand {
-    client?: RuntimeClient
+    client?: ICommandContext
     handler?: MessagePipeline
 
     run(

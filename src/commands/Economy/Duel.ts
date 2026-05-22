@@ -6,13 +6,11 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney, formatDurationMs } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 680, H = 380, R = 22, BG1 = '#1a1a00', BG2 = '#0d0d00', AC = '#ffd600'
-function rr(ctx: import('@napi-rs/canvas').SKRSContext2D, x: number, y: number, w: number, h: number, r: number) {
-    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath() }
-const ECO = new EconomyService()
+
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(c: RuntimeClient, h: MessagePipeline) {
@@ -21,7 +19,7 @@ export default class Command extends CommandModule {
         const parts = joined.trim().split(/\s+/)
         const tid = (parts[0] || '').replace('@', '') + '@s.whatsapp.net'; const bet = parts.slice(1).join(' ') || '50'
         if (!tid || tid === M.sender.jid) return void M.reply('❌ Mention a valid user to duel.')
-        try { const res = await ECO.duel(M.sender.jid, tid, bet); const cv = createCanvas(W, H), ctx = cv.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+        try { const res = await economy.duel(M.sender.jid, tid, bet); const cv = createCanvas(W, H), ctx = cv.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
             ctx.fillStyle = AC; ctx.font = 'bold 32px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚔️ DUEL', W / 2, 60)
             if (res.draw) { ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(ctx, 60, 90, 560, 170, R); ctx.fill(); ctx.fillStyle = AC; ctx.font = 'bold 46px "Segoe UI",sans-serif'; ctx.fillText('🤝 DRAW!', W / 2, 170); ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '18px "Segoe UI",sans-serif'; ctx.fillText(`Both matched at power ${res.challengerPower}`, W / 2, 220) }
             else if (res.ok) { const won = res.winnerJid === M.sender.jid; ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(ctx, 60, 90, 560, 170, R); ctx.fill(); ctx.fillStyle = won ? '#4caf50' : '#ff5252'; ctx.font = 'bold 46px "Segoe UI",sans-serif'; ctx.fillText(won ? `🏆 YOU WON +${formatMoney(res.bet)}` : `💔 YOU LOST -${formatMoney(res.bet)}`, W / 2, 170); ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '18px "Segoe UI",sans-serif'; ctx.fillText(`Power: ${res.challengerPower} vs ${res.targetPower}`, W / 2, 220) }

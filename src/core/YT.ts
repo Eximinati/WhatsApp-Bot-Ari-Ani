@@ -3,6 +3,7 @@ import { readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
 import request from './request.js'
+import { safeUnlink } from '../utils/async.js'
 import axios from 'axios'
 
 const YT_URL_RE =
@@ -163,7 +164,7 @@ export default class YT {
         try {
             return await readFile(resolved)
         } finally {
-            unlink(resolved).catch(() => {})
+            void safeUnlink(resolved)
         }
     }
 

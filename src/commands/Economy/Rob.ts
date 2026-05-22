@@ -6,19 +6,16 @@ import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
 import { formatMoney, formatDurationMs } from '../../core/economy/utils.js'
+import { rr } from '../../utils/canvas.js'
 const W = 680, H = 380, R = 22, BG1 = '#1a0a2e', BG2 = '#0d0020', AC = '#7c4dff'
-function rr(ctx: import('@napi-rs/canvas').SKRSContext2D, x: number, y: number, w: number, h: number, r: number) {
-    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath() }
-const ECO = new EconomyService()
+const economy = new EconomyService()
 export default class Command extends CommandModule {
     constructor(client: RuntimeClient, handler: MessagePipeline) {
         super(client, handler, { command: 'rob', description: 'Rob another player\'s wallet', category: 'economy', usage: `${client.config.prefix}rob @user`, aliases: ['steal'], baseXp: 30 }) }
     run = async (M: ISimplifiedMessage, { joined }: IParsedArgs): Promise<void> => {
         const tid = joined.trim().replace('@', '').split(/\s+/)[0] + '@s.whatsapp.net'
         if (!tid || tid === M.sender.jid) return void M.reply('❌ Mention a valid user to rob.')
-        try { const res = await ECO.rob(M.sender.jid, tid); const cv = createCanvas(W, H), ctx = cv.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+        try { const res = await economy.rob(M.sender.jid, tid); const cv = createCanvas(W, H), ctx = cv.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
             ctx.fillStyle = AC; ctx.font = 'bold 32px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🕵️ ROBBERY', W / 2, 60)
             if (res.ok && res.success) {
                 ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(ctx, 60, 90, 560, 170, R); ctx.fill(); ctx.fillStyle = AC; ctx.font = 'bold 50px "Segoe UI",sans-serif'; ctx.fillText(`+${formatMoney(res.amount || 0)}`, W / 2, 170); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '18px "Segoe UI",sans-serif'; ctx.fillText("You slipped away with someone else's cash.", W / 2, 220) }

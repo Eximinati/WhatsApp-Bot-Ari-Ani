@@ -5,15 +5,15 @@ import RuntimeClient from '../../core/RuntimeClient.js'
 import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 import { MessageType, Mimetype } from '../../core/types.js'
 import { EconomyService } from '../../core/economy/EconomyService.js'
+import { rr } from '../../utils/canvas.js'
 
 const W = 680, R = 22, BG1 = '#1a1a2e', BG2 = '#0d0d1a', AC = '#4fc3f7'
-function rr(ctx: import('@napi-rs/canvas').SKRSContext2D, x: number, y: number, w: number, h: number, r: number) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath() }
-const ECO = new EconomyService()
+const economy = new EconomyService()
 
 export default class Command extends CommandModule {
     constructor(c: RuntimeClient, h: MessagePipeline) { super(c, h, { command: 'jobs', description: 'List available jobs', category: 'economy', usage: `${c.config.prefix}jobs`, aliases: ['joblist', 'careers'], baseXp: 5 }) }
     run = async (M: ISimplifiedMessage, _: IParsedArgs): Promise<void> => {
-        try { const jobs = ECO.getJobs(); const state = await ECO.getJobsState(M.sender.jid)
+        try { const jobs = economy.getJobs(); const state = await economy.getJobsState(M.sender.jid)
         const Hr = 100 + jobs.length * 40; const cv = createCanvas(W, Hr), ctx = cv.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, Hr); g.addColorStop(0, BG1); g.addColorStop(1, BG2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hr)
         ctx.fillStyle = AC; ctx.font = 'bold 28px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('💼 JOBS', W / 2, 48)
         ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '14px "Segoe UI",sans-serif'; ctx.fillText(`Current: ${state.currentJob?.name || 'Unemployed'}`, W / 2, 72)

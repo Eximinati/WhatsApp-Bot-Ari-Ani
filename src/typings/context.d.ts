@@ -7,6 +7,12 @@ import type {
     IGroupModel,
     IUserModel
 } from './index.js'
+import type MediaMenu from '../core/MediaMenu.js'
+import type MenuManager from '../core/MenuManager.js'
+import type Toolkit from '../core/Toolkit.js'
+import type DatabaseHandler from '../pipeline/DataStore.js'
+import type ChatAI from '../core/ChatAI.js'
+import type Identity from '../core/Identity.js'
 
 /** The stable, safe contract between RuntimeClient and Commands.
  *  Only includes APIs that are safe for command consumption — no raw
@@ -27,6 +33,14 @@ export interface ICommandContext {
         vname?: string
         short?: string
     }
+
+    // --- Subsystems (exposed for command consumption) ---
+    readonly mediaMenu: MediaMenu
+    readonly menus: MenuManager
+    readonly util: Toolkit
+    readonly DB: DatabaseHandler
+    readonly chatAI: ChatAI
+    readonly identity: Identity
 
     log(text: string, error?: boolean): void
 
