@@ -45,7 +45,6 @@ export default class HttpServer extends EventEmitter {
             const mediaDiag = (this.client.mediaMenu as any)?.getDiagnostics?.() ?? null
             const menuDiag = (this.client.menus as any)?.getDiagnostics?.() ?? null
             const timerDiag = ((this.client as any).timerRegistry?.getDiagnostics?.() ?? null) ?? {}
-            const eventBusSubs = (this.client as any).archContext?.eventBus?.getSubscriberCount?.() ?? 0
 
             const isHealthy = this.client.state === 'open' && mongoState === 1
 
@@ -67,14 +66,12 @@ export default class HttpServer extends EventEmitter {
                     menuSessions: menuDiag?.cachedUsers ?? 0,
                     contacts: this.client.contacts.size,
                     chats: this.client.chats.size,
-                    eventBusSubscribers: eventBusSubs,
                     timers: {
                         total: timerDiag.total ?? 0,
                         timeouts: timerDiag.timeouts ?? 0,
                         intervals: timerDiag.intervals ?? 0
                     },
-                    listenerCount: this.client.listenerCount('new-message'),
-                    bridgeListenerCount: (this.client as any).archContext?.bridgeListenerCount ?? 0
+                    listenerCount: this.client.listenerCount('new-message')
                 }
             })
         })

@@ -12,7 +12,7 @@ import GroupDispatcher from './pipeline/GroupDispatcher.js'
 import { ShutdownManager } from './runtime/ShutdownManager.js'
 import { StartupManager } from './runtime/StartupManager.js'
 import { ErrorBoundary, safeAsyncVoid } from './runtime/ErrorBoundary.js'
-import { initializeArchitecture, createEventBridge, shutdownArchitecture } from './adapters/ArchitectureInitializer.js'
+import { LegacyRuntimeAdapter } from './adapters/legacy/LegacyRuntimeAdapter.js'
 import { readdir, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
@@ -29,9 +29,6 @@ function getDiagnostics(): Record<string, unknown> {
     const menuDiag = (client as any).menus?.getDiagnostics?.() ?? {}
     const timerDiag = ((client as any).timerRegistry?.getDiagnostics?.() ?? null) ?? {}
     const chatAi = (client as any).chatAI
-    const archCtx = (client as any).archContext
-    const eventBus = archCtx?.eventBus
-
     return {
         timestamp: Date.now(),
         heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
@@ -46,9 +43,7 @@ function getDiagnostics(): Record<string, unknown> {
         contacts: client.contacts.size,
         chats: client.chats.size,
         timers: timerDiag.total ?? 0,
-        listenerCount: client.listenerCount('new-message'),
-        bridgeListeners: archCtx?.bridgeListenerCount ?? 0,
-        eventBusSubscribers: eventBus?.getSubscriberCount?.() ?? 0
+        listenerCount: client.listenerCount('new-message')
     }
 }
 
@@ -130,16 +125,14 @@ const shutdownManager = ShutdownManager.getInstance()
 const startupManager = StartupManager.getInstance()
 const errorBoundary = ErrorBoundary.getInstance()
 
-const archContext = initializeArchitecture(client)
-;(client as any).archContext = archContext
+const legacyAdapter = new LegacyRuntimeAdapter(client)
 
 shutdownManager.registerOwner({
     client,
     pipeline: messagePipeline,
     groupDispatcher,
     callDispatcher,
-    resourceLoader,
-    architecture: archContext
+    resourceLoader
 })
 
 ShutdownManager.setupSignalHandlers()
@@ -205,21 +198,16 @@ const start = async (): Promise<void> => {
                 const msgStart = performance.now()
                 const simplified = M as import('./typings/message.js').ISimplifiedMessage
                 const rawMessage = simplified?.WAMessage
-                const validated = rawMessage ? archContext.legacyAdapter.safeNormalize(rawMessage) : null
+                const validated = rawMessage ? legacyAdapter.safeNormalize(rawMessage) : null
                 if (!validated) {
                     client.log('Invalid message payload skipped')
                     return
                 }
 
-                const normStart = performance.now()
-                const normalized = await archContext.serializer.normalize(validated)
-                const normEnd = performance.now()
-                archContext.serializer.setUserJid(client.user.jid)
-
                 const pipelineStart = performance.now()
                 await messagePipeline.handleMessage(M as any)
                 const pipelineEnd = performance.now()
-                client.log(`[TIMING] Message processed: total=${Math.round(performance.now() - msgStart)}ms, serialization=${Math.round(normEnd - normStart)}ms, legacyPipeline=${Math.round(pipelineEnd - pipelineStart)}ms`)
+                client.log(`[TIMING] Message processed: total=${Math.round(performance.now() - msgStart)}ms, pipeline=${Math.round(pipelineEnd - pipelineStart)}ms`)
             }, { category: 'handler', severity: 'high', source: 'client.on:new-message', phase: 'runtime' }))
 
             client.on('group-participants-update', safeAsyncVoid(async (event: unknown) => {
@@ -227,9 +215,6 @@ const start = async (): Promise<void> => {
             }, { category: 'handler', severity: 'medium', source: 'client.on:group-participants-update', phase: 'runtime' }))
             
             client.log('Event listeners bound')
-
-            createEventBridge(client, archContext)
-            client.log('EventBus bridge activated')
         },
         socket: async () => {
             await client.connect()

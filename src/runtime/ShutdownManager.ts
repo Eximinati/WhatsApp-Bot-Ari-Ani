@@ -3,8 +3,6 @@ import type MessagePipeline from '../pipeline/MessagePipeline.js'
 import type GroupDispatcher from '../pipeline/GroupDispatcher.js'
 import type CallDispatcher from '../pipeline/CallDispatcher.js'
 import type ResourceLoader from '../pipeline/ResourceLoader.js'
-import type { ArchitectureContext } from '../adapters/ArchitectureInitializer.js'
-import { shutdownArchitecture } from '../adapters/ArchitectureInitializer.js'
 import { TimerRegistry } from './TimerRegistry.js'
 
 interface LifecycleOwner {
@@ -13,7 +11,6 @@ interface LifecycleOwner {
     groupDispatcher?: GroupDispatcher
     callDispatcher?: CallDispatcher
     resourceLoader?: ResourceLoader
-    architecture?: ArchitectureContext
 }
 
 interface CronJob {
@@ -70,12 +67,6 @@ export class ShutdownManager {
         log(`Received ${signal}, initiating graceful shutdown...`)
 
         try {
-            if (this.owners.architecture) {
-                log('Shutting down architecture context...')
-                await shutdownArchitecture()
-                log('Architecture context shutdown complete')
-            }
-
             if (this.owners.client) {
                 log('Cleaning up client listeners...')
                 this.owners.client.removeAllListeners()
