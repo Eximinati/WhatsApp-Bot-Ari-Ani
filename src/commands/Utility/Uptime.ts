@@ -23,7 +23,7 @@ export default class Command extends CommandModule {
         const heap = Math.round(mem.heapUsed / 1024 / 1024)
         const total = Math.round(mem.heapTotal / 1024 / 1024)
         const rss = Math.round(mem.rss / 1024 / 1024)
-        let text = `╭──────────────────────────────╮\n│      📊  BOT STATUS             │\n├──────────────────────────────┤\n│ ✅ *Status:* Online             │\n│ ⏰ *Uptime:* ${uptime.padEnd(20).slice(0,20)}│\n│ 💾 *Heap:* ${heap}/${total} MB             │\n│ 🧠 *RSS:* ${rss} MB                  │\n│ 👤 *Session:* ${(this.client.user?.name || 'Bot').padEnd(16).slice(0,16)}│\n╰──────────────────────────────╯`
+        let text = `📊  BOT STATUS\n\n✅ *Status:* Online\n⏰ *Uptime:* ${uptime.padEnd(20).slice(0,20)}\n💾 *Heap:* ${heap}/${total} MB\n🧠 *RSS:* ${rss} MB                  │\n│ 👤 *Session:* ${(this.client.user?.name || 'Bot').padEnd(16).slice(0,16)}│\n╰──────────────────────────────╯`
         return void M.reply(text)
     }
 }
