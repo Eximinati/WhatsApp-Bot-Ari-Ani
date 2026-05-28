@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { MessageType } from '../../core/types.js'
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
@@ -72,37 +73,97 @@ export default class Command extends CommandModule {
                 return void M.reply('❌ No media found in this post.')
             }
 
-            // For simplicity, handle only first item - could be expanded for carousels
-            const media = mediaList[0]
-            const downloadUrl = media?.downloadUrl || media?.url || media?.videoUrl
-            
-            if (!downloadUrl) {
-                return void M.reply('❌ Invalid media URL')
-            }
+            const title = data.result?.title || data.result?.description || 'Instagram'
 
-            // If it's an image, send directly
-            if (!media?.type?.includes('video') && !downloadUrl.includes('.mp4')) {
-                return void M.reply('❌ Image detected. Use --all flag for multiple media.')
-            }
-
-            // For videos, show the format menu
-            const title = data.result?.title || data.result?.description || 'Instagram Video'
-
-            this.client.menus.set(jid, {
-                commandName: 'instagram',
-                step: 'format',
-                chatJid: M.from,
-                data: {
-                    url: downloadUrl,
-                    title: title,
-                    type: 'video'
-                }
+            // Separate images and videos
+            const images = mediaList.filter((m: any) => {
+                const url = m?.downloadUrl || m?.url || m?.videoUrl || ''
+                return !m?.type?.includes('video') && !url.includes('.mp4') && url
+            })
+            const videos = mediaList.filter((m: any) => {
+                const url = m?.downloadUrl || m?.url || m?.videoUrl || ''
+                return (m?.type?.includes('video') || url.includes('.mp4')) && url
             })
 
-            const menuText = this.client.mediaMenu.getMenuText('instagram', title)
-            const sent = await M.reply(menuText)
-            if (sent?.key?.id) {
-                this.client.menus.addId(jid, 'instagram', sent.key.id)
+            const hasImages = images.length > 0
+            const hasVideos = videos.length > 0
+
+            if (!hasImages && !hasVideos) {
+                return void M.reply('❌ No downloadable media found in this post.')
+            }
+
+            // Download and send all images
+            if (hasImages) {
+                const count = images.length
+                await M.reply(`📥 Found ${count} image${count > 1 ? 's' : ''}. Downloading...`)
+                
+                for (let i = 0; i < count; i++) {
+                    const img = images[i]
+                    const downloadUrl = img?.downloadUrl || img?.url || img?.videoUrl
+                    
+                    if (!downloadUrl) continue
+
+                    try {
+                        const imgResponse = await axios.get(downloadUrl, {
+                            responseType: 'arraybuffer',
+                            timeout: 30000
+                        })
+                        const buffer = Buffer.from(imgResponse.data)
+                        
+                        const caption = count > 1 
+                            ? `${title} (${i + 1}/${count})`
+                            : title
+                        
+                        await this.client.sendMessage(M.from, buffer, MessageType.image, {
+                            caption: caption,
+                            quoted: M.WAMessage
+                        })
+                    } catch (downloadError: any) {
+                        console.error(`Image ${i + 1} download error:`, downloadError?.message)
+                        await M.reply(`❌ Failed to download image ${i + 1}/${count}.`)
+                    }
+                }
+            }
+
+            // For videos, handle only the first one with format menu
+            if (hasVideos) {
+                const video = videos[0]
+                const downloadUrl = video?.downloadUrl || video?.url || video?.videoUrl
+                
+                if (!downloadUrl) return
+
+                const videoTitle = `${title}${hasImages ? ` (Video)` : ''}`
+
+                // Check for saved preference first
+                const savedPreference = await this.client.mediaMenu.getPreference(jid, 'instagram')
+                
+                if (savedPreference) {
+                    await M.reply(`📥 Using saved preference: sending video as ${savedPreference}...`)
+                    await this.handler.sendMediaFromReply(M, savedPreference, {
+                        url: downloadUrl,
+                        title: videoTitle,
+                        type: 'video'
+                    })
+                    return
+                }
+
+                // No saved preference, show the format menu
+                this.client.menus.set(jid, {
+                    commandName: 'instagram',
+                    step: 'format',
+                    chatJid: M.from,
+                    data: {
+                        url: downloadUrl,
+                        title: videoTitle,
+                        type: 'video'
+                    }
+                })
+
+                const menuText = this.client.mediaMenu.getMenuText('instagram', videoTitle)
+                const sent = await M.reply(menuText)
+                if (sent?.key?.id) {
+                    this.client.menus.addId(jid, 'instagram', sent.key.id)
+                }
             }
         } catch (error: any) {
             console.error('Instagram Error:', error?.message || error)

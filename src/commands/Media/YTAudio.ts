@@ -49,6 +49,21 @@ export default class Command extends CommandModule {
                 }
             }
             
+            // Check for saved preference
+            const savedPreference = await this.client.mediaMenu.getPreference(jid, 'ytaudio')
+            
+            if (savedPreference) {
+                // User has a saved preference, send directly without showing menu
+                await M.reply(`📥 Using saved preference: sending as ${savedPreference}...`)
+                await this.handler.sendMediaFromReply(M, savedPreference, {
+                    url: M.urls[0],
+                    title: title,
+                    type: 'audio'
+                })
+                return
+            }
+
+            // No saved preference, show the format menu
             this.client.menus.set(jid, {
                 commandName: 'ytaudio',
                 step: 'format',

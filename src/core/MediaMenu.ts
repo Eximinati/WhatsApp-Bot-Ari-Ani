@@ -290,6 +290,12 @@ Reply with a number.`
         )
     }
 
+    async getPreference(userJid: string, commandName: string): Promise<string | null> {
+        const user = await this.client.getUser(userJid)
+        const preferences = this.parseMediaPreferences((user as any).mediaPreferences)
+        return preferences[commandName?.toLowerCase()] || null
+    }
+
     async handleReply(userJid: string, chatJid: string, text: string): Promise<{
         handled: boolean
         response?: string

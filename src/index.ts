@@ -1,6 +1,10 @@
 import { config } from 'dotenv'
 config()
 
+import ffmpegPath from '@ffmpeg-installer/ffmpeg'
+import ffmpeg from 'fluent-ffmpeg'
+ffmpeg.setFfmpegPath(ffmpegPath.path)
+
 import mongoose from 'mongoose'
 import cron, { ScheduledTask } from 'node-cron'
 import MessagePipeline from './pipeline/MessagePipeline.js'

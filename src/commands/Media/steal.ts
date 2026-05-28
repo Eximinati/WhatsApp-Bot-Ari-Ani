@@ -1,121 +1,73 @@
-/*eslint-disable @typescript-eslint/no-explicit-any */
-/*eslint-disable @typescript-eslint/no-unused-vars */
-/*eslint-disable @typescript-eslint/explicit-module-boundary-types*/
-
-import { MessageType, Mimetype } from "../../core/types.js";
-import { Sticker, Categories, StickerTypes } from "wa-sticker-formatter";
-import MessagePipeline from "../../pipeline/MessagePipeline.js";
-import CommandModule from "../../core/CommandModule.js";
-import RuntimeClient from "../../core/RuntimeClient.js";
-import { IParsedArgs, ISimplifiedMessage } from "../../typings/index.js";
-import { readFile, writeFile } from "fs/promises";
-import { safeUnlink } from "../../utils/async.js";
-import { tmpdir } from "os";
+import { MessageType } from '../../core/types.js'
+import { Sticker, StickerTypes, Categories } from 'wa-sticker-formatter'
+import MessagePipeline from '../../pipeline/MessagePipeline.js'
+import CommandModule from '../../core/CommandModule.js'
+import RuntimeClient from '../../core/RuntimeClient.js'
+import { IParsedArgs, ISimplifiedMessage } from '../../typings/index.js'
 
 export default class Command extends CommandModule {
-	exe() {
-		throw new Error("Method not implemented.");
-	}
-	constructor(client: RuntimeClient, handler: MessagePipeline) {
-		super(client, handler, {
-			command: "steal",
-			aliases: ["take"],
-			description: "Will format the given sticker.",
-			category: "media",
-			usage: `${client.config.prefix}steal[tag_sticker]|pack|author`,
-			baseXp: 30,
-		});
-	}
+    constructor(client: RuntimeClient, handler: MessagePipeline) {
+        super(client, handler, {
+            command: 'steal',
+            aliases: ['take'],
+            description: 'Steal a sticker from a quoted message',
+            category: 'media',
+            usage: `${client.config.prefix}steal [quote sticker] <pack|author>`,
+            baseXp: 20,
+            since: '2026-05-17'
+        })
+    }
 
-	run = async (
-		M: ISimplifiedMessage,
-		parsedArgs: IParsedArgs
-	): Promise<void> => {
-		const stickerMsg = M.quoted?.message?.message?.stickerMessage
-		if (!stickerMsg) return void M.reply(`Provide a sticker to format, Baka!`)
-		const buffer = await this.client.downloadMediaMessage(M.quoted as any);
-		const pack = parsedArgs.joined.split("|");
-		if (!pack[1])
-			return void M.reply(
-				`Please provide the new name and author of the sticker.\nExample: ${this.client.config.prefix}steal | By | ${this.client.config.name}`
-			);
-		const base = `${tmpdir()}/${Math.random().toString(36)}`;
-		const webpPath = `${base}.webp`;
+    run = async (M: ISimplifiedMessage, { joined: arg }: IParsedArgs): Promise<void> => {
+        try {
+            if (!M.quoted) {
+                return void M.reply('⚠️ Please quote a message containing a sticker to steal.')
+            }
 
-		const getQuality = (): number => {
-			const qualityFlag = parsedArgs.joined.match(/--(\d+)/g) || "";
-			return qualityFlag.length
-				? parseInt(qualityFlag[0].split("--")[1], 10)
-				: parsedArgs.flags.includes("--broke")
-				? 1
-				: parsedArgs.flags.includes("--low")
-				? 10
-				: parsedArgs.flags.includes("--high")
-				? 100
-				: 50;
-		};
+            // Check if quoted message contains a sticker
+            const content = JSON.stringify(M.quoted)
+            const isQuotedSticker = M.quoted.message?.message?.stickerMessage || content.includes('stickerMessage')
 
-		let quality = getQuality();
-		if (quality > 100 || quality < 1) quality = 50;
+            if (!isQuotedSticker) {
+                return void M.reply('⚠️ Quoted message does not contain a sticker.')
+            }
 
-		parsedArgs.flags.forEach(
-			(flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, ""))
-		);
-		const getOptions = () => {
-			const categories = (() => {
-				const categories = parsedArgs.flags.reduce((categories, flag) => {
-					switch (flag) {
-						case "--angry":
-							categories.push("💢");
-							break;
-						case "--love":
-							categories.push("💕");
-							break;
-						case "--sad":
-							categories.push("😭");
-							break;
-						case "--happy":
-							categories.push("😂");
-							break;
-						case "--greet":
-							categories.push("👋");
-							break;
-						case "--celebrate":
-							categories.push("🎊");
-							break;
-					}
-					return categories;
-				}, new Array<Categories>());
-				categories.length = 2;
-				if (!categories[0]) categories.push("❤", "🌹");
-				return categories;
-			})();
-			return {
-				categories,
-				pack: pack[1],
-				author: pack[2] || `${M.sender.username}`,
-				quality,
-				type: StickerTypes[
-					parsedArgs.flags.includes("--crop") ||
-					parsedArgs.flags.includes("--c")
-						? "CROPPED"
-						: parsedArgs.flags.includes("--stretch") ||
-						  parsedArgs.flags.includes("--s")
-						? "DEFAULT"
-						: "FULL"
-				],
-			};
-		};
-		parsedArgs.flags.forEach(
-			(flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, ""))
-		);
-		try {
-			const sticker: any = await new Sticker(buffer, getOptions()).build();
-			await writeFile(webpPath, sticker);
-			const stickerbuffer = await readFile(webpPath);
-			await M.reply(stickerbuffer, MessageType.sticker, Mimetype.webp);
-		} finally {
-			void safeUnlink(webpPath)
-		}
-	};
+            // Split pack and author info
+            const [packName, authorName] = arg ? arg.split('|').map((s: string) => s?.trim()) : []
+
+            // Download the sticker media
+            let buffer: Buffer | undefined
+            try {
+                if (!M.quoted.message) {
+                    return void M.reply('❌ Could not access quoted message.')
+                }
+                buffer = await this.client.downloadMediaMessage(M.quoted.message)
+            } catch (downloadError) {
+                console.error('Download error:', downloadError)
+                return void M.reply('❌ Failed to download the sticker media.')
+            }
+
+            if (!buffer) {
+                return void M.reply('❌ Failed to download the sticker media.')
+            }
+
+            const sticker = new Sticker(buffer, {
+                pack: packName || '_Deryl_',
+                author: authorName || '💚',
+                type: StickerTypes.FULL,
+                categories: ['🤩', '🎉'] as Categories[],
+                quality: 70
+            })
+
+            const stickerBuffer = await sticker.toBuffer()
+
+            await this.client.sendMessage(M.from, stickerBuffer, MessageType.sticker, {
+                quoted: M.WAMessage
+            })
+        } catch (err) {
+            console.error('STEAL COMMAND ERROR:', err)
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+            await M.reply(`❌ Something went wrong while stealing the sticker: ${errorMessage}`)
+        }
+    }
 }

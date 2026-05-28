@@ -1,5 +1,5 @@
-import { MessageType, Mimetype } from '../../core/types.js'
-import { Sticker, Categories, StickerTypes } from 'wa-sticker-formatter'
+import { MessageType } from '../../core/types.js'
+import { Sticker, StickerTypes, Categories } from 'wa-sticker-formatter'
 import MessagePipeline from '../../pipeline/MessagePipeline.js'
 import CommandModule from '../../core/CommandModule.js'
 import RuntimeClient from '../../core/RuntimeClient.js'
@@ -10,90 +10,78 @@ export default class Command extends CommandModule {
         super(client, handler, {
             command: 'sticker',
             aliases: ['s'],
-            description: 'Converts images/videos into stickers',
+            description: 'Converts an image or video into a sticker',
             category: 'media',
-            usage: `${client.config.prefix}sticker [(as caption | tag)[video | image]]`,
-            baseXp: 30
+            usage: `${client.config.prefix}sticker <pack>|<author>`,
+            baseXp: 30,
+            since: '2026-05-17'
         })
     }
 
-    run = async (M: ISimplifiedMessage, parsedArgs: IParsedArgs): Promise<void> => {
-        let buffer
-        if (M.quoted?.message?.message?.imageMessage) buffer = await this.client.downloadMediaMessage(M.quoted.message)
-        else if (M.WAMessage.message?.imageMessage) buffer = await this.client.downloadMediaMessage(M.WAMessage)
-        else if (M.quoted?.message?.message?.videoMessage)
-            // return void M.reply(`*Gif/Video to Sticker* feature is currently unavailable.\nYou can still use Image to Sticker though!!`)
-            buffer = await this.client.downloadMediaMessage(M.quoted.message)
-        else if (M.WAMessage.message?.videoMessage)
-            // return void M.reply(`*Gif/Video to Sticker* feature is currently unavailable.\nYou can still use Image to Sticker though!!`)
-            buffer = await this.client.downloadMediaMessage(M.WAMessage)
-        if (!buffer) return void M.reply(`You didn't provide any Image/Video to convert`)
+    run = async (M: ISimplifiedMessage, { joined: arg }: IParsedArgs): Promise<void> => {
+        try {
+            const isMedia = M.type === 'imageMessage' || M.type === 'videoMessage'
 
-        const getQuality = (): number => {
-            const qualityFlag = parsedArgs.joined.match(/--(\d+)/g) || ''
-            return qualityFlag.length
-                ? parseInt(qualityFlag[0].split('--')[1], 10)
-                : parsedArgs.flags.includes('--broke')
-                ? 1
-                : parsedArgs.flags.includes('--low')
-                ? 10
-                : parsedArgs.flags.includes('--high')
-                ? 100
-                : 50
-        }
-
-        let quality = getQuality()
-        if (quality > 100 || quality < 1) quality = 50
-
-        parsedArgs.flags.forEach((flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, '')))
-        const getOptions = () => {
-            const pack = parsedArgs.joined.split('|')
-            const categories = (() => {
-                const categories = parsedArgs.flags.reduce((categories, flag) => {
-                    switch (flag) {
-                        case '--angry':
-                            categories.push('💢')
-                            break
-                        case '--love':
-                            categories.push('💕')
-                            break
-                        case '--sad':
-                            categories.push('😭')
-                            break
-                        case '--happy':
-                            categories.push('😂')
-                            break
-                        case '--greet':
-                            categories.push('👋')
-                            break
-                        case '--celebrate':
-                            categories.push('🎊')
-                            break
-                    }
-                    return categories
-                }, new Array<Categories>())
-                categories.length = 2
-                if (!categories[0]) categories.push('❤', '🌹')
-                return categories
-            })()
-            return {
-                categories,
-                pack: pack[1] || 'Sticker',
-                author: pack[2] || this.client.config.name,
-                quality,
-                type: StickerTypes[
-                    parsedArgs.flags.includes('--crop') || parsedArgs.flags.includes('--c')
-                        ? 'CROPPED'
-                        : parsedArgs.flags.includes('--stretch') || parsedArgs.flags.includes('--s')
-                        ? 'DEFAULT'
-                        : 'FULL'
-                ]
+            // Check if it's a reply to media by examining the quoted message structure
+            let isQuotedMedia = false
+            if (M.quoted?.message) {
+                const quotedMsg = M.quoted.message
+                // Check if quoted message contains image or video
+                if (quotedMsg.message?.imageMessage || quotedMsg.message?.videoMessage) {
+                    isQuotedMedia = true
+                }
             }
+
+            if (!isMedia && !isQuotedMedia) {
+                return void M.reply('📸 Please reply to or send an image/video to make a sticker.')
+            }
+
+            const [packName, authorName] = arg ? arg.split('|').map((a: string) => a?.trim()) : []
+
+            // Download media - need to handle both cases
+            let media: Buffer | undefined
+            try {
+                if (isQuotedMedia && M.quoted?.message) {
+                    // For quoted media, download from the quoted message
+                    media = await this.client.downloadMediaMessage(M.quoted.message)
+                } else if (isMedia) {
+                    // For direct media, download from the current message
+                    media = await this.client.downloadMediaMessage(M.WAMessage)
+                }
+            } catch (downloadError) {
+                console.error('Download error:', downloadError)
+                return void M.reply('⚠️ Failed to download media. Please try again.')
+            }
+
+            if (!media) {
+                return void M.reply('⚠️ Failed to download media. Please try again.')
+            }
+
+            await M.reply('🛠️ Making your sticker...')
+
+            // Sticker style selection
+            const style = arg?.includes('--crop')
+                ? StickerTypes.CROPPED
+                : arg?.includes('--circle')
+                ? StickerTypes.CIRCLE
+                : StickerTypes.FULL
+
+            const sticker = new Sticker(media, {
+                pack: packName || 'Deryl',
+                author: authorName || '💚',
+                type: style,
+                categories: ['✨', '🔥'] as Categories[],
+                quality: 80
+            })
+
+            const stickerBuffer = await sticker.toBuffer()
+
+            await this.client.sendMessage(M.from, stickerBuffer, MessageType.sticker, {
+                quoted: M.WAMessage
+            })
+        } catch (err) {
+            console.error('Sticker error:', err)
+            await M.reply('⚠️ Oops! Something went wrong while creating your sticker.')
         }
-        parsedArgs.flags.forEach((flag) => (parsedArgs.joined = parsedArgs.joined.replace(flag, '')))
-        if (!buffer) return void M.reply(`You didn't provide any Image/Video to convert`)
-        const sticker = await new Sticker(buffer, getOptions()).build().catch(() => null)
-        if (!sticker) return void M.reply(`An Error Occurred While Converting`)
-        await M.reply(sticker, MessageType.sticker, Mimetype.webp)
     }
 }

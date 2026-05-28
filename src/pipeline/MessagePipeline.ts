@@ -302,14 +302,18 @@ export default class MessagePipeline {
                 
                 await M.reply(`📤 Sending video as ${mode.toUpperCase()}...`)
                 if (mode === 'document') {
+                    const safeTitle = (mediaInfo.title || 'video').replace(/[<>:"/\\|?*]/g, '_')
                     await this.client.sendMessage(M.from, buffer, MessageType.document, {
                         mimetype: Mimetype.mp4,
                         quoted: M.WAMessage,
-                        caption: mediaInfo.title || 'video'
+                        caption: `${safeTitle}.mp4`
                     })
                 } else {
+                    // Don't force mimetype — let Baileys sniff the buffer so it
+                    // handles MP4, WebM, and whatever the download API returns.
                     await this.client.sendMessage(M.from, buffer, MessageType.video, {
-                        quoted: M.WAMessage
+                        quoted: M.WAMessage,
+                        caption: mediaInfo.title || 'video'
                     })
                 }
                 this.client.log(`[Media] Sent successfully: ${mediaInfo.title}`)

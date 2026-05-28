@@ -129,42 +129,11 @@ export default class YT {
         return null
     }
 
-    getBuffer = async (
-        filename = path.join(
-            tmpdir(),
-            `${Math.random().toString(36).slice(2)}.%(ext)s`
-        )
-    ): Promise<Buffer> => {
-        // 1. Try external APIs first (fast CDN downloads)
+    getBuffer = async (): Promise<Buffer> => {
         const apiResult = await this.downloadFromApis()
         if (apiResult) return apiResult
 
-        // 2. Fallback to yt-dlp
-        console.log('[YT] All APIs failed, falling back to yt-dlp...')
-        const common = { ...ytdlpBaseFlags(), output: filename }
-        const flags =
-            this.type === 'audio'
-                ? {
-                      ...common,
-                      format: 'bestaudio/best',
-                      extractAudio: true,
-                      audioFormat: 'mp3',
-                      audioQuality: 0
-                  }
-                : { ...common, format: 'best[ext=mp4][height<=720]/best[height<=720]/best' }
-
-        await youtubeDl(this.url, flags as Parameters<typeof youtubeDl>[1])
-        const { readdir } = await import('fs/promises')
-        const tmpDir = path.dirname(filename)
-        const prefix = path.basename(filename).replace('%(ext)s', '')
-        const dirFiles = await readdir(tmpDir)
-        const match = dirFiles.find(f => f.startsWith(prefix))
-        const resolved = match ? path.join(tmpDir, match) : filename.replace('%(ext)s', this.type === 'audio' ? 'mp3' : 'mp4')
-        try {
-            return await readFile(resolved)
-        } finally {
-            void safeUnlink(resolved)
-        }
+        throw new Error('All download APIs failed. Please try again later.')
     }
 
     getThumbnail = async (): Promise<Buffer> => await request.buffer(`https://i.ytimg.com/vi/${this.id}/hqdefault.jpg`)
