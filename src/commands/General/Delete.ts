@@ -30,24 +30,15 @@ export default class Command extends CommandModule {
                 )
             }
 
-            const stanzaId = (M.quoted.message as {
-                stanzaId?: string
-            }).stanzaId
+            const key = M.quoted.message.key
 
-            if (!stanzaId) {
+            if (!key?.id) {
                 return void M.reply(
                     '❌ Failed to find message ID.'
                 )
             }
 
-            await this.client.deleteMessage(
-                M.from,
-                {
-                    id: stanzaId,
-                    remoteJid: M.from,
-                    fromMe: true
-                }
-            )
+            await this.client.deleteMessage(M.from, key)
 
             await M.reply('✅ Message deleted successfully.')
         } catch (error) {
