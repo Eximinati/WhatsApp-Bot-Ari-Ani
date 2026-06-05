@@ -20,6 +20,21 @@ export default class Command extends CommandModule {
         const args = M.args.join(' ').toLowerCase()
         const jid = M.sender.jid
 
+        // ── Per-command preference reset: !media reset play / !media reset ytaudio ──
+        if (args.startsWith('reset ') && args.length > 6) {
+            const cmd = args.slice(6).trim()
+            const validCommands = this.client.mediaMenu.getSupportedCommands()
+            if (!validCommands.includes(cmd)) {
+                const list = validCommands.map(c => `• ${c}`).join('\n')
+                return void M.reply(`❌ Unknown command *${cmd}*.\n\nValid commands for reset:\n${list}\n\nTip: \`!media reset\` (no argument) resets your global preference.`)
+            }
+            const cleared = await this.client.mediaMenu.resetPreference(jid, cmd)
+            if (cleared) {
+                return void M.reply(`✅ Reset saved preference for *${cmd}*.\n\nNext time you run /${cmd}, the format menu will appear again.`)
+            }
+            return void M.reply(`ℹ️ No saved preference found for *${cmd}*. You already see the format menu each time.`)
+        }
+
         if (args === 'reset') {
             return void this.resetMedia(M, jid)
         }
@@ -52,23 +67,21 @@ export default class Command extends CommandModule {
 
 Current: *${current.toUpperCase()}* ${current === 'video' ? '(Default)' : ''}
 
-┌─────────────────────────────────────┐
-│  1️⃣  Send as Document               │
-│  2️⃣  Send as Document (Make Default)│
-│  3️⃣  Send as Audio                  │
-│  4️⃣  Send as Audio (Make Default)   │
-│  5️⃣  Send as Video                  │
-│  6️⃣  Send as Video (Make Default)   │
-│  7️⃣  Reset to Default               │
-└─────────────────────────────────────┘
+*1.* Send as Document
+*2.* Send as Document (Make Default)
+*3.* Send as Audio
+*4.* Send as Audio (Make Default)
+*5.* Send as Video
+*6.* Send as Video (Make Default)
+*7.* Reset to Default
 
-💡 Reply with a *number* to select option
+💡 Reply with a *number* to select
 
-📋 *Commands:*
-• ${prefix}media doc     - Send as document
-• ${prefix}media audio   - Send as audio
-• ${prefix}media video   - Send as video
-• ${prefix}media reset  - Reset to default`
+📋 *Quick Commands:*
+• ${prefix}media doc
+• ${prefix}media audio
+• ${prefix}media video
+• ${prefix}media reset`
 
         this.client.menus.set(jid, {
             commandName: 'media',
@@ -111,14 +124,35 @@ Current: *${current.toUpperCase()}* ${current === 'video' ? '(Default)' : ''}
     private setMedia = async (M: ISimplifiedMessage, jid: string, pref: 'document' | 'audio' | 'video'): Promise<void> => {
         await this.client.setMediaPreference(jid, pref)
 
+        // Clear all per-command preferences so the global preference takes effect.
+        // Otherwise "Always send play as document" persists even after !media audio.
+        const user = await this.client.getUser(jid)
+        const existing = (user as any).mediaPreferences
+        if (existing) {
+            await this.client.DB.user.updateOne(
+                { jid },
+                { $unset: { mediaPreferences: 1 } }
+            )
+        }
+
         const emoji = pref === 'document' ? '📄' : pref === 'audio' ? '🎵' : '🎬'
         const desc = pref === 'document' ? 'document (file)' : pref === 'audio' ? 'audio (music)' : 'video (clip)'
 
-        return void M.reply(`${emoji} Media preference set to *${pref.toUpperCase()}*\n\nAll media will now be sent as ${desc}.`)
+        return void M.reply(`${emoji} Global preference set to *${pref.toUpperCase()}*\n\nAll media will now be sent as ${desc}.`)
     }
 
     private resetMedia = async (M: ISimplifiedMessage, jid: string): Promise<void> => {
         await this.client.resetMediaPreference(jid)
+
+        // Also clear per-command preferences on global reset
+        const user = await this.client.getUser(jid)
+        const existing = (user as any).mediaPreferences
+        if (existing) {
+            await this.client.DB.user.updateOne(
+                { jid },
+                { $unset: { mediaPreferences: 1 } }
+            )
+        }
 
         return void M.reply('✅ Media preference has been *reset* to default (video).\n\nUse /media to choose again.')
     }

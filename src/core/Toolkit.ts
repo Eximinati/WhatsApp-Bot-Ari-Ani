@@ -55,6 +55,27 @@ export default class Toolkit {
         }
     }
 
+    /** Convert a PNG/JPEG image buffer into a looping MP4 video (no audio).
+     *  Uses ffmpeg to encode a single frame looped for `durationSec` seconds.
+     *  WhatsApp treats short MP4s sent with Mimetype.gif as animated stickers/videos. */
+    imageToVideoBuffer = async (image: Buffer, durationSec = 3): Promise<Buffer> => {
+        const base = `${tmpdir()}/${Math.random().toString(36)}`
+        const inPath = `${base}.png`
+        const mp4Path = `${base}.mp4`
+
+        await writeFile(inPath, image)
+        try {
+            const result = await execWithTimeout(
+                `ffmpeg -y -loop 1 -t ${durationSec} -i ${inPath} -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=10" -c:v libx264 -preset ultrafast -crf 28 ${mp4Path}`,
+                FFMPEG_TIMEOUT_MS
+            )
+            void result
+            return await readFile(mp4Path)
+        } finally {
+            await cleanup([inPath, mp4Path])
+        }
+    }
+
     transcodeAudioToWav = async (audio: Buffer): Promise<Buffer> => {
         const base = `${tmpdir()}/${Math.random().toString(36)}`
         const inPath = `${base}.in`

@@ -54,7 +54,7 @@ export default class Command extends CommandModule {
             
             if (savedPreference) {
                 // User has a saved preference, send directly without showing menu
-                await M.reply(`📥 Using saved preference: sending as ${savedPreference}...`)
+                await M.reply(`📥 Using saved preference: sending as *${savedPreference}*...`)
                 await this.handler.sendMediaFromReply(M, savedPreference, {
                     url: M.urls[0],
                     title: title,

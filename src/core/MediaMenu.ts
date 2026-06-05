@@ -296,6 +296,26 @@ Reply with a number.`
         return preferences[commandName?.toLowerCase()] || null
     }
 
+    async resetPreference(userJid: string, commandName: string): Promise<boolean> {
+        const user = await this.client.getUser(userJid)
+        const preferences = this.parseMediaPreferences((user as any).mediaPreferences)
+        const key = commandName?.toLowerCase()
+        if (!preferences[key]) return false
+        delete preferences[key]
+        if (Object.keys(preferences).length === 0) {
+            await this.client.DB.user.updateOne(
+                { jid: userJid },
+                { $unset: { mediaPreferences: 1 } }
+            )
+        } else {
+            await this.client.DB.user.updateOne(
+                { jid: userJid },
+                { $set: { mediaPreferences: JSON.stringify(preferences) } }
+            )
+        }
+        return true
+    }
+
     async handleReply(userJid: string, chatJid: string, text: string): Promise<{
         handled: boolean
         response?: string

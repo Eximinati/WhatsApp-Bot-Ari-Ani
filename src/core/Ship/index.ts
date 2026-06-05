@@ -68,17 +68,15 @@ export const canonicalizeJids = (jids: Array<string | null | undefined>): string
 
 export const bondKey = (members: string[]): string => members.slice().sort().join('|')
 
-/** Base affinity for a bond — 20–40 range, deterministic per key.
+/** Base affinity for a bond — 34–74 range, deterministic per key.
  *
- * Tight starting range is intentional: we don't want a brand-new pair to
- * land at 78% just because their JIDs happened to hash that way. Earned
- * growth (via !react) is what should move the score from "okay" to "fated".
- */
-export const baseScoreForBondKey = (key: string): number => (hash32(key) % 21) + 20
+ * ~61% of fresh bonds land at 50%+. Earned growth (via !react) pushes the
+ * score the rest of the way toward 99. */
+export const baseScoreForBondKey = (key: string): number => (hash32(key) % 41) + 34
 
-/** Base rizz for a user — 20–40, deterministic. Salt prefix prevents
+/** Base rizz for a user — 34–74, deterministic. Salt prefix prevents
  * collision with bond hashes and gives a different distribution. */
-export const baseRizzFor = (jid: string): number => (hash32(SHIP_PREFIX + jid) % 21) + 20
+export const baseRizzFor = (jid: string): number => (hash32(SHIP_PREFIX + jid) % 41) + 34
 
 /** Resolve `!ship` participants.
  *
