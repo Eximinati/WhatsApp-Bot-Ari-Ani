@@ -844,9 +844,11 @@ export class EconomyService {
             await this.incrementStats(account, { crimesWon: 1 })
             console.log(`[ECONOMY] crime | user=${id} | reward=${amount} | success=true`)
         } else {
-            account.wallet = clampMoney(account.wallet - amount)
+            // Cap loss at what the user actually has — prevents negative wallets
+            const penalty = Math.min(amount, account.wallet)
+            account.wallet = clampMoney(account.wallet - penalty)
             await this.incrementStats(account, { crimesLost: 1 })
-            console.log(`[ECONOMY] crime | user=${id} | loss=${amount}`)
+            console.log(`[ECONOMY] crime | user=${id} | loss=${penalty} (capped from ${amount})`)
         }
         await account.save()
         return {
@@ -889,7 +891,8 @@ export class EconomyService {
             return { ok: true, success: true, amount, message: "You slipped away with someone else's cash.", thief: this.toBalanceSummary(updatedThief, progression), target: this.toBalanceSummary(target) }
         }
         const penalty = this.applyRewardMultiplier(randomBetween(constants.robFailMin, constants.robFailMax), progression, 'rob')
-        updatedThief.wallet = clampMoney(updatedThief.wallet - penalty)
+        const cappedPenalty = Math.min(penalty, updatedThief.wallet)
+        updatedThief.wallet = clampMoney(updatedThief.wallet - cappedPenalty)
         target.wallet = clampMoney(target.wallet + penalty)
         await this.incrementStats(updatedThief, { robsLost: 1 })
         await Promise.all([updatedThief.save(), target.save()])
@@ -927,7 +930,8 @@ export class EconomyService {
             return { ok: true, success: true, amount, message: 'You cracked the vault and escaped with the payout.', thief: this.toBalanceSummary(updatedThief, progression), target: this.toBalanceSummary(target) }
         }
         const penalty = this.applyRewardMultiplier(randomBetween(constants.heistFailMin, constants.heistFailMax), progression, 'heist')
-        updatedThief.wallet = clampMoney(updatedThief.wallet - penalty)
+        const cappedPenalty = Math.min(penalty, updatedThief.wallet)
+        updatedThief.wallet = clampMoney(updatedThief.wallet - cappedPenalty)
         target.bank = clampMoney(target.bank + penalty)
         await this.incrementStats(updatedThief, { heistsLost: 1 })
         await Promise.all([updatedThief.save(), target.save()])
@@ -1236,5 +1240,53 @@ export class EconomyService {
         account.wallet = clampMoney(account.wallet - amount)
         await Promise.all([account.save(), Faction.updateOne({ key: account.factionKey }, { $inc: { treasury: amount } })])
         return { amount, faction: (await this.getFactionByKey(account.factionKey)) as IFactionInfo, account: this.toBalanceSummary(account) }
+    }
+
+    // ── Admin reset ────────────────────────────────────────────────────
+
+    /** Reset all economy balances (wallet, bank, stats, inventory, jobs, factions,
+     *  buffs) to factory default. Faction treasuries and member counts are also zeroed.
+     *  This is a hard-reset — irreversible. Returns the count of user accounts reset. */
+    async resetAllBalances(): Promise<number> {
+        const result = await UserSetting.updateMany(
+            {},
+            {
+                $set: {
+                    wallet: 0,
+                    bank: 0,
+                    inventoryJson: '{}',
+                    activeBuffsJson: '[]',
+                    economyStatsJson: '{}',
+                    jobKey: '',
+                    factionKey: '',
+                    equippedToolKey: '',
+                    factionJoinedAt: null,
+                    streakCount: 0,
+                    streakDomain: '',
+                    lastStreakAt: null,
+                    lastDailyMoneyAt: null,
+                    lastFishAt: null,
+                    lastMineAt: null,
+                    lastHuntAt: null,
+                    lastBegAt: null,
+                    lastWorkAt: null,
+                    lastFarmAt: null,
+                    lastInvestAt: null,
+                    lastCollectAt: null,
+                    lastCrimeAt: null,
+                    lastRobAt: null,
+                    lastHeistAt: null,
+                    lastDuelAt: null,
+                    sessionCount: 0,
+                    lastActionAt: null,
+                    rareMeter: 0,
+                    lastRareMeterAt: null,
+                    failStreak: 0,
+                    lastResult: '',
+                },
+            },
+        )
+        await Faction.updateMany({}, { $set: { treasury: 0, memberCount: 0 } })
+        return result.modifiedCount || 0
     }
 }
