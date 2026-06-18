@@ -10,13 +10,14 @@ import type {
 
 // ── Money clamping ─────────────────────────────────────────────────────
 
-/** Clamp a number to the safe integer range so MongoDB never stores out-of-
- *  bounds values. Also floors to integer (economy is coin-based). */
+/** Clamp a number to a non-negative safe integer range so MongoDB never
+ *  stores out-of-bounds values. Also floors to integer (economy is coin-based).
+ *  Economy values (wallet, bank, inventory, stats) are never negative. */
 export function clampMoney(value: number | undefined | null): number {
     if (value == null || Number.isNaN(value)) return 0
     const floored = Math.floor(value)
+    if (floored <= 0) return 0
     if (floored > Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER
-    if (floored < Number.MIN_SAFE_INTEGER) return Number.MIN_SAFE_INTEGER
     return floored
 }
 
@@ -134,13 +135,14 @@ export function parseAmountInput(
     if (raw === 'all' || raw === 'max') return clampMoney(available)
     if (raw === 'half') return clampMoney(Math.floor(available / 2))
 
-    // Shorthand: 1k = 1_000, 1.5m = 1_500_000
+    // Shorthand: 1k = 1_000, 1.5m = 1_500_000 — negative amounts are rejected
     const shorthand = raw.match(/^(-?\d+(?:\.\d+)?)([km])?$/)
     if (shorthand) {
-        let value = Number.parseFloat(shorthand[1])
+        const sign = raw.startsWith('-') ? -1 : 1
+        let value = Math.abs(Number.parseFloat(shorthand[1]))
         if (shorthand[2] === 'k') value *= 1_000
         if (shorthand[2] === 'm') value *= 1_000_000
-        return clampMoney(Math.floor(value))
+        return clampMoney(Math.floor(value * sign))
     }
 
     const parsed = Number.parseInt(raw, 10)
