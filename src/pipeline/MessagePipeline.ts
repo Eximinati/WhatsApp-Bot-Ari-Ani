@@ -476,20 +476,27 @@ export default class MessagePipeline {
     moderate = async (M: ISimplifiedMessage): Promise<void> => {
         if (M.sender.isAdmin) return void null
         if (!M.urls.length) return
-        const groupinvites = M.urls.filter((url) => url.includes('chat.whatsapp.com'))
-        if (!groupinvites.length) return
-        // Fetch our own group's invite code once, not once per URL.
-        const ourCode = await this.client.groupInviteCode(M.from).catch(() => undefined)
-        for (const invite of groupinvites) {
-            const splitInvite = invite.split('/')
-            const code = splitInvite[splitInvite.length - 1]
-            if (code === ourCode) continue
+
+        const senderName = M.sender.username
+        const groupName = M.groupMetadata?.subject || 'Group'
+        const groupJid = M.from
+
+        this.client.log(`ANTILINK: ${senderName} sent link(s) in ${groupName}`)
+
+        // Delete the message containing the link
+        try {
+            await this.client.deleteMessage(groupJid, M.WAMessage.key)
+            this.client.log(`ANTILINK: Deleted message from ${senderName} in ${groupName}`)
+        } catch (err) {
             this.client.log(
-                `SEC Group Invite by ${M.sender.username} in ${M.groupMetadata?.subject || 'Group'}`
+                `ANTILINK: Failed to delete message: ${err instanceof Error ? err.message : String(err)}`,
+                true
             )
-            fireAndForget(this.client.groupRemove(M.from, [M.sender.jid]))
-            return
         }
+
+        // Remove the sender
+        fireAndForget(this.client.groupRemove(groupJid, [M.sender.jid]))
+        this.client.log(`ANTILINK: Removed ${senderName} from ${groupName}`)
     }
 
     loadCommands = async (): Promise<void> => {
